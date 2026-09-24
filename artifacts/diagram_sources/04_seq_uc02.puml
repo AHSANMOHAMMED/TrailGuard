@@ -1,0 +1,59 @@
+@startuml
+' UC02 - Report a snare while offline - Sequence Diagram
+
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam monochrome true
+
+actor Ranger
+participant "IncidentView" as V
+participant "IncidentService" as S
+participant "LocalStore" as LS
+participant "SyncService" as SY
+participant "ConservationAPI" as API
+
+== I1-I3 : Create incident offline ==
+Ranger -> V : New incident / Snare
+activate V
+V --> Ranger : form + cached categories
+Ranger -> V : photo + location + description
+V --> Ranger : draft retained, obs time shown
+Ranger -> V : Save report
+V -> S : createIncident(data)
+activate S
+S -> S : validate required fields
+S -> LS : save(IR-208 + photo, PENDING)
+activate LS
+LS --> S : ok
+deactivate LS
+S --> V : Saved on device
+deactivate S
+V --> Ranger : IR-208 PENDING
+deactivate V
+
+== I4-I6 : Sync with complete receipt ==
+alt connectivity returns
+  V -> SY : synchronize()
+  activate SY
+  SY -> LS : pending()
+  activate LS
+  LS --> SY : [IR-208 + attachment]
+  deactivate LS
+  SY -> API : upsert(report + attachments)
+  activate API
+  note right : complete-receipt\nrequired for media
+  API --> SY : Ack(complete)
+  deactivate API
+  SY -> LS : markSynced(IR-208)
+  activate LS
+  LS --> SY : ok
+  deactivate LS
+  SY --> V : Submitted IR-208
+  deactivate SY
+else upload interrupted
+  note over LS,SY : keep PENDING\nresume with same IDs
+end
+
+@enduml

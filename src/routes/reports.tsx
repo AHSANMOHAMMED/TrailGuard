@@ -1,0 +1,128 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { AppShell } from "@/components/app-shell";
+import { Card, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useField } from "@/lib/store";
+import { downloadText, fmtTime } from "@/lib/utils";
+import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { toast } from "sonner";
+
+export const Route = createFileRoute("/reports")({ component: ReportsPage });
+
+function ReportsPage() {
+  const { snapshot, generateReport, incidents } = useField();
+  const [from, setFrom] = useState("2026-08-01");
+  const [to, setTo] = useState("2026-08-31");
+  const pendingExcluded = incidents.filter((i) => i.syncState === "PENDING").length;
+
+  const chart = snapshot
+    ? Object.entries(snapshot.byType).map(([name, count]) => ({ name, count }))
+    : [];
+
+  const axis = useMemo(() => "currentColor", []);
+
+  function exportCsv() {
+    if (!snapshot) return;
+    const rows = [
+      "field,value",
+      `reportId,${snapshot.reportId}`,
+      `park,${snapshot.park}`,
+      `from,${snapshot.from}`,
+      `to,${snapshot.to}`,
+      `cutoff,${snapshot.cutoff}`,
+      `incidents,${snapshot.incidentCount}`,
+      `patrols,${snapshot.patrolCount}`,
+      `coverage,${snapshot.coveragePercent}`,
+      `conflicts,${snapshot.conflictCount}`,
+    ];
+    downloadText(`trailguard-${snapshot.reportId.slice(0, 8)}.csv`, rows.join("\n"));
+    toast.success("Exported same snapshot");
+  }
+
+  return (
+    <AppShell>
+      <p className="font-mono text-[11px] uppercase tracking-widest text-muted">UC04</p>
+      <h1 className="mt-1 text-3xl font-medium tracking-tight">Reports</h1>
+      <p className="mt-2 text-sm text-muted">
+        One consistent snapshot of synced records. Pending field writes are excluded. Export uses the
+        same snapshot id.
+      </p>
+
+      <Card className="mt-6">
+        <CardTitle>Filters</CardTitle>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="from">From</Label>
+            <Input id="from" type="date" className="mt-2" value={from} onChange={(e) => setFrom(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="to">To</Label>
+            <Input id="to" type="date" className="mt-2" value={to} onChange={(e) => setTo(e.target.value)} />
+          </div>
+        </div>
+        <p className="mt-3 text-xs text-subtle">Park: Yala National Park · pending excluded: {pendingExcluded}</p>
+        <Button
+          className="mt-4 w-full"
+          onClick={() => {
+            generateReport(from, to);
+            toast.message("Snapshot generated");
+          }}
+        >
+          Generate report
+        </Button>
+      </Card>
+
+      {snapshot && (
+        <>
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Stat k="Incidents" v={String(snapshot.incidentCount)} />
+            <Stat k="Patrols" v={String(snapshot.patrolCount)} />
+            <Stat k="Coverage" v={`${snapshot.coveragePercent}%`} />
+            <Stat k="Conflicts" v={String(snapshot.conflictCount)} />
+          </div>
+          <Card className="mt-3 text-muted">
+            <CardTitle>By type</CardTitle>
+            {chart.length === 0 ? (
+              <p className="mt-4 text-sm text-muted">No synced incidents in this window.</p>
+            ) : (
+              <div className="mt-4 h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chart}>
+                    <XAxis dataKey="name" stroke={axis} fontSize={11} tickLine={false} />
+                    <YAxis stroke={axis} fontSize={11} allowDecimals={false} tickLine={false} />
+                    <Tooltip
+                      contentStyle={{
+                        background: "var(--color-elevated)",
+                        border: "1px solid var(--color-border)",
+                        color: "var(--color-fg)",
+                      }}
+                    />
+                    <Bar dataKey="count" fill="var(--color-accent)" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+            <p className="mt-3 font-mono text-[11px] text-subtle">
+              {snapshot.reportId.slice(0, 8)} · cutoff {fmtTime(snapshot.cutoff)}
+            </p>
+            <Button variant="secondary" className="mt-3 w-full" onClick={exportCsv}>
+              Export CSV
+            </Button>
+          </Card>
+        </>
+      )}
+    </AppShell>
+  );
+}
+
+function Stat({ k, v }: { k: string; v: string }) {
+  return (
+    <Card className="p-3">
+      <p className="font-mono text-[10px] uppercase text-muted">{k}</p>
+      <p className="mt-1 font-mono text-xl tabular-nums">{v}</p>
+    </Card>
+  );
+}
