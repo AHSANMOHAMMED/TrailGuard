@@ -16,3 +16,8 @@ __pycache__/
 # Design-tool archives and generated preview builds
 artifacts/*.zip
 .vercel/
+
+# Platform/preview runtime: local docs, build output, pid/log state
+.grok/
+.vercel/
+.freebuff/
