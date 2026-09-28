@@ -1,0 +1,88 @@
+@startuml
+' ============================================================================
+' A02 IMPROVED — UC03 sequence: notification failure branch (S4/R-06),
+' re-notify ladder → escalation (R-02b), low-confidence triage (R-08)
+' ============================================================================
+
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam monochrome true
+
+actor "Sensor Gateway" as SG
+participant "ConflictService" as S
+participant "ConflictView" as V
+actor "Park Manager" as M
+participant "NotificationGateway" as N
+actor Officer
+
+== C1-C2 : Ingest and risk evaluation ==
+SG -> S : ingestReading(reading)
+activate S
+S -> S : validate + assessRisk()\nfresh AND in-zone
+alt fresh AND in-zone AND confidence HIGH/MEDIUM
+  S -> S : create/update OPEN Alert
+  S --> V : alert available
+else confidence LOW (R-08: triage, don't page)
+  S -> S : create alert in REVIEW queue
+  S --> V : "low confidence — held for review"
+else outside OR stale
+  S -> S : store historical only
+  note right : no new risk alert
+end
+deactivate S
+
+== C3-C4 : Manager assigns ==
+M -> V : open alert
+activate V
+V -> S : getAlert(id)
+activate S
+S --> V : animal, zone, obs/recv times
+deactivate S
+V --> M : details + confidence
+M -> V : select available officer
+V -> S : assign(alertId, officerId)
+activate S
+S -> S : validate Officer.isAvailable()
+S -> S : close any prior ACTIVE RA\n(one active max, R-04)
+S -> S : create RA-031
+S --> V : assignment created
+deactivate S
+deactivate V
+
+== C5-C6 : Notify with failure branch (S4/R-06) ==
+S -> N : send(assignment)
+activate N
+alt delivery SENT
+  N --> S : DeliveryState.SENT
+  deactivate N
+  V --> M : "Awaiting acknowledgement"
+  Officer -> S : acknowledge(raId, officerId)
+  activate S
+  S -> S : record ack timestamp
+  S --> V : ACKNOWLEDGED
+  deactivate S
+  V --> M : "Acknowledged at 11:12"
+else delivery FAILED (first attempt)
+  N --> S : DeliveryState.FAILED
+  deactivate N
+  S -> S : RA deliveryState = FAILED\nrestore Officer.markFree()\nalert returns to OPEN
+  S -> N : re-notify (attempt 2 of 2)
+  activate N
+  N --> S : DeliveryState
+  deactivate N
+  alt still FAILED after 2 attempts
+    S -> S : alert.escalate()\nnotify backup officer list (R-02b)
+    S --> V : "Alert ESCALATED — backup notified"
+  end
+end
+
+== C7 : Close with outcome (R-02c) ==
+Liaison -> S : closeWithOutcome(raId, outcome)
+activate S
+S -> S : alert.status = CLOSED\nrecord outcome note
+S --> V : "Closed — outcome recorded"
+deactivate S
+
+@enduml

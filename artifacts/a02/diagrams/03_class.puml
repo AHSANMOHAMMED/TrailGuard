@@ -1,0 +1,315 @@
+@startuml
+' ============================================================================
+' A02 IMPROVED — Class diagram
+' Resolves F5 (dangling types), F6 (responsibilities), F7 (multiplicity)
+' R-03: all types declared, layer stereotypes, single-source availability
+' R-04: at-most-one-active-assignment constraint (now enforceable)
+' ============================================================================
+
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam monochrome true
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor white
+  BorderColor black
+  HeaderBackgroundColor black
+  HeaderFontColor white
+}
+
+' ----- Value objects (R-03) -----
+class GeoPoint <<value object>> {
+  +lat : double
+  +lng : double
+}
+
+class GeoPolygon <<value object>> {
+  +vertices : List<GeoPoint>
+  +contains(p : GeoPoint) : boolean
+}
+
+class CompleteReceipt <<value object>> {
+  +recordId : UUID
+  +version : int
+  +receivedAt : DateTime
+  +attachmentsAcked : boolean
+}
+
+class SyncAck <<value object>> {
+  +recordId : UUID
+  +receipt : CompleteReceipt
+}
+
+' ----- Enumerations (R-03: previously dangling) -----
+enum SyncState {
+  PENDING
+  SYNCED
+  FAILED
+}
+
+enum DeliveryState {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum PatrolStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum AlertStatus {
+  OPEN
+  ASSIGNED
+  ESCALATED
+  CLOSED
+}
+
+enum LocationSource {
+  GPS
+  MANUAL
+}
+
+enum Confidence {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum IncidentCategory {
+  SNARE
+  CROP_RAID
+  POACHING_SIGN
+  INJURED_ANIMAL
+  OTHER
+}
+
+' ----- Entities -----
+class Park {
+  +parkId : UUID
+  +name : String
+  +region : String
+}
+
+class Officer {
+  +officerId : UUID
+  +name : String
+  +role : OfficerRole
+  +available : boolean
+  --
+  +isAvailable() : boolean
+  +markBusy()
+  +markFree()
+}
+
+enum OfficerRole {
+  RANGER
+  LIAISON
+  MANAGER
+}
+
+class PatrolRoute {
+  +routeId : UUID
+  +name : String
+  +sector : String
+  +distanceKm : double
+}
+
+class Patrol {
+  +patrolId : UUID
+  +status : PatrolStatus
+  +startedAt : DateTime
+  +completedAt : DateTime?
+  +syncState : SyncState
+  --
+  +start()
+  +complete()
+  +cancel()
+}
+
+class Waypoint {
+  +pointId : UUID
+  +geo : GeoPoint
+  +source : LocationSource
+  +recordedAt : DateTime
+}
+
+class IncidentReport {
+  +reportId : UUID
+  +category : IncidentCategory
+  +description : String
+  +geo : GeoPoint
+  +locationSource : LocationSource
+  +observedAt : DateTime
+  +syncState : SyncState
+  --
+  +validate() : boolean
+}
+
+class PhotoAttachment {
+  +attachId : UUID
+  +uri : String
+  +mimeType : String
+  +syncState : SyncState
+}
+
+class Alert {
+  +alertId : UUID
+  +status : AlertStatus
+  +confidence : Confidence
+  +observedAt : DateTime
+  +receivedAt : DateTime
+  --
+  +assign(officer) : ResponseAssignment
+  +escalate()
+  +close(outcome)
+}
+
+class ResponseAssignment {
+  +raId : UUID
+  +deliveryState : DeliveryState
+  +acknowledgedAt : DateTime?
+  +createdAt : DateTime
+  --
+  +acknowledge()
+  +isActive() : boolean
+}
+
+class GPSCollar {
+  +collarId : UUID
+  +active : boolean
+}
+
+class LocationReading {
+  +readingId : UUID
+  +geo : GeoPoint
+  +observedAt : DateTime
+  +receivedAt : DateTime
+  +fresh : boolean
+  +inZone : boolean
+}
+
+class RiskZone {
+  +zoneId : UUID
+  +name : String
+  +polygon : GeoPolygon
+  +freshnessMinutes : int
+}
+
+class ConservationReport {
+  +reportId : UUID
+  +cutoff : DateTime
+  +generatedAt : DateTime
+  +incidentCount : int
+  +patrolCount : int
+  +coveragePercent : double
+  +conflictCount : int
+}
+
+class ReportCriteria {
+  +parkId : UUID
+  +from : Date
+  +to : Date
+  +categories : List<IncidentCategory>
+  +validate() : boolean
+}
+
+class CommunityReport {
+  +crId : UUID
+  +channel : CommunityChannel
+  +verified : boolean
+}
+
+enum CommunityChannel {
+  SMS
+  APP
+}
+
+' ----- Services / gateways (R-03: stereotyped layers) -----
+class PatrolService <<service>> {
+  +startPatrol(routeId) : Patrol
+  +recordPoint(patrolId, geo, source) : Waypoint
+  +completePatrol(patrolId) : Patrol
+}
+
+class IncidentService <<service>> {
+  +createIncident(data) : IncidentReport
+  +createFromCameraTrap(imageId) : IncidentReport
+}
+
+class ConflictService <<service>> {
+  +ingestReading(reading) : Alert?
+  +assign(alertId, officerId) : ResponseAssignment
+  +acknowledge(raId, officerId)
+  +escalateUnassigned()
+  +closeWithOutcome(raId, outcome)
+}
+
+class ReportService <<service>> {
+  +generate(criteria) : ConservationReport
+  +export(reportId, format) : File
+}
+
+class LocalStore <<repository>> {
+  +save(record)
+  +pending() : List<FieldRecord>
+  +pendingAttachments() : List<PhotoAttachment>
+  +markSynced(id)
+  +markFailed(id, retryAfter)
+  +status(id) : SyncState
+}
+
+class SyncService <<service>> {
+  +synchronize() : SyncResult
+  +scheduleRetry(recordId, after)
+}
+
+class ConservationAPI <<gateway>> {
+  +upsert(record) : SyncAck
+  +query(criteria) : Snapshot
+}
+
+class NotificationGateway <<gateway>> {
+  +send(assignment) : DeliveryState
+}
+
+' ----- Relationships -----
+Park "1" o-- "0..*" PatrolRoute
+Park "1" o-- "0..*" Officer
+Park "1" o-- "0..*" RiskZone
+Park "1" o-- "0..*" IncidentReport
+
+PatrolRoute "1" -- "0..*" Patrol
+Officer "1" -- "0..*" Patrol
+Officer "1" -- "0..*" ResponseAssignment
+
+Patrol "1" *-- "0..*" Waypoint : composition
+IncidentReport "1" *-- "0..*" PhotoAttachment : composition
+ConservationReport "1" *-- "1" ReportCriteria : composition
+
+GPSCollar "1" -- "0..*" LocationReading
+LocationReading "1" -- "0..1" RiskZone : may trigger
+RiskZone "1" -- "0..*" Alert
+CommunityReport "0..1" -- "0..1" Alert
+
+Alert "1" -- "0..*" ResponseAssignment : {one active max}
+note on link
+  R-04: at most one ACTIVE assignment;
+  reassignment closes the prior one.
+end note
+
+LocalStore ..> Patrol : persists
+LocalStore ..> IncidentReport : persists
+SyncService ..> LocalStore : reads pending
+SyncService ..> ConservationAPI : pushes
+SyncService ..> NotificationGateway : notifies
+
+PatrolService ..> LocalStore
+IncidentService ..> LocalStore
+ConflictService ..> LocalStore
+ReportService ..> ConservationAPI
+
+@enduml

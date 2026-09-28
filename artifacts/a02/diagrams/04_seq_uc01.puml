@@ -1,0 +1,110 @@
+@startuml
+' ============================================================================
+' A02 IMPROVED — UC01 sequence: flush-on-finish, cancel branch, retry loop
+' Resolves S1, S2 (R-05) — plus uniform ConservationAPI boundary (S6)
+' ============================================================================
+
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam monochrome true
+skinparam sequenceArrowThickness 1.5
+
+actor Ranger
+participant "PatrolView" as V
+participant "PatrolService" as S
+participant "LocalStore" as LS
+participant "SyncService" as SY
+participant "ConservationAPI" as API
+
+== P1-P2 : Start assigned patrol ==
+Ranger -> V : openRoute(RT-07)
+activate V
+V --> Ranger : route, map status, last sync\n+ mode chip (R-09)
+Ranger -> V : Start patrol
+V -> S : startPatrol(routeId)
+activate S
+S -> LS : save(PT-104, ACTIVE, PENDING)
+activate LS
+LS --> S : ok
+deactivate LS
+S --> V : PT-104 ACTIVE
+deactivate S
+V --> Ranger : "Patrol started — saved on this phone"
+deactivate V
+
+== P3 : Record waypoints ==
+loop while patrol ACTIVE
+  Ranger -> V : position (GPS or Manual)
+  activate V
+  V -> S : recordPoint(id, geo, source)
+  activate S
+  S -> LS : save(waypoint)
+  activate LS
+  LS --> S : ok
+  deactivate LS
+  S --> V : recorded (undo toast for manual)
+  deactivate S
+  V --> Ranger : waypoint count
+  deactivate V
+end
+
+== P4 : Finish — flush in-flight waypoint (S1) ==
+Ranger -> V : Finish
+activate V
+alt waypoint save in flight
+  V -> S : recordPoint(id, geo, source)   ' tail flush
+  activate S
+  S -> LS : save(waypoint)
+  deactivate S
+else no waypoint in flight
+  V -> V : proceed
+end
+V -> S : completePatrol(id)
+activate S
+S -> LS : save(COMPLETED, PENDING)
+activate LS
+LS --> S : ok
+deactivate LS
+S --> V : queued for sync
+deactivate S
+V --> Ranger : "Completed — will sync when online"
+deactivate V
+
+== P4a : Cancel finish (S1) — extension 4a, now modeled ==
+Ranger -> V : Cancel (before confirm)
+activate V
+V --> Ranger : patrol remains ACTIVE,\nno second patrol created
+deactivate V
+
+== P5-P6 : Synchronize with retry schedule (S2) ==
+alt network available
+  V -> SY : synchronize()
+  activate SY
+  SY -> LS : pending()
+  activate LS
+  LS --> SY : [PT-104]
+  deactivate LS
+  SY -> API : upsert(record, stable UUID)
+  activate API
+  API --> SY : SyncAck(receipt)
+  deactivate API
+  SY -> LS : markSynced(id)
+  activate LS
+  LS --> SY : ok
+  deactivate LS
+  SY --> V : "Synced 1 of 1 · 14:22" (R-09)
+  deactivate SY
+else upload fails (timeout / rejected)
+  SY -> LS : markFailed(id, retryAfter)
+  activate LS
+  LS --> SY : ok
+  deactivate LS
+  SY -> SY : scheduleRetry(id, backoff,\ncapped at 30 min)
+  SY --> V : "3 records held — retrying automatically"
+else remains offline
+  V --> Ranger : status PENDING, mode chip OFFLINE
+end
+
+@enduml

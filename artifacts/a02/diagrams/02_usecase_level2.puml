@@ -1,0 +1,92 @@
+@startuml
+' ============================================================================
+' A02 IMPROVED — Level-2 package per UC: correct include/extend usage (R-01)
+' Resolves F1 (granularity mixing), F2 (arrow-direction misuse)
+' ============================================================================
+
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam monochrome true
+skinparam actorStyle awesome
+
+left to right direction
+
+actor "Ranger" as R
+actor "Park Manager" as M
+actor "Liaison Officer" as L
+actor "Sensor Gateway" as SG
+actor "Camera Gateway" as CG
+actor "Community Member" as CM
+
+rectangle "UC01 — Manage Patrol Operations" {
+  usecase "Record Assigned Patrol" as UC01_main
+  usecase "Record Waypoint" as UC01_wp
+  usecase "Finish Patrol" as UC01_fin
+  usecase "Synchronize Pending Records" as UC01_sync
+  usecase "Review & Retry Failed Records" as UC01_retry
+
+  R --> UC01_main
+  R --> UC01_fin
+  R --> UC01_retry
+
+  UC01_wp .> UC01_main : <<extend>>\nGPS or manual
+  UC01_fin .> UC01_main : <<extend>>\nwhen done
+  UC01_sync .> UC01_main : <<include>>\nevery patrol ends queued
+  UC01_retry .> UC01_sync : <<extend>>\non FAILED records
+
+  note bottom of UC01_sync
+    include: mandatory behavior.
+    extend points extension → base.
+  end note
+}
+
+rectangle "UC02 — Record & Review Wildlife Incidents" {
+  usecase "Capture Incident Report" as UC02_main
+  usecase "Attach Photo Evidence" as UC02_photo
+  usecase "Review Camera-Trap Image" as UC02_cam
+  usecase "Synchronize with Complete Receipt" as UC02_sync
+
+  R --> UC02_main
+  M --> UC02_cam
+  CG --> UC02_cam
+  CM --> UC02_main
+
+  UC02_photo .> UC02_main : <<extend>>\nwhen evidence exists
+  UC02_cam .> UC02_main : <<extend>>\ncreates incident from image
+  UC02_sync .> UC02_main : <<include>>
+}
+
+rectangle "UC03 — Coordinate Conflict Response" {
+  usecase "Ingest Collar Reading" as UC03_ing
+  usecase "Assess & Alert" as UC03_alert
+  usecase "Assign Response Officer" as UC03_asg
+  usecase "Acknowledge Assignment" as UC03_ack
+  usecase "Close with Outcome" as UC03_close
+
+  SG --> UC03_ing
+  M --> UC03_asg
+  L --> UC03_close
+  R --> UC03_ack
+
+  UC03_alert .> UC03_ing : <<include>>\nfresh AND in-zone
+  UC03_asg .> UC03_ing : <<extend>>\nwhen OPEN alert exists
+  UC03_ack .> UC03_asg : <<extend>>\nby assigned officer
+  UC03_close .> UC03_asg : <<extend>>\nwhen resolved
+}
+
+rectangle "UC04 — Analyze & Generate Reports" {
+  usecase "Generate Conservation Report" as UC04_gen
+  usecase "Select Report Scope" as UC04_scope
+  usecase "Export Snapshot (PDF/CSV)" as UC04_exp
+
+  M --> UC04_gen
+  R --> UC04_gen
+  L --> UC04_gen
+
+  UC04_scope .> UC04_gen : <<include>>\nscope is mandatory
+  UC04_exp .> UC04_gen : <<extend>>\nsame snapshot id
+}
+
+@enduml

@@ -1,0 +1,96 @@
+# TrailGuard
+
+Offline-first wildlife conservation & anti-poaching field system — **Yala National Park**.
+
+> **SE3070 Assignment 02** · Group CSSE_2025_Y3_NU_WE2
+> Critique & justified improvements of the A01 design, with implementations of all four
+> use cases (UC01 Patrol · UC02 Incidents · UC03 Conflict · UC04 Reports) in two targets:
+> this **web app** (TanStack Start) and the reference **FastAPI backend**.
+
+---
+
+## Live web app (this repository's root)
+
+A demo-quality field desk that implements the **improved A02 design** (see
+`artifacts/a02/REPORT.md` — the R-xx numbers referenced in code map to that report):
+
+- **Offline-first contract** — every write lands on-device (`PENDING`), nothing shows
+  "Submitted" until sync ack; idempotent upserts by stable UUID.
+- **Sync engine** (`src/lib/domain/sync-service.ts`) — per-record progress, complete-receipt
+  for media, **partial-upload branch** (report acked, photo keeps retrying with the same ID),
+  exponential backoff capped at 30 min.
+- **Conflict desk** — single-active-assignment rule, notification-failure ladder with
+  availability restore, escalation, close-with-outcome.
+- **Reports** — snapshot over SYNCED records only, defined coverage formula
+  (covered track km ÷ assigned route km), 92-day window cap, CSV export of the same
+  snapshot id.
+- **Role-based access** — the four use case actors (Ranger, Park Manager, Liaison Officer,
+  Researcher) as an *acting mode* switcher in the header. The permission matrix
+  (`src/lib/domain/roles.ts`) mirrors the improved use case diagram's actor associations;
+  nav, actions and exports gate on it with explanatory denials. (Not login/auth — the
+  assignment excludes those; no accounts are stored.)
+
+### Run it
+
+```sh
+npm install          # Node 20+
+npm run dev          # serves on 0.0.0.0:8080 (fixed by vite.config.ts)
+```
+
+No `.env` needed: with `DATABASE_URL` unset the app uses embedded PGLite
+(`src/lib/db.ts`), so the preview and local dev work with zero configuration.
+
+### Test it
+
+```sh
+npm run test:domain             # 74 unit tests over the domain layer
+npm run test:domain:coverage    # + coverage (95%+ lines on src/lib/domain)
+npm run typecheck               # tsc --noEmit
+npm run build                   # production build (Vercel preset via Nitro)
+```
+
+### Layout
+
+```
+src/lib/domain/     Domain layer (framework-free): enums, model, transitions,
+                    idempotency, reporting, sync-service, ports, roles
+src/lib/store.ts    Zustand field-store adapter (persists to the device)
+src/lib/role-store.ts  Acting-role state (RBAC)
+src/routes/         / (ops desk) · /patrol · /incidents · /conflict · /reports
+artifacts/a02/      A02 group deliverables (report, diagrams, scenarios, tests plan)
+```
+
+Domain rules live in pure, unit-tested functions; React routes stay thin. Services are
+the only writers of sync/delivery state; entities transition via `transitions.ts`.
+
+---
+
+## Reference backend (artifacts/TrailGuard/backend)
+
+FastAPI + SQLAlchemy implementation of the same improved services — the A01 stack kept,
+with A02 rules applied.
+
+```sh
+cd artifacts/TrailGuard/backend
+python3.11 -m venv .venv && ./.venv/bin/pip install -r requirements.txt pytest pytest-cov
+./.venv/bin/python -m pytest tests -q --cov=app/services   # 29 tests, ~97% service coverage
+uvicorn app.main:app --reload --port 8000                  # API docs at /docs
+```
+
+## Reference mobile app (artifacts/TrailGuard/mobile)
+
+Expo React Native screens from the A01 deliverable (kept for the design record).
+
+---
+
+## A02 deliverables map
+
+| Deliverable | Where |
+|---|---|
+| Group critique report | `artifacts/a02/REPORT.md` |
+| Improved UML (use case ×2, class, sequence ×4) | `artifacts/a02/diagrams/*.puml` (+ rendered `.png`/`.svg`) |
+| Improved use case scenarios | `artifacts/a02/SCENARIOS.md` |
+| Test plan & coverage map | `artifacts/a02/TESTING.md` |
+| Web implementation | `src/` (this app) |
+| Backend implementation + tests | `artifacts/TrailGuard/backend/` |
+| A01 originals (design record) | `artifacts/diagram_sources/`, `artifacts/TrailGuard/docs/` |

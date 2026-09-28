@@ -1,0 +1,60 @@
+@startuml
+' UC03 - Assign a response to a risk alert - Sequence Diagram
+
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam monochrome true
+
+actor "Sensor Gateway" as SG
+participant "ConflictService" as S
+participant "ConflictView" as V
+actor "Park Manager" as M
+participant "NotificationGateway" as N
+actor Officer
+
+== C1-C2 : Ingest and risk evaluation ==
+SG -> S : ingestReading(reading)
+activate S
+S -> S : validate + assessRisk()
+alt fresh AND in-zone
+  S -> S : create/update OPEN Alert
+  S --> V : alert available
+else outside OR stale
+  S -> S : store historical only
+  note right : no new risk alert
+end
+deactivate S
+
+== C3-C4 : Manager assigns ==
+M -> V : open alert
+activate V
+V -> S : getAlert(id)
+activate S
+S --> V : animal, zone, obs/recv times
+deactivate S
+V --> M : details + confidence
+M -> V : select available officer
+V -> S : assign(alertId, officerId)
+activate S
+S -> S : validate availability
+S -> S : create RA-031
+S --> V : assignment created
+deactivate S
+deactivate V
+
+== C5-C6 : Notify and acknowledge ==
+S -> N : send(assignment)
+activate N
+N --> S : DeliveryState
+deactivate N
+V --> M : Awaiting acknowledgement
+Officer -> S : acknowledge(raId, officerId)
+activate S
+S -> S : record ack timestamp
+S --> V : ACKNOWLEDGED
+deactivate S
+V --> M : Acknowledged at time
+
+@enduml

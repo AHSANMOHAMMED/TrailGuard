@@ -1,0 +1,18 @@
+node_modules/
+.project_id
+.github_repo
+.env
+.env.*
+
+# Local Python venv for backend tests
+artifacts/TrailGuard/backend/.venv/
+__pycache__/
+*.pyc
+
+# Preview runtime state (pids, logs) — run doc and launcher scripts ARE committed
+.freebuff/preview.pid
+.freebuff/preview-da877fad-87c1-4e9c-91da-9d810cf47f57.log
+
+# Design-tool archives and generated preview builds
+artifacts/*.zip
+.vercel/
