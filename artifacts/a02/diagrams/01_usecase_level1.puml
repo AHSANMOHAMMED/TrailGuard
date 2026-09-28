@@ -1,0 +1,75 @@
+@startuml
+' ============================================================================
+' A02 IMPROVED — High-level use case diagram (Level 1: business goals only)
+' Resolves F1, F2, F3, F4 (report R-01, R-02)
+' ============================================================================
+
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam monochrome true
+skinparam actorStyle awesome
+
+left to right direction
+
+actor "Ranger" as Ranger
+actor "Park Manager" as Manager
+actor "Liaison Officer" as Liaison
+actor "Researcher" as Researcher
+actor "Community\nMember" as Community
+actor "Sensor\nGateway" as Sensor
+actor "Camera\nGateway" as Camera
+
+rectangle "Smart Wildlife Conservation & Anti-Poaching System" {
+
+  usecase "UC01\nManage Patrol Operations" as UC01
+  usecase "UC01b\nRetry Failed Sync" as UC01b
+  usecase "UC02\nRecord & Review Wildlife Incidents" as UC02
+  usecase "UC03\nCoordinate Conflict Response" as UC03
+  usecase "UC03b\nEscalate Unassigned Alert" as UC03b
+  usecase "UC03c\nClose Alert with Outcome" as UC03c
+  usecase "UC04\nAnalyze & Generate Conservation Reports" as UC04
+
+}
+
+' --- Actor associations (corrected per F3) ---
+Ranger --> UC01
+Ranger --> UC01b
+Ranger --> UC02
+Ranger --> UC03c
+
+Manager --> UC01
+Manager --> UC03
+Manager --> UC03b
+Manager --> UC04
+
+Liaison --> UC03
+Liaison --> UC03b
+Liaison --> UC03c
+
+Researcher --> UC04
+
+Community --> UC02
+
+Sensor --> UC03
+Camera --> UC02
+
+' --- Improvement relationships (correct include/extend direction, R-01) ---
+UC01b .> UC01 : <<extend>>\nwhen sync fails
+UC03b .> UC03 : <<extend>>\nafter escalation timeout
+UC03c .> UC03 : <<extend>>\nwhen resolved
+
+note bottom of UC01b
+  R-02a: removes the retry dead-end (F4)
+end note
+note bottom of UC03b
+  R-02b: time-boxed escalation for
+  unassigned alerts (F4)
+end note
+note bottom of UC03c
+  R-02c: liaison records the outcome;
+  completes the conflict lifecycle (F4)
+end note
+
+@enduml

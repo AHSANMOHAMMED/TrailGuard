@@ -1,0 +1,65 @@
+@startuml
+' ============================================================================
+' A02 IMPROVED — UC04 sequence: validation guard, empty-window extension,
+' coverage formula (R-07), same-snapshot export
+' ============================================================================
+
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam monochrome true
+
+actor "Manager / Researcher" as U
+participant "ReportView" as V
+participant "ReportService" as S
+participant "ConservationAPI" as API
+
+== R1-R2 : Select filters with validation (S5) ==
+U -> V : open Reports
+activate V
+V --> U : permitted parks + filters
+U -> V : park, dates, categories
+V -> S : validate(criteria)
+activate S
+alt window valid (≤ 92 days)
+  S --> V : ok
+  deactivate S
+else window too large or inverted (S5/R-07)
+  S --> V : reject with message
+  deactivate S
+  V --> U : "Choose a window up to 92 days"
+end
+
+== R3-R5 : Generate from one snapshot ==
+U -> V : Generate report
+V -> S : generate(criteria)
+activate S
+S -> API : query(criteria)
+activate API
+API --> S : Snapshot (SYNCED only + cutoff)
+deactivate API
+alt records exist in window
+  S -> S : aggregate(snapshot)\ncoverage% = synced patrol waypoint-distance\n÷ assigned-route distance (R-07)
+  S --> V : ConservationReport
+  deactivate S
+  V --> U : results + cutoff + limitations
+else empty window (S5 — now modeled)
+  S -> S : zero-state snapshot\n(cutoff still recorded)
+  S --> V : ConservationReport (empty)
+  deactivate S
+  V --> U : "No synced records in this window"\n+ cutoff shown
+end
+deactivate V
+
+== R6 : Export same snapshot ==
+U -> V : Export PDF or CSV
+activate V
+V -> S : export(reportId, format)
+activate S
+note right : identical snapshot ID\nand filters
+S --> V : File
+deactivate S
+V --> U : download
+
+@enduml

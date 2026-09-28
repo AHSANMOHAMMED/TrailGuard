@@ -1,0 +1,77 @@
+@startuml
+' ============================================================================
+' A02 IMPROVED — UC02 sequence: draft→review→commit (R-10), partial upload
+' branch (S3/R-05), retry with same IDs, uniform boundary name (S6)
+' ============================================================================
+
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam monochrome true
+
+actor Ranger
+participant "IncidentView" as V
+participant "IncidentService" as S
+participant "LocalStore" as LS
+participant "SyncService" as SY
+participant "ConservationAPI" as API
+
+== I1-I3 : Capture (draft → review → commit, R-10) ==
+Ranger -> V : New incident / Snare
+activate V
+V --> Ranger : form + grouped categories with icons\n(R-10: recognition over recall)
+Ranger -> V : photo + location + description
+V --> Ranger : draft retained, obs time shown,\nmode chip ONLINE/OFFLINE (R-09)
+Ranger -> V : Review (before commit)
+V --> Ranger : summary screen
+Ranger -> V : Confirm save
+V -> S : createIncident(data)
+activate S
+S -> S : validate required fields
+S -> LS : save(IR-208 + photo, PENDING)
+activate LS
+LS --> S : ok
+deactivate LS
+S --> V : "Saved on this phone"
+deactivate S
+V --> Ranger : "IR-208 PENDING — sends when signal returns"
+deactivate V
+
+== I4-I6 : Sync with complete receipt and partial-upload branch (S3) ==
+alt connectivity returns — full success
+  V -> SY : synchronize()
+  activate SY
+  SY -> LS : pending()
+  activate LS
+  LS --> SY : [IR-208 + attachment]
+  deactivate LS
+  SY -> API : upsert(report + attachments)
+  activate API
+  note right : complete-receipt required for media
+  API --> SY : SyncAck(complete = true)
+  deactivate API
+  SY -> LS : markSynced(IR-208)
+  activate LS
+  LS --> SY : ok
+  deactivate LS
+  SY --> V : "Submitted IR-208 · 1 of 1"
+  deactivate SY
+else report acked, attachment interrupted (S3)
+  SY -> API : upsert(report + attachments)
+  activate API
+  API --> SY : SyncAck(complete = false,\nreportId acked)
+  deactivate API
+  SY -> LS : markSynced(IR-208)\nkeep attachment PENDING
+  activate LS
+  LS --> SY : ok
+  deactivate LS
+  SY -> SY : resume with SAME attachId\n(no duplicate photo)
+  SY --> V : "Report submitted · photo retrying"
+else upload interrupted
+  note over LS,SY : keep PENDING\nresume with same IDs
+  SY -> LS : markFailed(id, retryAfter)
+  SY -> SY : scheduleRetry(id, backoff)
+end
+
+@enduml

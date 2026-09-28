@@ -1,0 +1,201 @@
+@startuml
+' =============================================================================
+' COMPLETE USE CASE MODEL - ALL use cases as first-class ovals
+' Smart Wildlife Conservation and Anti-Poaching Monitoring System
+' Group: Y3S2-NU-WE-02
+' NOT limited to 4 - every functional goal is a use case
+' =============================================================================
+
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam monochrome true
+skinparam actorStyle awesome
+skinparam usecase {
+  BackgroundColor white
+  BorderColor black
+  FontColor black
+}
+skinparam packageBorderColor black
+skinparam packageFontColor black
+skinparam packageFontStyle bold
+skinparam arrowColor black
+
+left to right direction
+
+actor "Ranger" as Ranger
+actor "Park Manager" as Manager
+actor "Community\nMember" as Community
+actor "Liaison\nOfficer" as Liaison
+actor "Researcher" as Researcher
+actor "Sensor\nGateway" as Sensor
+actor "Camera\nTrap" as Camera
+
+rectangle "Wildlife Conservation System" {
+
+  ' ----- Patrol operations -----
+  usecase "Assign Patrol Route" as UC_AssignRoute
+  usecase "Start Patrol" as UC_StartPatrol
+  usecase "Record GPS Waypoint" as UC_GPSWaypoint
+  usecase "Record Manual Waypoint" as UC_ManualWaypoint
+  usecase "Finish Patrol" as UC_FinishPatrol
+  usecase "Save Patrol Offline" as UC_SavePatrolOffline
+  usecase "Sync Patrol Data" as UC_SyncPatrol
+  usecase "View Patrol Coverage" as UC_ViewCoverage
+  usecase "Reassign Active Patrol" as UC_ReassignPatrol
+
+  ' ----- Wildlife incidents -----
+  usecase "Create Incident Report" as UC_CreateIncident
+  usecase "Capture Photo Evidence" as UC_CapturePhoto
+  usecase "Record Evidence Omission" as UC_EvidenceOmit
+  usecase "Mark Manual Location" as UC_ManualLocation
+  usecase "Save Incident Offline" as UC_SaveIncidentOffline
+  usecase "Sync Incident Complete-Receipt" as UC_SyncIncident
+  usecase "Review Camera Trap Image" as UC_ReviewCamera
+  usecase "Classify Incident Type" as UC_ClassifyIncident
+  usecase "Attach Observation Time" as UC_ObsTime
+
+  ' ----- Conflict response -----
+  usecase "Ingest Collar Reading" as UC_IngestCollar
+  usecase "Validate Reading Freshness" as UC_ValidateFresh
+  usecase "Assess Risk Zone Entry" as UC_AssessRisk
+  usecase "Create Risk Alert" as UC_CreateAlert
+  usecase "Update Open Alert" as UC_UpdateAlert
+  usecase "Submit Community Report" as UC_SubmitCommunity
+  usecase "Verify Community Report" as UC_VerifyCommunity
+  usecase "Assign Response Officer" as UC_AssignOfficer
+  usecase "Notify Officer" as UC_NotifyOfficer
+  usecase "Acknowledge Assignment" as UC_Acknowledge
+  usecase "Escalate Unassigned Alert" as UC_Escalate
+  usecase "Close Resolved Alert" as UC_CloseAlert
+  usecase "Record Delivery State" as UC_DeliveryState
+
+  ' ----- Conservation reporting -----
+  usecase "Select Report Filters" as UC_SelectFilters
+  usecase "Validate Report Scope" as UC_ValidateScope
+  usecase "Query Synced Snapshot" as UC_QuerySnapshot
+  usecase "Calculate Incident Counts" as UC_CalcCounts
+  usecase "Calculate Patrol Coverage" as UC_CalcCoverage
+  usecase "Calculate Conflict Trends" as UC_CalcTrends
+  usecase "Generate Conservation Report" as UC_GenerateReport
+  usecase "Display Data Cutoff" as UC_ShowCutoff
+  usecase "Export Report PDF" as UC_ExportPDF
+  usecase "Export Report CSV" as UC_ExportCSV
+  usecase "Handle Empty Report Result" as UC_EmptyReport
+}
+
+' =============================================================================
+' ACTOR --> USE CASE associations
+' =============================================================================
+
+Ranger --> UC_StartPatrol
+Ranger --> UC_GPSWaypoint
+Ranger --> UC_ManualWaypoint
+Ranger --> UC_FinishPatrol
+Ranger --> UC_SavePatrolOffline
+Ranger --> UC_SyncPatrol
+Ranger --> UC_CreateIncident
+Ranger --> UC_CapturePhoto
+Ranger --> UC_EvidenceOmit
+Ranger --> UC_ManualLocation
+Ranger --> UC_SaveIncidentOffline
+Ranger --> UC_SyncIncident
+Ranger --> UC_ClassifyIncident
+Ranger --> UC_ObsTime
+Ranger --> UC_Acknowledge
+
+Manager --> UC_AssignRoute
+Manager --> UC_ViewCoverage
+Manager --> UC_ReassignPatrol
+Manager --> UC_ReviewCamera
+Manager --> UC_CreateAlert
+Manager --> UC_UpdateAlert
+Manager --> UC_VerifyCommunity
+Manager --> UC_AssignOfficer
+Manager --> UC_Escalate
+Manager --> UC_CloseAlert
+Manager --> UC_SelectFilters
+Manager --> UC_ValidateScope
+Manager --> UC_GenerateReport
+Manager --> UC_ShowCutoff
+Manager --> UC_ExportPDF
+Manager --> UC_ExportCSV
+Manager --> UC_EmptyReport
+Manager --> UC_CalcCounts
+Manager --> UC_CalcCoverage
+Manager --> UC_CalcTrends
+
+Community --> UC_SubmitCommunity
+
+Liaison --> UC_AssignOfficer
+Liaison --> UC_NotifyOfficer
+Liaison --> UC_Acknowledge
+Liaison --> UC_CloseAlert
+
+Researcher --> UC_SelectFilters
+Researcher --> UC_GenerateReport
+Researcher --> UC_ExportPDF
+Researcher --> UC_ExportCSV
+Researcher --> UC_ShowCutoff
+Researcher --> UC_CalcCounts
+Researcher --> UC_CalcCoverage
+Researcher --> UC_CalcTrends
+
+Sensor --> UC_IngestCollar
+Sensor --> UC_ValidateFresh
+
+Camera --> UC_ReviewCamera
+
+' =============================================================================
+' <<include>> relationships
+' =============================================================================
+
+UC_StartPatrol ..> UC_SavePatrolOffline : <<include>>
+UC_FinishPatrol ..> UC_SavePatrolOffline : <<include>>
+UC_SyncPatrol ..> UC_SavePatrolOffline : <<include>>
+
+UC_CreateIncident ..> UC_ClassifyIncident : <<include>>
+UC_CreateIncident ..> UC_ObsTime : <<include>>
+UC_CreateIncident ..> UC_SaveIncidentOffline : <<include>>
+UC_SyncIncident ..> UC_SaveIncidentOffline : <<include>>
+
+UC_IngestCollar ..> UC_ValidateFresh : <<include>>
+UC_AssessRisk ..> UC_ValidateFresh : <<include>>
+UC_CreateAlert ..> UC_AssessRisk : <<include>>
+UC_AssignOfficer ..> UC_NotifyOfficer : <<include>>
+UC_NotifyOfficer ..> UC_DeliveryState : <<include>>
+
+UC_GenerateReport ..> UC_SelectFilters : <<include>>
+UC_GenerateReport ..> UC_ValidateScope : <<include>>
+UC_GenerateReport ..> UC_QuerySnapshot : <<include>>
+UC_GenerateReport ..> UC_CalcCounts : <<include>>
+UC_GenerateReport ..> UC_CalcCoverage : <<include>>
+UC_GenerateReport ..> UC_CalcTrends : <<include>>
+UC_GenerateReport ..> UC_ShowCutoff : <<include>>
+
+' =============================================================================
+' <<extend>> relationships
+' =============================================================================
+
+UC_GPSWaypoint ..> UC_StartPatrol : <<extend>>
+UC_ManualWaypoint ..> UC_StartPatrol : <<extend>>
+UC_ReassignPatrol ..> UC_AssignRoute : <<extend>>
+
+UC_CapturePhoto ..> UC_CreateIncident : <<extend>>
+UC_EvidenceOmit ..> UC_CreateIncident : <<extend>>
+UC_ManualLocation ..> UC_CreateIncident : <<extend>>
+UC_ReviewCamera ..> UC_CreateIncident : <<extend>>
+
+UC_UpdateAlert ..> UC_CreateAlert : <<extend>>
+UC_VerifyCommunity ..> UC_CreateAlert : <<extend>>
+UC_SubmitCommunity ..> UC_VerifyCommunity : <<extend>>
+UC_Acknowledge ..> UC_AssignOfficer : <<extend>>
+UC_Escalate ..> UC_AssignOfficer : <<extend>>
+UC_CloseAlert ..> UC_CreateAlert : <<extend>>
+
+UC_ExportPDF ..> UC_GenerateReport : <<extend>>
+UC_ExportCSV ..> UC_GenerateReport : <<extend>>
+UC_EmptyReport ..> UC_GenerateReport : <<extend>>
+
+@enduml
