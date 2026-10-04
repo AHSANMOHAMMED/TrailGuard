@@ -26,10 +26,17 @@ import {
   SuccessCheck,
 } from "@/components/field";
 import { ConnectivityToggle } from "@/components/connectivity-toggle";
+import { Guard } from "@/components/auth-gate";
 import { useField } from "@/lib/store";
 import { fmtClock } from "@/lib/utils";
 
-export const Route = createFileRoute("/incidents")({ component: IncidentPage });
+export const Route = createFileRoute("/incidents")({
+  component: () => (
+    <Guard area="incidents">
+      <IncidentPage />
+    </Guard>
+  ),
+});
 
 /**
  * UC02-S01 — Report Field Incident.
@@ -86,7 +93,7 @@ function IncidentPage() {
       clearInterval(t);
       clearTimeout(done);
     };
-  }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [step, online, type, description, createIncident]);
 
   // Panel 7 → 8 — connectivity returns while the incident is stored locally.
   useEffect(() => {

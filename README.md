@@ -44,11 +44,14 @@ that report):
 - **Reports** — snapshot over SYNCED records only, defined coverage formula
   (covered track km ÷ assigned route km), 92-day window cap, CSV export of the same
   snapshot id.
-- **Role-based access** — the four use case actors (Ranger, Park Manager, Liaison Officer,
-  Researcher) as an *acting mode* switcher in the header. The permission matrix
-  (`src/lib/domain/roles.ts`) mirrors the improved use case diagram's actor associations;
-  nav, actions and exports gate on it with explanatory denials. (Not login/auth — the
-  assignment excludes those; no accounts are stored.)
+- **Role-based sign-in** — five actors (Ranger, Community Liaison Officer, Park
+  Manager, Researcher, Community Member) sign in with a 4-digit field PIN
+  (`src/lib/auth-store.ts`; demo PINs are shown on the login screen). Sign-in is
+  on-device and instant, matching the offline-first contract. Every route is
+  wrapped in a `Guard` (`src/components/auth-gate.tsx`): actors only reach the
+  use cases they are associated with on the A01 use case diagram; others see an
+  explanatory access-restricted screen. The finer permission matrix
+  (`src/lib/domain/roles.ts`) still gates actions inside the legacy ops desk.
 
 ### Run it
 

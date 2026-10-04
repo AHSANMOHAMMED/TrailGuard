@@ -37,7 +37,7 @@ export class SyncService {
         if (rec.kind === "PATROL") {
           const patrol = this.store.getPatrols().find((p) => p.patrolId === rec.recordId);
           if (!patrol) continue;
-          const ack = await this.api.upsertPatrol(patrol);
+          await this.api.upsertPatrol(patrol);
           this.store.markPatrolSynced(patrol.patrolId);
           result.patrols += 1;
         } else {

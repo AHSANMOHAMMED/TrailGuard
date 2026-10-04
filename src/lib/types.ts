@@ -42,13 +42,6 @@ export interface Incident {
   hasPhoto: boolean;
 }
 
-export interface Officer {
-  officerId: string;
-  name: string;
-  role: "RANGER" | "LIAISON" | "MANAGER";
-  available: boolean;
-}
-
 export interface Alert {
   alertId: string;
   animal: string;
@@ -77,16 +70,6 @@ export interface ConflictReport {
   receivedAt: string;
   respondedAt?: string;
   syncState: SyncState;
-}
-
-export interface Assignment {
-  raId: string;
-  alertId: string;
-  officerId: string;
-  officerName: string;
-  deliveryState: DeliveryState;
-  acknowledgedAt?: string;
-  createdAt: string;
 }
 
 export interface ReportSnapshot {

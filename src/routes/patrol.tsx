@@ -6,6 +6,7 @@ import {
   BtnOutline,
   BtnPrimary,
   Card,
+  ConfirmNote,
   GpsActive,
   HintCard,
   OfflineBanner,
@@ -19,10 +20,17 @@ import {
   Tile,
 } from "@/components/field";
 import { ConnectivityToggle } from "@/components/connectivity-toggle";
+import { Guard } from "@/components/auth-gate";
 import { useField, ROUTE_META } from "@/lib/store";
 import { fmtClock } from "@/lib/utils";
 
-export const Route = createFileRoute("/patrol")({ component: PatrolPage });
+export const Route = createFileRoute("/patrol")({
+  component: () => (
+    <Guard area="patrol">
+      <PatrolPage />
+    </Guard>
+  ),
+});
 
 /**
  * UC01-S01 — Conduct Assigned Ranger Patrol.
@@ -74,8 +82,12 @@ function PatrolPage() {
   }, [running]);
 
   // A3 — connectivity restored: drain the pending queue, confirm, no re-entry.
+  // The ref keeps the pending count out of the dependency list on purpose:
+  // the drain must start when connectivity returns, not re-arm on every tick.
+  const pendingRef = useRef(pendingSync);
+  pendingRef.current = pendingSync;
   useEffect(() => {
-    if (!online || pendingSync === 0 || !running) return;
+    if (!online || !running || pendingRef.current === 0) return;
     setSyncingBack(true);
     const t = setInterval(() => {
       setPendingSync((n) => {
@@ -90,7 +102,7 @@ function PatrolPage() {
       });
     }, 350);
     return () => clearInterval(t);
-  }, [online, running]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [online, running]);
 
   function onStart() {
     startPatrol();
@@ -197,17 +209,7 @@ function PatrolPage() {
             <BtnPrimary onClick={onSaveWaypoint}>Save Waypoint</BtnPrimary>
             <BtnOutline onClick={() => setPhase("progress")}>Cancel</BtnOutline>
             {waypointSaved ? (
-              <div className="flex items-center gap-2 rounded-lg border border-ok/40 bg-ok-bg px-3 py-2.5">
-                <span className="flex size-5 items-center justify-center rounded-full bg-ok">
-                  <Check className="size-3 text-white" strokeWidth={3} />
-                </span>
-                <span>
-                  <span className="block text-[13px] font-bold text-ok">Waypoint Saved</span>
-                  <span className="block text-[11.5px] text-ok/80">
-                    Saved to current patrol · Manual waypoint
-                  </span>
-                </span>
-              </div>
+              <ConfirmNote title="Waypoint Saved" sub="Saved to current patrol · Manual waypoint" />
             ) : null}
           </div>
         </Body>

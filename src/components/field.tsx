@@ -1,7 +1,7 @@
 import type { ReactNode, SVGProps } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "@tanstack/react-router";
-import { Check, ChevronLeft, CloudOff, LocateFixed, Navigation2, Wifi } from "lucide-react";
+import { Check, ChevronLeft, CloudOff, LocateFixed, Wifi } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /*
@@ -624,6 +624,20 @@ function Needle() {
   );
 }
 
-export function NavArrow(props: SVGProps<SVGSVGElement>) {
-  return <Navigation2 {...props} />;
+/**
+ * Green confirmation note (check circle + title + optional detail) used by
+ * the "Waypoint Saved" / "ACKNOWLEDGED" states across the flows.
+ */
+export function ConfirmNote({ title, sub }: { title: string; sub?: string }) {
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-ok/40 bg-ok-bg px-3 py-2.5">
+      <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-ok">
+        <Check className="size-3 text-white" strokeWidth={3} />
+      </span>
+      <span>
+        <span className="block text-[13px] font-bold text-ok">{title}</span>
+        {sub ? <span className="block text-[11.5px] text-ok/80">{sub}</span> : null}
+      </span>
+    </div>
+  );
 }
