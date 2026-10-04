@@ -1,7 +1,9 @@
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { Toaster } from "sonner";
+import { useField } from "@/lib/store";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "TrailGuard";
@@ -16,7 +18,7 @@ export const Route = createRootRoute({
         name: "description",
         content: "Offline-first wildlife conservation field operations.",
       },
-      { name: "theme-color", content: "#0A100C" },
+      { name: "theme-color", content: "#1F5A43" },
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
@@ -25,7 +27,16 @@ export const Route = createRootRoute({
       { rel: "apple-touch-icon", href: "/__grok/icon-180.png" },
     ],
   }),
-  component: () => (
+  component: RootComponent,
+});
+
+function RootComponent() {
+  // Rehydrate the persisted on-device field store once per session.
+  useEffect(() => {
+    void useField.persist.rehydrate();
+  }, []);
+
+  return (
     <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
@@ -35,12 +46,12 @@ export const Route = createRootRoute({
         <AuthProvider>
           <Outlet />
           <Toaster
-            theme="dark"
+            theme="light"
             toastOptions={{
               style: {
-                background: "#18221c",
-                border: "1px solid #24332a",
-                color: "#e8eee8",
+                background: "#ffffff",
+                border: "1px solid #dde5dd",
+                color: "#16281e",
               },
             }}
           />
@@ -48,5 +59,5 @@ export const Route = createRootRoute({
         <Scripts />
       </body>
     </html>
-  ),
-});
+  );
+}

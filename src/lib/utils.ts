@@ -20,9 +20,11 @@ export function fmtTime(iso: string) {
 }
 
 export function fmtClock(iso: string) {
-  return new Date(iso).toLocaleTimeString(undefined, {
+  // 24-hour clock, as on the wireframes (e.g. "06:40").
+  return new Date(iso).toLocaleTimeString("en-GB", {
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
   });
 }
 

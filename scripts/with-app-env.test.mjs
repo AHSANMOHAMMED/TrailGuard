@@ -113,6 +113,22 @@ test("a signal-killed command is never reported as success", async () => {
   );
 });
 
+test("windows resolves local .cmd shims from PATH", async () => {
+  if (process.platform !== "win32") return;
+
+  const tempDir = mkdtempSync(join(tmpdir(), "app-env-win-"));
+  const cmdPath = join(tempDir, "vite.cmd");
+  const script = "@echo off\r\n" +
+    "echo true\r\n";
+  writeFileSync(cmdPath, script, "utf8");
+
+  const { stdout } = await execFileAsync(process.execPath, [WRAPPER, "vite"], {
+    env: { ...process.env, PATH: `${tempDir};${process.env.PATH ?? ""}` },
+  });
+
+  assert.equal(stdout.trim(), "true");
+});
+
 test("the CLI still runs when invoked through a symlinked path", async () => {
   // node realpaths import.meta.url but not process.argv[1], so a raw comparison
   // turns the wrapper into a no-op that exits 0 without starting anything.

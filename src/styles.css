@@ -1,19 +1,30 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
+/*
+ * TrailGuard design system — exact tokens from the A01 high-fidelity wireframes
+ * (CSSE_Group_1_NU_WE_v2.pdf): primary #1F5A43 · secondary #3B7A57 ·
+ * background #F6F8F5 · success #2E7D50 · offline amber #D97706 ·
+ * high-risk red reserved for the HIGH RISK alert state and risk-zone overlay.
+ * Buttons 50–52 px; body text ≥ 13 px; every state has a text label + icon.
+ */
 @theme {
-  --color-bg: #0a100c;
-  --color-surface: #121a16;
-  --color-elevated: #18221c;
-  --color-fg: #e8eee8;
-  --color-muted: #8a9e8e;
-  --color-subtle: #5f7366;
-  --color-accent: #3d8b6e;
-  --color-accent-fg: #07110c;
-  --color-border: #24332a;
-  --color-warn: #c48a3a;
-  --color-danger: #c45b4a;
-  --color-ok: #3d8b6e;
+  --color-bg: #f6f8f5;
+  --color-surface: #ffffff;
+  --color-elevated: #eef3ee;
+  --color-fg: #16281e;
+  --color-muted: #5f7366;
+  --color-subtle: #8a9e8e;
+  --color-accent: #1f5a43;
+  --color-accent-fg: #ffffff;
+  --color-secondary: #3b7a57;
+  --color-border: #dde5dd;
+  --color-warn: #d97706;
+  --color-warn-bg: #fdf3e3;
+  --color-danger: #b3261e;
+  --color-danger-bg: #fbeae9;
+  --color-ok: #2e7d50;
+  --color-ok-bg: #e7f2ea;
   --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
   --radius-sm: 8px;

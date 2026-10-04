@@ -11,8 +11,28 @@ Offline-first wildlife conservation & anti-poaching field system — **Yala Nati
 
 ## Live web app (this repository's root)
 
-A demo-quality field desk that implements the **improved A02 design** (see
-`artifacts/a02/REPORT.md` — the R-xx numbers referenced in code map to that report):
+The UI implements the **A01 high-fidelity wireframes exactly**
+(`attachments/CSSE_Group_1_NU_WE_v2.pdf`, Figures 6/10/14/18): a mobile field
+app (390 px phone frame) with the wireframes' design system — primary
+`#1F5A43`, secondary `#3B7A57`, background `#F6F8F5`, success `#2E7D50`,
+offline amber `#D97706`, high-risk red reserved for alert states; 50–52 px
+buttons; every state has a text label + icon.
+
+Screens, flows and routes:
+
+- `/patrol` — **UC01** Conduct Assigned Ranger Patrol (assigned → GPS tracking →
+  manual waypoint A1 → offline A2 → sync restore A3 → complete → coverage summary)
+- `/incidents` — **UC02** Report Field Incident (type → photo → GPS details →
+  review → validating submit → offline conditional → submitted)
+- `/alerts` — **UC03** Monitor Tracked Wildlife & Risk Alerts (incoming HIGH RISK →
+  acknowledge → respond → coordination → resolve → resolved)
+- `/conflict` — **UC04** Manage Human-Wildlife Conflict Reports (channel →
+  details → review → offline conditional → submitted → staff review → responded)
+
+The header wifi pill simulates connectivity so the offline alternative flows
+can be demonstrated. Underneath, the same offline-first domain rules apply
+(see `artifacts/a02/REPORT.md` — the R-xx numbers referenced in code map to
+that report):
 
 - **Offline-first contract** — every write lands on-device (`PENDING`), nothing shows
   "Submitted" until sync ack; idempotent upserts by stable UUID.
