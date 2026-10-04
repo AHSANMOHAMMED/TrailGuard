@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 import type {
   Alert,
   Assignment,
+  ConflictReport,
   Incident,
   Officer,
   Patrol,
@@ -11,13 +12,16 @@ import type {
 } from "@/lib/types";
 import { uid } from "@/lib/utils";
 
+/** Assigned route exactly as on the UC01 hi-fi wireframe. */
 const ROUTE = {
-  id: "RT-07",
-  name: "North Ridge Corridor",
-  sector: "Sector 04-North",
-  distanceKm: 12.4,
-  estTime: "4h 30m",
-  gainM: 640,
+  id: "NB-03",
+  name: "North Boundary Patrol",
+  sector: "Northern park boundary",
+  distanceKm: 7.4,
+  estTime: "3 h",
+  gainM: 120,
+  assignedAt: "06:30 today",
+  details: "Northern park boundary, 7.4 km loop. Return to NB gate on completion.",
 };
 
 const SEED_OFFICERS: Officer[] = [
@@ -42,8 +46,22 @@ function seedSynced(): { patrols: Patrol[]; incidents: Incident[] } {
         completedAt: t1,
         syncState: "SYNCED",
         waypoints: [
-          { pointId: "wp-s1", lat: 6.401, lng: 81.118, source: "GPS", recordedAt: t0, label: "WP-01" },
-          { pointId: "wp-s2", lat: 6.412, lng: 81.126, source: "GPS", recordedAt: t1, label: "WP-08" },
+          {
+            pointId: "wp-s1",
+            lat: 6.401,
+            lng: 81.118,
+            source: "GPS",
+            recordedAt: t0,
+            label: "WP-01",
+          },
+          {
+            pointId: "wp-s2",
+            lat: 6.412,
+            lng: 81.126,
+            source: "GPS",
+            recordedAt: t1,
+            label: "WP-08",
+          },
         ],
       },
     ],
@@ -85,12 +103,13 @@ interface FieldState {
   alerts: Alert[];
   assignments: Assignment[];
   officers: Officer[];
+  conflicts: ConflictReport[];
   snapshot: ReportSnapshot | null;
   setOnline: (v: boolean) => void;
   startPatrol: () => Patrol;
   addWaypoint: (source: "GPS" | "MANUAL") => Waypoint | null;
   undoWaypoint: () => void;
-  finishPatrol: () => Patrol | null;
+  finishPatrol: (summary?: { positions: number; coveragePct: number }) => Patrol | null;
   createIncident: (input: {
     type: string;
     description: string;
@@ -100,6 +119,22 @@ interface FieldState {
   ingestCollar: () => Alert | null;
   assignOfficer: (alertId: string, officerId: string) => Assignment | null;
   acknowledge: (raId: string) => void;
+  /** UC03 — ranger acknowledges a risk alert (NEW → ACKNOWLEDGED). */
+  ackAlert: (alertId: string) => void;
+  /** UC03 — close the alert with an outcome (ACKNOWLEDGED → RESOLVED). */
+  resolveAlert: (alertId: string, outcome: string, note?: string) => void;
+  /** UC03 — re-raise the demo alert so the flow can be run again. */
+  resetAlert: () => void;
+  /** UC04 — community member submits a human-wildlife conflict report. */
+  createConflict: (input: {
+    type: string;
+    location: string;
+    channel: "Mobile App" | "SMS";
+    description: string;
+  }) => ConflictReport;
+  /** UC04 — staff records the response (SUBMITTED → RESPONDED). */
+  respondConflict: (reportId: string) => void;
+  markConflictSynced: (reportId: string) => void;
   generateReport: (from: string, to: string) => ReportSnapshot;
   synchronize: () => Promise<{ patrols: number; incidents: number }>;
   activePatrol: () => Patrol | undefined;
@@ -120,19 +155,22 @@ export const useField = create<FieldState>()(
         {
           alertId: "AL-19",
           animal: "Elephant",
-          zone: "Z3 Farmland",
-          observedAt: "2026-09-24T11:02:00Z",
-          receivedAt: "2026-09-24T11:04:00Z",
+          collar: "EL-07",
+          zone: "Farmland",
+          observedAt: "2026-09-24T06:52:00Z",
+          receivedAt: "2026-09-24T06:52:00Z",
           confidence: "High",
           status: "OPEN",
         },
       ],
       assignments: [],
+      conflicts: [],
       setOnline: (v) => set({ online: v }),
       activePatrol: () => get().patrols.find((p) => p.status === "ACTIVE"),
       pendingCount: () =>
         get().patrols.filter((p) => p.syncState === "PENDING").length +
-        get().incidents.filter((i) => i.syncState === "PENDING").length,
+        get().incidents.filter((i) => i.syncState === "PENDING").length +
+        get().conflicts.filter((c) => c.syncState === "PENDING").length,
       startPatrol: () => {
         const existing = get().activePatrol();
         if (existing) return existing;
@@ -177,13 +215,11 @@ export const useField = create<FieldState>()(
         if (!active || active.waypoints.length === 0) return;
         set({
           patrols: get().patrols.map((p) =>
-            p.patrolId === active.patrolId
-              ? { ...p, waypoints: p.waypoints.slice(0, -1) }
-              : p,
+            p.patrolId === active.patrolId ? { ...p, waypoints: p.waypoints.slice(0, -1) } : p,
           ),
         });
       },
-      finishPatrol: () => {
+      finishPatrol: (summary) => {
         const active = get().activePatrol();
         if (!active) return null;
         const done: Patrol = {
@@ -191,6 +227,8 @@ export const useField = create<FieldState>()(
           status: "COMPLETED",
           completedAt: new Date().toISOString(),
           syncState: "PENDING",
+          positions: summary?.positions ?? active.waypoints.length,
+          coveragePct: summary?.coveragePct,
         };
         set({
           patrols: get().patrols.map((p) => (p.patrolId === active.patrolId ? done : p)),
@@ -206,7 +244,8 @@ export const useField = create<FieldState>()(
           lng: 81.12 + Math.random() * 0.01,
           locationSource: input.locationSource,
           observedAt: new Date().toISOString(),
-          syncState: "PENDING",
+          // Online submits ack immediately; offline submits stay on-device (A1/A2).
+          syncState: get().online ? "SYNCED" : "PENDING",
           hasPhoto: input.hasPhoto,
         };
         set({ incidents: [ir, ...get().incidents] });
@@ -267,6 +306,79 @@ export const useField = create<FieldState>()(
           ),
         });
       },
+      ackAlert: (alertId) => {
+        set({
+          alerts: get().alerts.map((a) =>
+            a.alertId === alertId
+              ? { ...a, status: "ASSIGNED", acknowledgedAt: new Date().toISOString() }
+              : a,
+          ),
+        });
+      },
+      resolveAlert: (alertId, outcome, note) => {
+        set({
+          alerts: get().alerts.map((a) =>
+            a.alertId === alertId
+              ? {
+                  ...a,
+                  status: "CLOSED",
+                  resolvedAt: new Date().toISOString(),
+                  outcome,
+                  resolutionNote: note,
+                }
+              : a,
+          ),
+        });
+      },
+      resetAlert: () => {
+        const now = new Date().toISOString();
+        set({
+          alerts: [
+            {
+              alertId: `AL-${Math.floor(20 + Math.random() * 80)}`,
+              animal: "Elephant",
+              collar: "EL-07",
+              zone: "Farmland",
+              observedAt: now,
+              receivedAt: now,
+              confidence: "High",
+              status: "OPEN",
+            },
+            ...get().alerts,
+          ],
+        });
+      },
+      createConflict: (input) => {
+        const report: ConflictReport = {
+          reportId: uid(),
+          type: input.type,
+          location: input.location,
+          channel: input.channel,
+          description: input.description,
+          status: "SUBMITTED",
+          highPriority: input.type === "Elephant Sighting",
+          receivedAt: new Date().toISOString(),
+          syncState: get().online ? "SYNCED" : "PENDING",
+        };
+        set({ conflicts: [report, ...get().conflicts] });
+        return report;
+      },
+      respondConflict: (reportId) => {
+        set({
+          conflicts: get().conflicts.map((c) =>
+            c.reportId === reportId
+              ? { ...c, status: "RESPONDED", respondedAt: new Date().toISOString() }
+              : c,
+          ),
+        });
+      },
+      markConflictSynced: (reportId) => {
+        set({
+          conflicts: get().conflicts.map((c) =>
+            c.reportId === reportId ? { ...c, syncState: "SYNCED" } : c,
+          ),
+        });
+      },
       generateReport: (from, to) => {
         const fromD = new Date(from).getTime();
         const toD = new Date(to + "T23:59:59").getTime();
@@ -319,6 +431,9 @@ export const useField = create<FieldState>()(
             }
             return i;
           }),
+          conflicts: get().conflicts.map((c) =>
+            c.syncState === "PENDING" ? { ...c, syncState: "SYNCED" } : c,
+          ),
           lastSyncAt: new Date().toISOString(),
           syncing: false,
         });

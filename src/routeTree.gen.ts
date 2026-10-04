@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AlertsRouteImport } from './routes/alerts'
 import { Route as ConflictRouteImport } from './routes/conflict'
 import { Route as IncidentsRouteImport } from './routes/incidents'
 import { Route as PatrolRouteImport } from './routes/patrol'
@@ -18,6 +19,11 @@ import { Route as ReportsRouteImport } from './routes/reports'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AlertsRoute = AlertsRouteImport.update({
+  id: '/alerts',
+  path: '/alerts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConflictRoute = ConflictRouteImport.update({
@@ -43,6 +49,7 @@ const ReportsRoute = ReportsRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/alerts': typeof AlertsRoute
   '/conflict': typeof ConflictRoute
   '/incidents': typeof IncidentsRoute
   '/patrol': typeof PatrolRoute
@@ -50,6 +57,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/alerts': typeof AlertsRoute
   '/conflict': typeof ConflictRoute
   '/incidents': typeof IncidentsRoute
   '/patrol': typeof PatrolRoute
@@ -58,6 +66,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/alerts': typeof AlertsRoute
   '/conflict': typeof ConflictRoute
   '/incidents': typeof IncidentsRoute
   '/patrol': typeof PatrolRoute
@@ -65,14 +74,23 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/conflict' | '/incidents' | '/patrol' | '/reports'
+  fullPaths:
+    '/' | '/alerts' | '/conflict' | '/incidents' | '/patrol' | '/reports'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/conflict' | '/incidents' | '/patrol' | '/reports'
-  id: '__root__' | '/' | '/conflict' | '/incidents' | '/patrol' | '/reports'
+  to: '/' | '/alerts' | '/conflict' | '/incidents' | '/patrol' | '/reports'
+  id:
+    | '__root__'
+    | '/'
+    | '/alerts'
+    | '/conflict'
+    | '/incidents'
+    | '/patrol'
+    | '/reports'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AlertsRoute: typeof AlertsRoute
   ConflictRoute: typeof ConflictRoute
   IncidentsRoute: typeof IncidentsRoute
   PatrolRoute: typeof PatrolRoute
@@ -86,6 +104,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/alerts': {
+      id: '/alerts'
+      path: '/alerts'
+      fullPath: '/alerts'
+      preLoaderRoute: typeof AlertsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/conflict': {
@@ -121,6 +146,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AlertsRoute: AlertsRoute,
   ConflictRoute: ConflictRoute,
   IncidentsRoute: IncidentsRoute,
   PatrolRoute: PatrolRoute,

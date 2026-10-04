@@ -67,7 +67,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
-        <p className="px-5 py-4 font-mono text-[10px] text-subtle">Yala · RT-07</p>
+        <p className="px-5 py-4 font-mono text-[10px] text-subtle">Yala · NB-03</p>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">

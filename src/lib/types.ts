@@ -24,6 +24,10 @@ export interface Patrol {
   completedAt?: string;
   syncState: SyncState;
   waypoints: Waypoint[];
+  /** Total PatrolPositions recorded (GPS + manual) during the patrol (UC01). */
+  positions?: number;
+  /** Patrol coverage achieved for the route, percent (UC01). */
+  coveragePct?: number;
 }
 
 export interface Incident {
@@ -48,11 +52,31 @@ export interface Officer {
 export interface Alert {
   alertId: string;
   animal: string;
+  /** GPS tracking collar id, e.g. EL-07 (UC03). */
+  collar?: string;
   zone: string;
   observedAt: string;
   receivedAt: string;
   confidence: "High" | "Medium" | "Low";
   status: AlertStatus;
+  acknowledgedAt?: string;
+  resolvedAt?: string;
+  outcome?: string;
+  resolutionNote?: string;
+}
+
+/** UC04 — community human-wildlife conflict report. */
+export interface ConflictReport {
+  reportId: string;
+  type: string;
+  location: string;
+  channel: "Mobile App" | "SMS";
+  description: string;
+  status: "SUBMITTED" | "RESPONDED";
+  highPriority: boolean;
+  receivedAt: string;
+  respondedAt?: string;
+  syncState: SyncState;
 }
 
 export interface Assignment {

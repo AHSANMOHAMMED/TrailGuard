@@ -1,187 +1,420 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { AppShell, SyncBadge } from "@/components/app-shell";
-import { Card, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
+import { Check, Info } from "lucide-react";
+import {
+  Body,
+  BtnOutline,
+  BtnPrimary,
+  Card,
+  GpsActive,
+  HintCard,
+  OfflineBanner,
+  OnlineBanner,
+  Phone,
+  Pill,
+  Row,
+  RouteMap,
+  ScreenHeader,
+  SuccessCheck,
+  Tile,
+} from "@/components/field";
+import { ConnectivityToggle } from "@/components/connectivity-toggle";
 import { useField, ROUTE_META } from "@/lib/store";
-import { Can, DeniedNote } from "@/components/role-switcher";
 import { fmtClock } from "@/lib/utils";
-import { toast } from "sonner";
 
 export const Route = createFileRoute("/patrol")({ component: PatrolPage });
 
+/**
+ * UC01-S01 — Conduct Assigned Ranger Patrol.
+ * Screens follow the hi-fi wireframe panels 1–8 (Figure 6):
+ * assigned → in progress (GPS) → manual waypoint (A1) → offline (A2) →
+ * sync restore (A3) → complete confirm → completion summary.
+ */
+
+const COVER_AT = 110; // positions needed for full route coverage (demo pace)
+
+type Phase = "assigned" | "progress" | "waypoint" | "done";
+
 function PatrolPage() {
-  const { patrols, startPatrol, addWaypoint, undoWaypoint, finishPatrol, online } = useField();
-  const active = patrols.find((p) => p.status === "ACTIVE");
-  const latest = patrols[0];
+  const router = useRouter();
+  const { online, startPatrol, addWaypoint, finishPatrol } = useField();
 
-  return (
-    <AppShell>
-      <div className="flex items-center justify-between gap-2">
-        <p className="font-mono text-[11px] uppercase tracking-widest text-muted">UC01</p>
-        {/* R-09: connectivity visible at the point of action */}
-        <Badge tone={online ? "ok" : "warn"}>
-          {online ? "ONLINE" : "OFFLINE — QUEUED LOCALLY"}
-        </Badge>
-      </div>
-      <h1 className="mt-1 text-3xl font-medium tracking-tight">Patrol</h1>
-      <p className="mt-2 text-sm text-muted">
-        Start assigned route, log GPS or manual waypoints, finish locally, then sync one record.
-      </p>
+  const [phase, setPhase] = useState<Phase>("assigned");
+  const [positions, setPositions] = useState(0);
+  const [pendingSync, setPendingSync] = useState(0);
+  const [startedAt, setStartedAt] = useState<string | null>(null);
+  const [elapsedS, setElapsedS] = useState(0);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [waypointSaved, setWaypointSaved] = useState(false);
+  const [syncingBack, setSyncingBack] = useState(false);
+  const [justSynced, setJustSynced] = useState(false);
+  const [completed, setCompleted] = useState<{
+    at: string;
+    positions: number;
+    coverage: number;
+    durationS: number;
+  } | null>(null);
 
-      <Card className="mt-6">
-        <div className="flex items-center justify-between">
-          <CardTitle>Mission profile</CardTitle>
-          <Badge tone={active ? "ok" : "muted"}>{active ? "Active" : "Standby"}</Badge>
-        </div>
-        <p className="mt-3 font-mono text-xl">{ROUTE_META.id}</p>
-        <p className="text-sm text-muted">
-          {ROUTE_META.name} · {ROUTE_META.sector}
-        </p>
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          <Metric k="Distance" v={`${ROUTE_META.distanceKm} km`} />
-          <Metric k="Est. time" v={ROUTE_META.estTime} />
-          <Metric k="Gain" v={`+${ROUTE_META.gainM} m`} />
-        </div>
-      </Card>
+  const progress = Math.min(1, positions / COVER_AT);
+  const covered = progress >= 0.96;
+  const coveragePct = Math.min(96, Math.round(progress * 100));
 
-      <Card className="mt-3">
-        <CardTitle>Pre-patrol checks</CardTitle>
-        <ul className="mt-3 space-y-2 text-sm">
-          <Check ok label="Ranger authorized" value="RN-402 Mercer" />
-          <Check ok label="Offline vector map" value="Park_Sector_04.vmap" />
-          <Check ok label="Device storage" value="14.2 GB free" />
-          <Check ok={false} warn label="Connectivity" value="Field mode allowed" />
-        </ul>
-      </Card>
+  // GPS tick: one PatrolPosition per interval while the patrol is running.
+  const running = phase === "progress" || phase === "waypoint";
+  const onlineRef = useRef(online);
+  onlineRef.current = online;
+  useEffect(() => {
+    if (!running) return;
+    const t = setInterval(() => {
+      setPositions((n) => (n >= COVER_AT ? n : n + 1));
+      setElapsedS((s) => s + 1);
+      if (!onlineRef.current) setPendingSync((n) => n + 1);
+    }, 700);
+    return () => clearInterval(t);
+  }, [running]);
 
-      <Card className="mt-3 overflow-hidden p-0">
-        <div className="px-4 pt-4">
-          <CardTitle>Track</CardTitle>
-        </div>
-        <TrailMap points={active?.waypoints ?? latest?.waypoints ?? []} />
-        <p className="px-4 pb-3 font-mono text-[11px] text-subtle">
-          {(active ?? latest)?.waypoints.length ?? 0} waypoints · source GPS / MANUAL
-        </p>
-      </Card>
+  // A3 — connectivity restored: drain the pending queue, confirm, no re-entry.
+  useEffect(() => {
+    if (!online || pendingSync === 0 || !running) return;
+    setSyncingBack(true);
+    const t = setInterval(() => {
+      setPendingSync((n) => {
+        if (n <= 1) {
+          clearInterval(t);
+          setSyncingBack(false);
+          setJustSynced(true);
+          setTimeout(() => setJustSynced(false), 4000);
+          return 0;
+        }
+        return Math.max(0, n - Math.ceil(n / 3));
+      });
+    }, 350);
+    return () => clearInterval(t);
+  }, [online, running]); // eslint-disable-line react-hooks/exhaustive-deps
 
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-        {!active ? (
-          <Can
-            perm="patrol:start"
-            fallback={
-              <DeniedNote>
-                Starting a patrol is a Ranger action — switch roles in the header.
-              </DeniedNote>
-            }
-          >
-            <Button
-              className="flex-1"
-              onClick={() => {
-                const p = startPatrol();
-                toast.message(`Patrol started ${p.patrolId.slice(0, 8)}`);
-              }}
-            >
-              Start patrol
-            </Button>
-          </Can>
-        ) : (
-          <Can
-            perm="patrol:waypoint"
-            fallback={<DeniedNote>Recording waypoints is a Ranger action.</DeniedNote>}
-          >
-            <>
-              <Button variant="secondary" className="flex-1" onClick={() => addWaypoint("GPS")}>
-                GPS waypoint
-              </Button>
-              <Button
-                variant="secondary"
-                className="flex-1 min-h-16 text-base"
-                onClick={() => {
-                  addWaypoint("MANUAL");
-                  // R-10: easy reversal — undo toast for manual marks
-                  toast.message("Manual mark saved", {
-                    action: { label: "Undo", onClick: () => undoWaypoint() },
-                  });
-                }}
-              >
-                Manual mark
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={() => {
-                  const p = finishPatrol();
-                  toast.message(`Completed · PENDING ${p?.waypoints.length ?? 0} points`);
-                }}
-              >
-                Finish
-              </Button>
-            </>
-          </Can>
-        )}
-      </div>
+  function onStart() {
+    startPatrol();
+    setStartedAt(new Date().toISOString());
+    setPositions(1);
+    setElapsedS(0);
+    setPhase("progress");
+  }
 
-      <h2 className="mt-8 text-sm font-medium text-muted">On device</h2>
-      <ul className="mt-3 space-y-2">
-        {patrols.slice(0, 6).map((p) => (
-          <li key={p.patrolId} className="flex items-center justify-between rounded-lg border border-border bg-surface px-3 py-3">
-            <div>
-              <p className="font-mono text-sm">
-                {p.status} · {p.waypoints.length} pts
-              </p>
-              <p className="text-xs text-muted">{fmtClock(p.startedAt)}</p>
+  function onSaveWaypoint() {
+    addWaypoint("MANUAL");
+    setPositions((n) => n + 1);
+    setWaypointSaved(true);
+    setTimeout(() => {
+      setWaypointSaved(false);
+      setPhase("progress");
+    }, 1200);
+  }
+
+  function onComplete() {
+    const summary = {
+      at: new Date().toISOString(),
+      positions,
+      coverage: coveragePct,
+      durationS: elapsedS,
+    };
+    finishPatrol({ positions, coveragePct });
+    setCompleted(summary);
+    setConfirmOpen(false);
+    setPhase("done");
+  }
+
+  const startedLabel = startedAt ? fmtClock(startedAt) : "";
+  const lat = (8.4123 + progress * 0.0087).toFixed(4);
+  const lng = (80.4021 + progress * 0.0063).toFixed(4);
+
+  /* ---------- Panel 1 · Assigned Patrol Details ---------- */
+  if (phase === "assigned") {
+    return (
+      <Phone>
+        <ScreenHeader title="Assigned Patrol" onBack="home" />
+        <Body>
+          <div className="flex items-center justify-between">
+            <h2 className="text-[20px] font-bold tracking-tight">{ROUTE_META.name}</h2>
+          </div>
+          <Pill tone="progress" className="w-fit">
+            Assigned
+          </Pill>
+          <Card>
+            <Row k="PatrolRoute" v={ROUTE_META.id} strong />
+            <Row k="Distance" v={`${ROUTE_META.distanceKm} km`} strong />
+            <Row k="Assigned" v={ROUTE_META.assignedAt} strong />
+          </Card>
+          <div>
+            <p className="mb-1 text-[12px] font-semibold text-muted">Route preview</p>
+            <RouteMap progress={0} />
+          </div>
+          <Card>
+            <p className="text-[12px] font-semibold text-muted">Patrol Details</p>
+            <p className="mt-1 text-[13px] leading-snug">{ROUTE_META.details}</p>
+          </Card>
+          <div className="mt-auto pt-2">
+            <BtnPrimary onClick={onStart}>Start Patrol</BtnPrimary>
+          </div>
+        </Body>
+      </Phone>
+    );
+  }
+
+  /* ---------- Panel 4 · Manual Waypoint (A1, optional) ---------- */
+  if (phase === "waypoint") {
+    return (
+      <Phone>
+        <ScreenHeader title="Mark Waypoint" onBack={() => setPhase("progress")} />
+        <Body>
+          <p className="flex items-center gap-1.5 text-[12px] font-semibold text-muted">
+            <Info className="size-3.5" /> Optional Flow – Manual Waypoint
+          </p>
+          <RouteMap progress={progress} waypoint />
+          <Card>
+            <p className="text-[12px] font-semibold text-muted">Current position</p>
+            <div className="mt-1 grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-[11px] text-muted">Latitude</p>
+                <p className="text-[16px] font-bold tabular-nums">{lat}° N</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-muted">Longitude</p>
+                <p className="text-[16px] font-bold tabular-nums">{lng}° E</p>
+              </div>
             </div>
-            <SyncBadge state={p.syncState} />
-          </li>
-        ))}
-      </ul>
-    </AppShell>
+            <div className="mt-2 border-t border-border pt-2">
+              <p className="text-[11px] text-muted">Capture Mode</p>
+              <p className="text-[12.5px]">
+                <span className="mr-1.5 rounded bg-accent px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
+                  Manual
+                </span>
+                position captured from device
+              </p>
+            </div>
+          </Card>
+          <p className="text-[11.5px] text-subtle">Manual waypoint – saved to current patrol.</p>
+          <div className="mt-auto flex flex-col gap-2 pt-2">
+            <BtnPrimary onClick={onSaveWaypoint}>Save Waypoint</BtnPrimary>
+            <BtnOutline onClick={() => setPhase("progress")}>Cancel</BtnOutline>
+            {waypointSaved ? (
+              <div className="flex items-center gap-2 rounded-lg border border-ok/40 bg-ok-bg px-3 py-2.5">
+                <span className="flex size-5 items-center justify-center rounded-full bg-ok">
+                  <Check className="size-3 text-white" strokeWidth={3} />
+                </span>
+                <span>
+                  <span className="block text-[13px] font-bold text-ok">Waypoint Saved</span>
+                  <span className="block text-[11.5px] text-ok/80">
+                    Saved to current patrol · Manual waypoint
+                  </span>
+                </span>
+              </div>
+            ) : null}
+          </div>
+        </Body>
+      </Phone>
+    );
+  }
+
+  /* ---------- Panel 8 · Patrol Completion Summary ---------- */
+  if (phase === "done" && completed) {
+    return (
+      <Phone>
+        <ScreenHeader title="Patrol Completed" />
+        <Body className="items-stretch">
+          <div className="pt-2">
+            <SuccessCheck />
+          </div>
+          <div className="text-center">
+            <Pill tone="ok">Completed</Pill>
+            <h2 className="mt-1.5 text-[19px] font-bold">{ROUTE_META.name}</h2>
+            <p className="text-[12px] text-muted">Route {ROUTE_META.id}</p>
+          </div>
+          <Card className="flex items-center gap-4">
+            <CoverageRing pct={completed.coverage} />
+            <div>
+              <p className="text-[11px] text-muted">Patrol Coverage</p>
+              <p className="text-[14px] font-bold">
+                {completed.coverage}% of {ROUTE_META.id} covered
+              </p>
+              <p className="text-[11px] text-subtle">
+                Calculated from {completed.positions} recorded PatrolPositions
+              </p>
+            </div>
+          </Card>
+          <div className="flex gap-2">
+            <Tile k="Completion time" v={fmtClock(completed.at)} />
+            <Tile k="Duration" v={fmtDuration(completed.durationS)} />
+          </div>
+          <div className="flex gap-2">
+            <Tile k="Positions Recorded" v={completed.positions} />
+            <Tile k="Route" v={ROUTE_META.id} />
+          </div>
+          <div>
+            <RouteMap covered height={150} />
+            <p className="mt-1 flex items-center gap-1.5 px-1 text-[11px] text-muted">
+              <svg width="18" height="4" aria-hidden>
+                <line x1="0" y1="2" x2="18" y2="2" stroke="#1f5a43" strokeWidth="3" />
+              </svg>
+              Completed track
+            </p>
+          </div>
+          <div className="mt-auto pt-2">
+            <BtnPrimary onClick={() => router.navigate({ to: "/" })}>Done</BtnPrimary>
+          </div>
+        </Body>
+      </Phone>
+    );
+  }
+
+  /* ---------- Panels 2/3/5/6/7 · Patrol In Progress ---------- */
+  return (
+    <Phone>
+      <ScreenHeader title="Patrol In Progress">
+        <ConnectivityToggle />
+      </ScreenHeader>
+      <Body>
+        {!online ? <OfflineBanner text="Data Stored Locally" /> : null}
+        {online && syncingBack ? <OnlineBanner text="Connection Restored" /> : null}
+
+        <div className="flex items-center justify-between">
+          <Pill tone="progress">In Progress</Pill>
+          <span className="text-[12px] text-muted">
+            Started {startedLabel} · Route {ROUTE_META.id}
+          </span>
+        </div>
+        <GpsActive
+          extra={
+            covered ? (
+              <span className="ml-1 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-ok">
+                <span className="size-1.5 rounded-full bg-ok" aria-hidden /> Route Covered
+              </span>
+            ) : undefined
+          }
+        />
+        <RouteMap progress={progress} />
+        <div className="flex gap-2">
+          <Tile k="Positions Recorded" v={positions} />
+          {!online || pendingSync > 0 ? (
+            <Tile k="Pending Sync" v={pendingSync} />
+          ) : (
+            <Tile k="Elapsed Time" v={fmtDuration(elapsedS)} />
+          )}
+        </div>
+
+        {!online ? (
+          <HintCard>Patrol data will synchronize when connectivity returns.</HintCard>
+        ) : null}
+
+        {online && (syncingBack || justSynced) ? (
+          <Card>
+            <p className="flex items-center gap-1.5 text-[13px] font-semibold">
+              <SyncSpin spinning={syncingBack} />
+              {syncingBack ? "Synchronizing pending data…" : "Synchronization complete"}
+            </p>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-elevated">
+              <div
+                className="h-full rounded-full bg-ok transition-all duration-300"
+                style={{ width: syncingBack ? "60%" : "100%" }}
+              />
+            </div>
+            <div className="mt-1.5 flex items-center justify-between text-[11.5px] text-muted">
+              <span>Pending Sync</span>
+              <span className="font-semibold tabular-nums">{pendingSync}</span>
+            </div>
+            {justSynced ? (
+              <p className="mt-1 flex items-center gap-1.5 text-[12px] font-semibold text-ok">
+                <Check className="size-3.5" strokeWidth={3} />
+                All patrol data synchronized
+                <span className="font-normal text-muted">· No re-entry needed</span>
+              </p>
+            ) : null}
+          </Card>
+        ) : null}
+
+        <div className="mt-auto flex flex-col gap-2 pt-2">
+          <BtnOutline onClick={() => setPhase("waypoint")}>Mark Waypoint</BtnOutline>
+          <BtnPrimary
+            disabled={!covered}
+            caption={covered ? undefined : "Available when route is covered"}
+            onClick={() => setConfirmOpen(true)}
+          >
+            Complete Patrol
+          </BtnPrimary>
+        </div>
+      </Body>
+
+      {/* Panel 7 · Complete Patrol confirmation sheet */}
+      {confirmOpen ? (
+        <div className="absolute inset-0 z-10 flex flex-col justify-end bg-fg/40 md:rounded-[30px]">
+          <div className="rounded-t-3xl bg-surface p-4 pb-6 shadow-2xl">
+            <h3 className="text-[17px] font-bold">Complete this patrol?</h3>
+            <Card className="mt-3">
+              <p className="text-[14px] font-bold">Route {ROUTE_META.id}</p>
+              <p className="text-[12px] text-muted">
+                {positions} positions · {fmtDuration(elapsedS)}
+              </p>
+            </Card>
+            <p className="mt-2 text-[12px] text-muted">Patrol Coverage will be calculated.</p>
+            <div className="mt-3 flex gap-2">
+              <div className="flex-1">
+                <BtnOutline onClick={() => setConfirmOpen(false)}>Cancel</BtnOutline>
+              </div>
+              <div className="flex-1">
+                <BtnPrimary onClick={onComplete}>Complete Patrol</BtnPrimary>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </Phone>
   );
 }
 
-function Metric({ k, v }: { k: string; v: string }) {
+function fmtDuration(totalS: number) {
+  const h = Math.floor(totalS / 3600);
+  const m = Math.floor((totalS % 3600) / 60);
+  const s = totalS % 60;
+  if (h > 0) return `${h} h ${String(m).padStart(2, "0")} m`;
+  if (m > 0) return `${m} m ${String(s).padStart(2, "0")} s`;
+  return `${s} s`;
+}
+
+function CoverageRing({ pct }: { pct: number }) {
+  const r = 26;
+  const c = 2 * Math.PI * r;
   return (
-    <div className="rounded-md bg-elevated px-3 py-2">
-      <p className="font-mono text-[10px] uppercase text-subtle">{k}</p>
-      <p className="font-mono text-sm">{v}</p>
-    </div>
+    <svg width="68" height="68" viewBox="0 0 68 68" aria-label={`${pct}% coverage`} role="img">
+      <circle cx="34" cy="34" r={r} fill="none" stroke="#e3ebe3" strokeWidth="7" />
+      <circle
+        cx="34"
+        cy="34"
+        r={r}
+        fill="none"
+        stroke="#2e7d50"
+        strokeWidth="7"
+        strokeLinecap="round"
+        strokeDasharray={`${(pct / 100) * c} ${c}`}
+        transform="rotate(-90 34 34)"
+      />
+      <text x="34" y="39" textAnchor="middle" fontSize="15" fontWeight="700" fill="#16281e">
+        {pct}%
+      </text>
+    </svg>
   );
 }
 
-function Check({ ok, warn, label, value }: { ok: boolean; warn?: boolean; label: string; value: string }) {
+function SyncSpin({ spinning }: { spinning: boolean }) {
   return (
-    <li className="flex items-center justify-between gap-2">
-      <span className="text-fg">{label}</span>
-      <span className={warn ? "font-mono text-xs text-warn" : "font-mono text-xs text-ok"}>
-        {ok || warn ? value : value}
-      </span>
-    </li>
-  );
-}
-
-function TrailMap({ points }: { points: { lat: number; lng: number }[] }) {
-  const w = 640;
-  const h = 180;
-  const path =
-    points.length > 1
-      ? points
-          .map((p, i) => {
-            const x = 24 + (i / Math.max(points.length - 1, 1)) * (w - 48);
-            const y = h - 36 - ((p.lat - 6.4) / 0.04) * 80;
-            return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${Math.min(h - 20, Math.max(20, y)).toFixed(1)}`;
-          })
-          .join(" ")
-      : "";
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="mt-2 h-40 w-full text-accent" aria-label="Patrol track">
-      <rect x="0" y="0" width={w} height={h} fill="transparent" />
-      <path d="M0 140 Q160 100 320 120 T640 90" fill="none" stroke="currentColor" strokeOpacity="0.15" strokeWidth="8" />
-      {path && <path d={path} fill="none" stroke="currentColor" strokeWidth="2.5" />}
-      {points.map((p, i) => {
-        const x = 24 + (i / Math.max(points.length - 1, 1)) * (w - 48);
-        const y = h - 36 - ((p.lat - 6.4) / 0.04) * 80;
-        return <circle key={i} cx={x} cy={Math.min(h - 20, Math.max(20, y))} r="3.5" fill="currentColor" />;
-      })}
+    <svg
+      viewBox="0 0 24 24"
+      className={spinning ? "size-4 animate-spin text-accent" : "size-4 text-ok"}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      aria-hidden
+    >
+      <path d="M21 12a9 9 0 1 1-2.6-6.4" strokeLinecap="round" />
+      <path d="M21 3v5h-5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

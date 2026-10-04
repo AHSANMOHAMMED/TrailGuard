@@ -20,9 +20,9 @@
  * `process.env`, which is why the merge has to happen before Vite starts.
  */
 import { spawn } from "node:child_process";
-import { readFileSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { constants as osConstants } from "node:os";
-import { dirname, join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const APP_ENV_REL_PATH = ".grok/app-env.json";
@@ -104,6 +104,46 @@ export function isMainModule(moduleUrl) {
   }
 }
 
+export function resolveCommand(command, env = process.env) {
+  if (process.platform !== "win32") return command;
+
+  const hasPathSeparator = command.includes("/") || command.includes("\\");
+  const hasExplicitExtension = command.includes(".");
+  if (hasPathSeparator || hasExplicitExtension) return command;
+
+  const pathEntries = (env.PATH || "").split(delimiter).filter(Boolean);
+  const extensions = (env.PATHEXT || ".COM;.EXE;.BAT;.CMD").split(";").filter(Boolean);
+
+  for (const entry of pathEntries) {
+    const fullPath = join(entry, command);
+    for (const ext of extensions) {
+      const candidate = `${fullPath}${ext}`;
+      if (existsSync(candidate)) return candidate;
+    }
+    if (existsSync(fullPath)) return fullPath;
+  }
+
+  return command;
+}
+
+export function spawnCommand(command, args, options = {}) {
+  const resolved = resolveCommand(command, options.env || process.env);
+  const isCmdShim = /\.(cmd|bat)$/i.test(resolved);
+
+  if (process.platform === "win32" && isCmdShim) {
+    // cmd.exe needs the shim path quoted (install dirs can contain spaces) and
+    // the whole line wrapped once for `/s`; verbatim args stop node re-quoting.
+    const quote = (s) => (/[\s"]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
+    const line = [resolved, ...args].map(quote).join(" ");
+    return spawn("cmd.exe", ["/d", "/s", "/c", `"${line}"`], {
+      ...options,
+      windowsVerbatimArguments: true,
+    });
+  }
+
+  return spawn(resolved, args, options);
+}
+
 function main(argv) {
   const [command, ...args] = argv;
   if (!command) {
@@ -111,7 +151,10 @@ function main(argv) {
     process.exit(2);
   }
   const env = mergeAppEnv(readAppEnv(projectRoot()), process.env);
-  const child = spawn(command, args, { stdio: "inherit", env });
+  const child = spawnCommand(command, args, {
+    stdio: "inherit",
+    env,
+  });
   // The dev server is long-running and is stopped by signalling this wrapper.
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
     process.on(signal, () => child.kill(signal));
