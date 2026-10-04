@@ -1,5 +1,4 @@
 import type {
-  Alert,
   IncidentReport,
   Patrol,
   PhotoAttachment,

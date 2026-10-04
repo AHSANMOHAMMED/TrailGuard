@@ -17,11 +17,18 @@ import {
   SuccessCheck,
 } from "@/components/field";
 import { ConnectivityToggle } from "@/components/connectivity-toggle";
+import { Guard } from "@/components/auth-gate";
 import { useField } from "@/lib/store";
 import { fmtClock } from "@/lib/utils";
 import type { ConflictReport } from "@/lib/types";
 
-export const Route = createFileRoute("/conflict")({ component: ConflictPage });
+export const Route = createFileRoute("/conflict")({
+  component: () => (
+    <Guard area="conflict">
+      <ConflictPage />
+    </Guard>
+  ),
+});
 
 /**
  * UC04-S01 — Manage Human-Wildlife Conflict Reports.

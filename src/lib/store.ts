@@ -2,10 +2,8 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type {
   Alert,
-  Assignment,
   ConflictReport,
   Incident,
-  Officer,
   Patrol,
   ReportSnapshot,
   Waypoint,
@@ -23,12 +21,6 @@ const ROUTE = {
   assignedAt: "06:30 today",
   details: "Northern park boundary, 7.4 km loop. Return to NB gate on completion.",
 };
-
-const SEED_OFFICERS: Officer[] = [
-  { officerId: "off-mercer", name: "RN-402 Mercer", role: "RANGER", available: false },
-  { officerId: "off-silva", name: "Ranger Silva", role: "RANGER", available: true },
-  { officerId: "off-fernando", name: "Liaison Fernando", role: "LIAISON", available: true },
-];
 
 function seedSynced(): { patrols: Patrol[]; incidents: Incident[] } {
   const t0 = new Date("2026-08-12T06:10:00Z").toISOString();
@@ -101,14 +93,11 @@ interface FieldState {
   patrols: Patrol[];
   incidents: Incident[];
   alerts: Alert[];
-  assignments: Assignment[];
-  officers: Officer[];
   conflicts: ConflictReport[];
   snapshot: ReportSnapshot | null;
   setOnline: (v: boolean) => void;
   startPatrol: () => Patrol;
   addWaypoint: (source: "GPS" | "MANUAL") => Waypoint | null;
-  undoWaypoint: () => void;
   finishPatrol: (summary?: { positions: number; coveragePct: number }) => Patrol | null;
   createIncident: (input: {
     type: string;
@@ -116,9 +105,6 @@ interface FieldState {
     locationSource: "GPS" | "MANUAL";
     hasPhoto: boolean;
   }) => Incident;
-  ingestCollar: () => Alert | null;
-  assignOfficer: (alertId: string, officerId: string) => Assignment | null;
-  acknowledge: (raId: string) => void;
   /** UC03 — ranger acknowledges a risk alert (NEW → ACKNOWLEDGED). */
   ackAlert: (alertId: string) => void;
   /** UC03 — close the alert with an outcome (ACKNOWLEDGED → RESOLVED). */
@@ -149,7 +135,6 @@ export const useField = create<FieldState>()(
       lastSyncAt: "2026-08-31T06:12:00Z",
       patrols: seeded.patrols,
       incidents: seeded.incidents,
-      officers: SEED_OFFICERS,
       snapshot: null,
       alerts: [
         {
@@ -163,7 +148,6 @@ export const useField = create<FieldState>()(
           status: "OPEN",
         },
       ],
-      assignments: [],
       conflicts: [],
       setOnline: (v) => set({ online: v }),
       activePatrol: () => get().patrols.find((p) => p.status === "ACTIVE"),
@@ -209,16 +193,6 @@ export const useField = create<FieldState>()(
         });
         return wp;
       },
-      /** One-tap undo for the last manual mark (R-10: easy reversal). */
-      undoWaypoint: () => {
-        const active = get().activePatrol();
-        if (!active || active.waypoints.length === 0) return;
-        set({
-          patrols: get().patrols.map((p) =>
-            p.patrolId === active.patrolId ? { ...p, waypoints: p.waypoints.slice(0, -1) } : p,
-          ),
-        });
-      },
       finishPatrol: (summary) => {
         const active = get().activePatrol();
         if (!active) return null;
@@ -250,61 +224,6 @@ export const useField = create<FieldState>()(
         };
         set({ incidents: [ir, ...get().incidents] });
         return ir;
-      },
-      ingestCollar: () => {
-        const openSame = get().alerts.find(
-          (a) => a.animal === "Elephant" && a.zone === "Z3 Farmland" && a.status !== "CLOSED",
-        );
-        if (openSame) {
-          const updated = {
-            ...openSame,
-            receivedAt: new Date().toISOString(),
-          };
-          set({
-            alerts: get().alerts.map((a) => (a.alertId === openSame.alertId ? updated : a)),
-          });
-          return updated;
-        }
-        const alert: Alert = {
-          alertId: `AL-${Math.floor(20 + Math.random() * 80)}`,
-          animal: "Elephant",
-          zone: "Z3 Farmland",
-          observedAt: new Date().toISOString(),
-          receivedAt: new Date().toISOString(),
-          confidence: "High",
-          status: "OPEN",
-        };
-        set({ alerts: [alert, ...get().alerts] });
-        return alert;
-      },
-      assignOfficer: (alertId, officerId) => {
-        const officer = get().officers.find((o) => o.officerId === officerId);
-        if (!officer) return null;
-        const ra: Assignment = {
-          raId: uid(),
-          alertId,
-          officerId,
-          officerName: officer.name,
-          deliveryState: get().online ? "SENT" : "FAILED",
-          createdAt: new Date().toISOString(),
-        };
-        set({
-          assignments: [ra, ...get().assignments],
-          alerts: get().alerts.map((a) =>
-            a.alertId === alertId ? { ...a, status: "ASSIGNED" } : a,
-          ),
-          officers: get().officers.map((o) =>
-            o.officerId === officerId ? { ...o, available: false } : o,
-          ),
-        });
-        return ra;
-      },
-      acknowledge: (raId) => {
-        set({
-          assignments: get().assignments.map((a) =>
-            a.raId === raId ? { ...a, acknowledgedAt: new Date().toISOString() } : a,
-          ),
-        });
       },
       ackAlert: (alertId) => {
         set({

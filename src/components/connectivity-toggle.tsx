@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
  * flips the simulated device connectivity so the OFFLINE/ONLINE states can be
  * exercised without leaving coverage.
  */
-export function ConnectivityToggle({ labelled }: { labelled?: boolean }) {
+export function ConnectivityToggle() {
   const { online, setOnline } = useField();
   return (
     <button
@@ -21,7 +21,7 @@ export function ConnectivityToggle({ labelled }: { labelled?: boolean }) {
       )}
     >
       {online ? <Wifi className="size-3.5" /> : <CloudOff className="size-3.5" />}
-      {labelled ? (online ? "Online" : "Offline") : online ? "Online" : "Offline"}
+      {online ? "Online" : "Offline"}
     </button>
   );
 }

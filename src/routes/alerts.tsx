@@ -1,11 +1,12 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Check, UserRound } from "lucide-react";
+import { UserRound } from "lucide-react";
 import {
   Body,
   BtnOutline,
   BtnPrimary,
   Card,
+  ConfirmNote,
   HintCard,
   Phone,
   Pill,
@@ -18,9 +19,16 @@ import {
   Tile,
 } from "@/components/field";
 import { useField } from "@/lib/store";
+import { Guard } from "@/components/auth-gate";
 import { fmtClock } from "@/lib/utils";
 
-export const Route = createFileRoute("/alerts")({ component: AlertsPage });
+export const Route = createFileRoute("/alerts")({
+  component: () => (
+    <Guard area="alerts">
+      <AlertsPage />
+    </Guard>
+  ),
+});
 
 /**
  * UC03-S01 — Monitor Tracked Wildlife and Manage Risk Alerts.
@@ -59,7 +67,7 @@ function AlertsPage() {
   // The demo collar feed raises a fresh alert if the previous one was closed.
   useEffect(() => {
     if (!alert || alert.status === "CLOSED") resetAlert();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [alert, resetAlert]);
 
   if (!alert) return null;
   const detected = fmtClock(alert.receivedAt);
@@ -157,17 +165,7 @@ function AlertsPage() {
             <Pill tone="progress">Acknowledged</Pill>
           </div>
           <RiskMap approach={0.15} />
-          <div className="flex items-center gap-2 rounded-lg border border-ok/40 bg-ok-bg px-3 py-2.5">
-            <span className="flex size-5 items-center justify-center rounded-full bg-ok">
-              <Check className="size-3 text-white" strokeWidth={3} />
-            </span>
-            <span>
-              <span className="block text-[13px] font-bold text-ok">ACKNOWLEDGED</span>
-              <span className="block text-[11.5px] text-ok/80">
-                You are now responding to this alert
-              </span>
-            </span>
-          </div>
+          <ConfirmNote title="ACKNOWLEDGED" sub="You are now responding to this alert" />
           <Card>
             <Row k="Animal" v={`${alert.animal} · ${alert.collar}`} strong />
             <Row k="Zone" v={alert.zone} strong />

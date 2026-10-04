@@ -7,11 +7,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useField } from "@/lib/store";
 import { Can, DeniedNote } from "@/components/role-switcher";
+import { Guard } from "@/components/auth-gate";
 import { downloadText, fmtTime } from "@/lib/utils";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/reports")({ component: ReportsPage });
+export const Route = createFileRoute("/reports")({
+  component: () => (
+    <Guard area="reports">
+      <ReportsPage />
+    </Guard>
+  ),
+});
 
 function ReportsPage() {
   const { snapshot, generateReport, incidents } = useField();
@@ -48,8 +55,8 @@ function ReportsPage() {
       <p className="font-mono text-[11px] uppercase tracking-widest text-muted">UC04</p>
       <h1 className="mt-1 text-3xl font-medium tracking-tight">Reports</h1>
       <p className="mt-2 text-sm text-muted">
-        One consistent snapshot of synced records. Pending field writes are excluded. Export uses the
-        same snapshot id.
+        One consistent snapshot of synced records. Pending field writes are excluded. Export uses
+        the same snapshot id.
       </p>
 
       <Card className="mt-6">
@@ -65,26 +72,40 @@ function ReportsPage() {
             </div>
           }
         >
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <div>
-            <Label htmlFor="from">From</Label>
-            <Input id="from" type="date" className="mt-2" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="from">From</Label>
+              <Input
+                id="from"
+                type="date"
+                className="mt-2"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="to">To</Label>
+              <Input
+                id="to"
+                type="date"
+                className="mt-2"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+              />
+            </div>
           </div>
-          <div>
-            <Label htmlFor="to">To</Label>
-            <Input id="to" type="date" className="mt-2" value={to} onChange={(e) => setTo(e.target.value)} />
-          </div>
-        </div>
-        <p className="mt-3 text-xs text-subtle">Park: Yala National Park · pending excluded: {pendingExcluded}</p>
-        <Button
-          className="mt-4 w-full"
-          onClick={() => {
-            generateReport(from, to);
-            toast.message("Snapshot generated");
-          }}
-        >
-          Generate report
-        </Button>
+          <p className="mt-3 text-xs text-subtle">
+            Park: Yala National Park · pending excluded: {pendingExcluded}
+          </p>
+          <Button
+            className="mt-4 w-full"
+            onClick={() => {
+              generateReport(from, to);
+              toast.message("Snapshot generated");
+            }}
+          >
+            Generate report
+          </Button>
         </Can>
       </Card>
 
@@ -121,7 +142,12 @@ function ReportsPage() {
             <p className="mt-3 font-mono text-[11px] text-subtle">
               {snapshot.reportId.slice(0, 8)} · cutoff {fmtTime(snapshot.cutoff)}
             </p>
-            <Can perm="report:export" fallback={<DeniedNote>Export is restricted to Manager and Researcher roles.</DeniedNote>}>
+            <Can
+              perm="report:export"
+              fallback={
+                <DeniedNote>Export is restricted to Manager and Researcher roles.</DeniedNote>
+              }
+            >
               <Button variant="secondary" className="mt-3 w-full" onClick={exportCsv}>
                 Export CSV
               </Button>
