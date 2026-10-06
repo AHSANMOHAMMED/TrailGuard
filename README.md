@@ -28,6 +28,9 @@ Screens, flows and routes:
   acknowledge → respond → coordination → resolve → resolved)
 - `/conflict` — **UC04** Manage Human-Wildlife Conflict Reports (channel →
   details → review → offline conditional → submitted → staff review → responded)
+- `/radio` — **Field Radio** push-to-talk over the park VHF channel plan (hold to
+  talk → voice note or text callout → channel log; queued transmissions forward
+  when coverage returns)
 
 The header wifi pill simulates connectivity so the offline alternative flows
 can be demonstrated. Underneath, the same offline-first domain rules apply
@@ -45,13 +48,35 @@ that report):
   (covered track km ÷ assigned route km), 92-day window cap, CSV export of the same
   snapshot id.
 - **Role-based sign-in** — five actors (Ranger, Community Liaison Officer, Park
-  Manager, Researcher, Community Member) sign in with a 4-digit field PIN
-  (`src/lib/auth-store.ts`; demo PINs are shown on the login screen). Sign-in is
-  on-device and instant, matching the offline-first contract. Every route is
-  wrapped in a `Guard` (`src/components/auth-gate.tsx`): actors only reach the
-  use cases they are associated with on the A01 use case diagram; others see an
-  explanatory access-restricted screen. The finer permission matrix
-  (`src/lib/domain/roles.ts`) still gates actions inside the legacy ops desk.
+  Manager, Researcher, Community Member) sign in with a private 4-digit field
+  PIN (`src/lib/auth-store.ts`); five wrong attempts lock sign-in for 60 s and
+  the PINs are never printed in the UI. Sign-in is on-device and instant,
+  matching the offline-first contract. Every route is wrapped in a `Guard`
+  (`src/components/auth-gate.tsx`): actors only reach the use cases they are
+  associated with on the A01 use case diagram; others see an explanatory
+  access-restricted screen. The permission matrix (`src/lib/domain/roles.ts`)
+  gates actions inside the ops desk from the signed-in session.
+
+#### Evaluator PINs
+
+PINs are credentials, so they live here (and in the viva notes), not on screen:
+
+| Actor | Persona | PIN | Access |
+|---|---|---|---|
+| Ranger | RN-402 Mercer | `4021` | Patrol · Incidents · Alerts · Conflict · Radio |
+| Community Liaison Officer | Liaison Fernando | `7312` | Alerts · Conflict · Radio |
+| Park Manager | Mgr. Perera | `8450` | Alerts · Reports · Radio |
+| Researcher | Dr. Jayawardena | `5260` | Reports |
+| Community Member | K. Bandara, Nagoda | `1111` | Conflict |
+
+#### Field Radio
+
+Push-to-talk voice and text over three channels — Operations `140.2000 MHz`,
+Emergency `141.3000 MHz`, Community `142.8000 MHz`. Hold the talk key to
+record (device microphone via MediaRecorder), release to transmit; clips
+play back from the channel log. Transmissions follow the same offline-first
+contract as every other record: acked `SYNCED` under coverage, queued
+`PENDING` in a dead zone, auto-forwarded on the next synchronisation.
 
 ### Run it
 
@@ -78,8 +103,8 @@ npm run build                   # production build (Vercel preset via Nitro)
 src/lib/domain/     Domain layer (framework-free): enums, model, transitions,
                     idempotency, reporting, sync-service, ports, roles
 src/lib/store.ts    Zustand field-store adapter (persists to the device)
-src/lib/role-store.ts  Acting-role state (RBAC)
-src/routes/         / (ops desk) · /patrol · /incidents · /conflict · /reports
+src/routes/         / (field desk) · /patrol · /incidents · /alerts · /conflict ·
+                    /radio · /reports
 artifacts/a02/      A02 group deliverables (report, diagrams, scenarios, tests plan)
 ```
 
