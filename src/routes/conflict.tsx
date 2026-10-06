@@ -1,6 +1,16 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { Check, MapPin, MessageSquare, Smartphone, Sprout, Wifi } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  Check,
+  ChevronRight,
+  LayoutDashboard,
+  MapPin,
+  MessageSquare,
+  Smartphone,
+  Sprout,
+  TriangleAlert,
+  Wifi,
+} from "lucide-react";
 import {
   Body,
   BtnOutline,
@@ -18,9 +28,9 @@ import {
 } from "@/components/field";
 import { ConnectivityToggle } from "@/components/connectivity-toggle";
 import { Guard } from "@/components/auth-gate";
+import { useAuth } from "@/lib/auth-store";
 import { useField } from "@/lib/store";
 import { fmtClock } from "@/lib/utils";
-import type { ConflictReport } from "@/lib/types";
 
 export const Route = createFileRoute("/conflict")({
   component: () => (
@@ -31,67 +41,108 @@ export const Route = createFileRoute("/conflict")({
 });
 
 /**
- * UC04-S01 — Manage Human-Wildlife Conflict Reports.
- * Screens follow the hi-fi wireframe panels 1–8 (Figure 18): community
- * report → channel → details → review → offline conditional → submitted →
- * staff review → response recorded.
+ * UC04-S01 — Manage Human-Wildlife Conflict Reports (full scenario coverage).
+ *
+ * Main flow 1–13: report via app/SMS → system validates → report stored →
+ * operations dashboard → staff review → response → status update.
+ * Alternate flows: Mobile App · SMS short code · Multiple Reports (dashboard
+ * lists every report separately and flags possible conflict patterns).
+ * Exception flows: No Connectivity (stored locally, auto-sync) · Incomplete
+ * Report (system identifies and prompts for missing fields) · System Error
+ * (report is NOT marked submitted until processed; retry) · Dashboard
+ * Unavailable (report kept; appears when the connection is restored).
+ * UI follows the hi-fi wireframe (Figure 18) design system.
  */
 
 const TYPES = ["Elephant Sighting", "Crop Raiding", "Other Conflict"];
 const DEFAULT_LOCATION = "Nagoda east field, near the canal";
+const SMS_SHORT_CODE = "7444";
 
 type Step =
   | "intro"
   | "channel"
   | "details"
   | "review"
+  | "processing"
   | "offline"
   | "submitted"
+  | "dashboard"
   | "staffReview"
   | "responded";
 
 function ConflictPage() {
   const router = useRouter();
-  const { online, createConflict, respondConflict, markConflictSynced } = useField();
+  const session = useAuth((s) => s.session);
+  const { online, conflicts, createConflict, respondConflict, markConflictSynced } = useField();
 
   const [step, setStep] = useState<Step>("intro");
   const [channel, setChannel] = useState<"Mobile App" | "SMS">("Mobile App");
   const [type, setType] = useState<string | null>(null);
   const [location, setLocation] = useState(DEFAULT_LOCATION);
   const [description, setDescription] = useState("");
-  const [report, setReport] = useState<ConflictReport | null>(null);
+  /** Incomplete-report exception: show what the system identified as missing. */
+  const [showMissing, setShowMissing] = useState(false);
+  /** System-error exception: processing failed; nothing was submitted. */
+  const [procFailed, setProcFailed] = useState(false);
+  const failRequested = useRef(false);
+  const [checks, setChecks] = useState(0);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [wasOffline, setWasOffline] = useState(false);
   const [syncingNow, setSyncingNow] = useState(false);
 
-  // Panel 5 → 6 — connectivity returns while the report is stored locally.
+  const selected = conflicts.find((c) => c.reportId === selectedId) ?? null;
+  const isStaff = session?.role === "RANGER" || session?.role === "LIAISON";
+
+  const missing = [
+    !type ? "Conflict type" : null,
+    location.trim().length === 0 ? "Incident location" : null,
+    description.trim().length === 0 ? "Short description" : null,
+  ].filter((m): m is string => m !== null);
+
+  // Step 7 — the system validates, creates and stores the report. The record
+  // is only created at the end: on a system error nothing is submitted.
   useEffect(() => {
-    if (step !== "offline" || !online || !report) return;
+    if (step !== "processing" || procFailed) return;
+    setChecks(0);
+    failRequested.current = false;
+    const t = setInterval(() => setChecks((c) => c + 1), 380);
+    const done = setTimeout(() => {
+      clearInterval(t);
+      if (failRequested.current) {
+        setProcFailed(true);
+        return;
+      }
+      const r = createConflict({
+        type: type ?? "Other Conflict",
+        location,
+        channel,
+        description,
+      });
+      setSelectedId(r.reportId);
+      if (online) {
+        setStep("submitted");
+      } else {
+        setWasOffline(true);
+        setStep("offline");
+      }
+    }, 2100);
+    return () => {
+      clearInterval(t);
+      clearTimeout(done);
+    };
+  }, [step, procFailed, online, type, location, channel, description, createConflict]);
+
+  // No-connectivity exception → connectivity returns while stored locally.
+  useEffect(() => {
+    if (step !== "offline" || !online || !selected) return;
     setSyncingNow(true);
     const t = setTimeout(() => {
-      markConflictSynced(report.reportId);
+      markConflictSynced(selected.reportId);
       setSyncingNow(false);
       setStep("submitted");
     }, 1500);
     return () => clearTimeout(t);
-  }, [step, online, report, markConflictSynced]);
-
-  function onSubmit() {
-    const r = createConflict({
-      type: type ?? "Other Conflict",
-      location,
-      channel,
-      description,
-    });
-    setReport(r);
-    if (online) {
-      setStep("submitted");
-    } else {
-      setWasOffline(true);
-      setStep("offline");
-    }
-  }
-
-  const receivedLabel = report ? fmtClock(report.receivedAt) : "";
+  }, [step, online, selected, markConflictSynced]);
 
   /* ---------- Panel 1 · Report Wildlife Conflict ---------- */
   if (step === "intro") {
@@ -131,16 +182,26 @@ function ConflictPage() {
               </Card>
             </div>
           </div>
-          <p className="text-[11.5px] text-subtle">Reports can also be sent by SMS.</p>
-          <div className="mt-auto pt-2">
+          <p className="text-[11.5px] text-subtle">
+            Reports can also be sent by SMS to short code {SMS_SHORT_CODE}.
+          </p>
+          <div className="mt-auto flex flex-col gap-2 pt-2">
             <BtnPrimary onClick={() => setStep("channel")}>Start Report</BtnPrimary>
+            {isStaff ? (
+              <BtnOutline onClick={() => setStep("dashboard")}>
+                <span className="inline-flex items-center gap-2">
+                  <LayoutDashboard className="size-4" strokeWidth={2} />
+                  Operations Dashboard ({conflicts.length})
+                </span>
+              </BtnOutline>
+            ) : null}
           </div>
         </Body>
       </Phone>
     );
   }
 
-  /* ---------- Panel 2 · Reporting Channel ---------- */
+  /* ---------- Panel 2 · Reporting Channel (alternate flows) ---------- */
   if (step === "channel") {
     return (
       <Phone>
@@ -161,7 +222,7 @@ function ConflictPage() {
           />
           <RadioRow
             label="SMS"
-            sub="Text the details to the short code"
+            sub={`Text the details to short code ${SMS_SHORT_CODE}`}
             icon={<MessageSquare className="size-4" strokeWidth={2} />}
             selected={channel === "SMS"}
             onSelect={() => setChannel("SMS")}
@@ -176,7 +237,7 @@ function ConflictPage() {
     );
   }
 
-  /* ---------- Panel 3 · Conflict Details ---------- */
+  /* ---------- Panel 3 · Conflict Details (+ Incomplete Report exception) ---------- */
   if (step === "details") {
     return (
       <Phone>
@@ -188,6 +249,8 @@ function ConflictPage() {
               <RadioRow key={t} label={t} selected={type === t} onSelect={() => setType(t)} />
             ))}
           </div>
+          {showMissing && !type ? <FieldError text="Please select a conflict type." /> : null}
+
           <p className="text-[13px] font-semibold">Incident Location</p>
           <div>
             <PinMap height={110} pinLabel="" caption="tap to move the pin" />
@@ -201,6 +264,10 @@ function ConflictPage() {
               />
             </div>
           </div>
+          {showMissing && location.trim().length === 0 ? (
+            <FieldError text="Please provide the incident location." />
+          ) : null}
+
           <div>
             <p className="mb-1 text-[13px] font-semibold">Short Description</p>
             <textarea
@@ -212,13 +279,37 @@ function ConflictPage() {
             />
             <p className="text-right text-[11px] text-subtle">{description.length} / 160</p>
           </div>
-          <HintCard>
-            By SMS: text the conflict type, location and description to the configured short code.
-          </HintCard>
+          {showMissing && description.trim().length === 0 ? (
+            <FieldError text="Please enter a short description." />
+          ) : null}
+
+          {showMissing && missing.length > 0 ? (
+            <div className="rounded-lg border border-danger/40 bg-danger-bg px-3 py-2.5 text-[12.5px] text-danger">
+              <p className="flex items-center gap-1.5 font-bold">
+                <TriangleAlert className="size-4" strokeWidth={2} /> Incomplete report
+              </p>
+              <p className="mt-0.5">
+                The system identified missing information: {missing.join(", ")}. Provide the
+                required details to submit.
+              </p>
+            </div>
+          ) : (
+            <HintCard>
+              By SMS: text the conflict type, location and description to short code{" "}
+              {SMS_SHORT_CODE}.
+            </HintCard>
+          )}
+
           <div className="mt-auto flex flex-col gap-2 pt-2">
             <BtnPrimary
-              disabled={!type || description.trim().length === 0 || location.trim().length === 0}
-              onClick={() => setStep("review")}
+              onClick={() => {
+                if (missing.length > 0) {
+                  setShowMissing(true);
+                  return;
+                }
+                setShowMissing(false);
+                setStep("review");
+              }}
             >
               Continue
             </BtnPrimary>
@@ -229,7 +320,7 @@ function ConflictPage() {
     );
   }
 
-  /* ---------- Panel 4 · Review Report ---------- */
+  /* ---------- Panel 4 · Review Report (+ SMS message preview) ---------- */
   if (step === "review") {
     return (
       <Phone>
@@ -241,15 +332,38 @@ function ConflictPage() {
             <Row k="Location" v={location} strong />
             <Row k="Reporting Channel" v={channel} strong />
           </Card>
-          <div>
-            <p className="mb-1 text-[12px] font-semibold text-muted">Description</p>
-            <Card>
-              <p className="text-[13.5px] leading-snug">{description}</p>
-            </Card>
-          </div>
+          {channel === "SMS" ? (
+            <div>
+              <p className="mb-1 text-[12px] font-semibold text-muted">
+                SMS message · to short code {SMS_SHORT_CODE}
+              </p>
+              <div className="rounded-xl rounded-bl-sm border border-border bg-elevated px-3 py-2.5">
+                <p className="font-mono text-[12.5px] leading-snug">
+                  CONFLICT {type?.toUpperCase()}; {location}; {description}
+                </p>
+              </div>
+              <p className="mt-1 text-[11px] text-subtle">
+                The system creates the conflict report from the received SMS message.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <p className="mb-1 text-[12px] font-semibold text-muted">Description</p>
+              <Card>
+                <p className="text-[13.5px] leading-snug">{description}</p>
+              </Card>
+            </div>
+          )}
           <PinMap height={120} pinLabel="" />
           <div className="mt-auto flex flex-col gap-2 pt-2">
-            <BtnPrimary onClick={onSubmit}>Submit Report</BtnPrimary>
+            <BtnPrimary
+              onClick={() => {
+                setProcFailed(false);
+                setStep("processing");
+              }}
+            >
+              {channel === "SMS" ? "Send via SMS" : "Submit Report"}
+            </BtnPrimary>
             <BtnOutline onClick={() => setStep("details")}>Edit</BtnOutline>
           </div>
         </Body>
@@ -257,7 +371,93 @@ function ConflictPage() {
     );
   }
 
-  /* ---------- Panel 5 · Offline Report (conditional) ---------- */
+  /* ---------- Step 7 · System validates & stores (+ System Error exception) ---------- */
+  if (step === "processing") {
+    const items = ["Conflict type", "Incident location", "Short description"];
+    return (
+      <Phone>
+        <ScreenHeader title={channel === "SMS" ? "Sending SMS Report" : "Submitting Report"} />
+        <Body>
+          {!procFailed ? (
+            <>
+              <div className="flex justify-center pt-6">
+                <Spinner />
+              </div>
+              <p className="text-center text-[14px] font-semibold">
+                {channel === "SMS"
+                  ? `Message sent to ${SMS_SHORT_CODE} · processing report…`
+                  : "Validating required information…"}
+              </p>
+              <Card>
+                {items.map((label, i) => (
+                  <div key={label} className="flex items-center justify-between py-1.5">
+                    <span className="flex items-center gap-2 text-[13px]">
+                      <span
+                        className={
+                          checks > i
+                            ? "flex size-4.5 items-center justify-center rounded-full bg-ok"
+                            : "size-4.5 rounded-full border-2 border-border"
+                        }
+                      >
+                        {checks > i ? (
+                          <Check className="size-3 text-white" strokeWidth={3} />
+                        ) : null}
+                      </span>
+                      {label}
+                    </span>
+                    <span className="text-[11px] text-subtle">{checks > i ? "present" : ""}</span>
+                  </div>
+                ))}
+              </Card>
+              <div>
+                <p className="text-[13px] font-semibold">
+                  Creating report · sending to operations dashboard…
+                </p>
+                <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-elevated">
+                  <div
+                    className="h-full rounded-full bg-ok transition-all duration-500"
+                    style={{ width: `${Math.min(100, checks * 30)}%` }}
+                  />
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  failRequested.current = true;
+                }}
+                className="mt-auto pb-1 text-center text-[11px] text-subtle underline-offset-2 hover:underline"
+              >
+                demo: simulate system error
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="mx-auto mt-6 flex size-16 items-center justify-center rounded-full bg-danger-bg">
+                <TriangleAlert className="size-7 text-danger" strokeWidth={2} />
+              </div>
+              <div className="text-center">
+                <Pill tone="danger">System Error</Pill>
+                <h2 className="mt-2 text-[17px] font-bold">Report could not be processed</h2>
+                <p className="mt-1 text-[13px] text-muted">
+                  The system encountered an error while processing the report.
+                </p>
+              </div>
+              <div className="rounded-lg border border-danger/40 bg-danger-bg px-3 py-2.5 text-[12.5px] text-danger">
+                The report has <span className="font-bold">not</span> been marked as submitted.
+                Nothing was stored — try again to submit it.
+              </div>
+              <div className="mt-auto flex flex-col gap-2 pt-2">
+                <BtnPrimary onClick={() => setProcFailed(false)}>Try Again</BtnPrimary>
+                <BtnOutline onClick={() => setStep("review")}>Back to Review</BtnOutline>
+              </div>
+            </>
+          )}
+        </Body>
+      </Phone>
+    );
+  }
+
+  /* ---------- Panel 5 · Offline Report (No Connectivity exception) ---------- */
   if (step === "offline") {
     return (
       <Phone>
@@ -315,6 +515,12 @@ function ConflictPage() {
             <Row k="Location" v={location} strong />
             <Row k="Reporting Channel" v={channel} strong />
           </Card>
+          {channel === "SMS" ? (
+            <HintCard>
+              Received via SMS short code {SMS_SHORT_CODE} — the system created this report from the
+              SMS message.
+            </HintCard>
+          ) : null}
           {wasOffline ? (
             <HintCard>
               <span className="font-semibold">Only if previously offline (Screen 5)</span>
@@ -325,26 +531,119 @@ function ConflictPage() {
             </HintCard>
           ) : null}
           <div className="mt-auto pt-2">
-            <BtnPrimary onClick={() => setStep("staffReview")}>Done</BtnPrimary>
+            <BtnPrimary onClick={() => setStep("dashboard")}>Done</BtnPrimary>
           </div>
         </Body>
       </Phone>
     );
   }
 
-  /* ---------- Panel 7 · Community Report Review (staff) ---------- */
-  if (step === "staffReview") {
+  /* ---------- Steps 9–10 · Operations Dashboard (Multiple Reports +
+       Dashboard Unavailable exception) ---------- */
+  // Review/response screens need a selected report; without one (e.g. a stale
+  // id after a reset) the dashboard is the sensible place to land.
+  if (step === "dashboard" || ((step === "staffReview" || step === "responded") && !selected)) {
+    const byType = new Map<string, number>();
+    for (const c of conflicts) byType.set(c.type, (byType.get(c.type) ?? 0) + 1);
+    const pattern = [...byType.entries()].find(([, n]) => n >= 2);
+
     return (
       <Phone>
-        <ScreenHeader title="Community Conflict Report" onBack={() => setStep("submitted")} />
+        <ScreenHeader title="Operations Dashboard" onBack={() => setStep("intro")}>
+          <ConnectivityToggle />
+        </ScreenHeader>
+        <Body>
+          <p className="text-[12px] text-muted">
+            Community Conflict Reports · reviewing as Ranger / Community Liaison Officer
+          </p>
+          {!online ? (
+            <>
+              <OfflineBanner text="Dashboard Unavailable" />
+              <Card>
+                <p className="text-[13.5px] font-semibold">Reports are stored safely.</p>
+                <p className="mt-0.5 text-[12.5px] text-muted">
+                  Received reports are kept by the system and will appear on the dashboard once the
+                  connection is restored.
+                </p>
+              </Card>
+              <HintCard>
+                Exception flow – a valid report is received while the operations dashboard is
+                temporarily unavailable.
+              </HintCard>
+            </>
+          ) : conflicts.length === 0 ? (
+            <Card>
+              <p className="text-[13.5px] text-muted">No community reports yet.</p>
+            </Card>
+          ) : (
+            <>
+              {pattern ? (
+                <div className="rounded-lg border border-warn/40 bg-warn-bg px-3 py-2.5 text-[12.5px] text-warn">
+                  <p className="flex items-center gap-1.5 font-bold">
+                    <TriangleAlert className="size-4" strokeWidth={2} /> Possible conflict pattern
+                  </p>
+                  <p className="mt-0.5">
+                    {pattern[1]} reports of {pattern[0]} near the park boundary — review together to
+                    identify a trend.
+                  </p>
+                </div>
+              ) : null}
+              <div className="flex flex-col gap-2">
+                {conflicts.map((c) => (
+                  <button
+                    key={c.reportId}
+                    type="button"
+                    onClick={() => {
+                      setSelectedId(c.reportId);
+                      setStep("staffReview");
+                    }}
+                    className="flex w-full items-center gap-3 rounded-xl border border-border bg-surface p-3 text-left transition-colors hover:bg-elevated"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2">
+                        <span className="text-[14px] font-bold">{c.type}</span>
+                        {c.status === "RESPONDED" ? (
+                          <Pill tone="ok">Responded</Pill>
+                        ) : (
+                          <Pill tone="progress">Submitted</Pill>
+                        )}
+                      </span>
+                      <span className="block truncate text-[12px] text-muted">
+                        {c.location} · {fmtClock(c.receivedAt)} · {c.channel}
+                      </span>
+                    </span>
+                    <ChevronRight className="size-4 shrink-0 text-subtle" />
+                  </button>
+                ))}
+              </div>
+              <HintCard>
+                Multiple reports from the same area are stored separately — each row is one
+                community report.
+              </HintCard>
+            </>
+          )}
+        </Body>
+      </Phone>
+    );
+  }
+
+  /* ---------- Panel 7 · Community Report Review (staff) ---------- */
+  if (step === "staffReview" && selected) {
+    return (
+      <Phone>
+        <ScreenHeader title="Community Conflict Report" onBack={() => setStep("dashboard")} />
         <Body>
           <div className="flex items-center justify-between">
-            <Pill tone="progress">Submitted</Pill>
+            {selected.status === "RESPONDED" ? (
+              <Pill tone="ok">Responded</Pill>
+            ) : (
+              <Pill tone="progress">Submitted</Pill>
+            )}
             <span className="text-[12px] text-muted">
-              Received {receivedLabel} · {channel}
+              Received {fmtClock(selected.receivedAt)} · {selected.channel}
             </span>
           </div>
-          {report?.highPriority ? (
+          {selected.highPriority ? (
             <div className="rounded-xl border border-danger/50 bg-danger-bg px-3 py-2.5">
               <p className="flex items-center justify-between text-[13px] font-bold text-danger">
                 <span className="flex items-center gap-1.5">
@@ -356,15 +655,15 @@ function ConflictPage() {
             </div>
           ) : null}
           <Card>
-            <Row k="Conflict Type" v={type} strong />
-            <Row k="Location" v={location} strong />
-            <Row k="Reporting Channel" v={channel} strong />
-            <Row k="Report Status" v="SUBMITTED" strong />
+            <Row k="Conflict Type" v={selected.type} strong />
+            <Row k="Location" v={selected.location} strong />
+            <Row k="Reporting Channel" v={selected.channel} strong />
+            <Row k="Report Status" v={selected.status} strong />
           </Card>
           <div>
             <p className="mb-1 text-[12px] font-semibold text-muted">Description</p>
             <Card>
-              <p className="text-[13.5px] leading-snug">{description}</p>
+              <p className="text-[13.5px] leading-snug">{selected.description}</p>
             </Card>
           </div>
           <PinMap height={110} pinLabel="" caption="Near park boundary" />
@@ -372,21 +671,26 @@ function ConflictPage() {
             Reviewing as Ranger / Community Liaison Officer
           </p>
           <div className="mt-auto pt-2">
-            <BtnPrimary
-              onClick={() => {
-                if (report) respondConflict(report.reportId);
-                setStep("responded");
-              }}
-            >
-              Respond to Report
-            </BtnPrimary>
+            {selected.status === "RESPONDED" ? (
+              <BtnOutline onClick={() => setStep("responded")}>View Response</BtnOutline>
+            ) : (
+              <BtnPrimary
+                onClick={() => {
+                  respondConflict(selected.reportId);
+                  setStep("responded");
+                }}
+              >
+                Respond to Report
+              </BtnPrimary>
+            )}
           </div>
         </Body>
       </Phone>
     );
   }
 
-  /* ---------- Panel 8 · Response Recorded ---------- */
+  /* ---------- Panel 8 · Response Recorded (steps 11–13) ---------- */
+  if (!selected) return null; // unreachable: handled by the dashboard branch
   return (
     <Phone>
       <ScreenHeader title="Community Conflict Report" onBack={() => setStep("staffReview")} />
@@ -399,17 +703,14 @@ function ConflictPage() {
             <span className="block text-[11px] text-muted">Response Status</span>
             <span className="block text-[16px] font-bold text-ok">RESPONDED</span>
             <span className="block text-[11px] text-muted">
-              Updated{" "}
-              {report?.respondedAt
-                ? fmtClock(report.respondedAt)
-                : fmtClock(new Date().toISOString())}
+              Updated {fmtClock(selected.respondedAt ?? new Date().toISOString())}
             </span>
           </span>
         </Card>
         <Card>
           <Row k="Responder" v="Ranger / Community Liaison Officer" strong />
-          <Row k="Conflict Type" v={type} strong />
-          <Row k="Location" v={location} strong />
+          <Row k="Conflict Type" v={selected.type} strong />
+          <Row k="Location" v={selected.location} strong />
           <Row k="Current Status" v="RESPONDED" strong />
         </Card>
         <div>
@@ -420,12 +721,39 @@ function ConflictPage() {
             </p>
           </Card>
         </div>
+        <HintCard>
+          The report and its response are stored as historical data used to identify human-wildlife
+          conflict trends.
+        </HintCard>
         <PinMap height={110} pinLabel="" />
-        <div className="mt-auto pt-2">
+        <div className="mt-auto flex flex-col gap-2 pt-2">
+          <BtnOutline onClick={() => setStep("dashboard")}>Back to Dashboard</BtnOutline>
           <BtnPrimary onClick={() => router.navigate({ to: "/" })}>Done</BtnPrimary>
         </div>
       </Body>
     </Phone>
+  );
+}
+
+function FieldError({ text }: { text: string }) {
+  return (
+    <p className="flex items-center gap-1.5 text-[12px] font-semibold text-danger">
+      <TriangleAlert className="size-3.5" strokeWidth={2} /> {text}
+    </p>
+  );
+}
+
+function Spinner() {
+  return (
+    <svg viewBox="0 0 48 48" className="size-12 animate-spin text-accent" fill="none" aria-hidden>
+      <circle cx="24" cy="24" r="20" stroke="#e3ebe3" strokeWidth="5" />
+      <path
+        d="M44 24a20 20 0 0 0-20-20"
+        stroke="currentColor"
+        strokeWidth="5"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
 
