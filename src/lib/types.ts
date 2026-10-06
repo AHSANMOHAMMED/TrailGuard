@@ -72,6 +72,22 @@ export interface ConflictReport {
   syncState: SyncState;
 }
 
+/** Field radio — a push-to-talk transmission on a channel frequency. */
+export interface RadioMessage {
+  messageId: string;
+  /** Channel id, e.g. "OPS-1" (see RADIO_CHANNELS). */
+  channel: string;
+  fromRole: "RANGER" | "LIAISON" | "MANAGER";
+  fromTitle: string;
+  kind: "voice" | "text";
+  /** Text transmission body. */
+  text?: string;
+  /** Voice-note length in seconds. */
+  durationS?: number;
+  transmittedAt: string;
+  syncState: SyncState;
+}
+
 export interface ReportSnapshot {
   reportId: string;
   park: string;

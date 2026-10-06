@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Map, Shield, Siren, FileBarChart, Radio, CloudOff, Cloud } from "lucide-react";
+import { Map, Shield, Siren, FileBarChart, Radio, RadioTower, CloudOff, Cloud } from "lucide-react";
 import { useField } from "@/lib/store";
 import { can, type Permission } from "@/lib/domain/roles";
 import { useAuth } from "@/lib/auth-store";
@@ -23,6 +23,7 @@ const NAV: {
   { to: "/patrol", label: "Patrol", icon: Map, perm: "patrol:start" },
   { to: "/incidents", label: "Incidents", icon: Radio, perm: "incident:create" },
   { to: "/conflict", label: "Conflict", icon: Siren, perm: "conflict:acknowledge" },
+  { to: "/radio", label: "Radio", icon: RadioTower, perm: "radio:transmit" },
   { to: "/reports", label: "Reports", icon: FileBarChart, perm: "report:generate" },
 ];
 
@@ -43,7 +44,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   async function onSync() {
     try {
       const r = await synchronize();
-      toast.success(`Synced ${r.patrols} patrols, ${r.incidents} incidents`);
+      toast.success(
+        r.radio > 0
+          ? `Synced ${r.patrols} patrols, ${r.incidents} incidents, ${r.radio} radio transmissions`
+          : `Synced ${r.patrols} patrols, ${r.incidents} incidents`,
+      );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Sync failed");
     }

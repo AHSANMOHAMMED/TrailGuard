@@ -114,6 +114,7 @@ const AREA_PATH: Record<Area, string> = {
   alerts: "/alerts",
   conflict: "/conflict",
   reports: "/reports",
+  radio: "/radio",
 };
 
 function UseCaseCard({

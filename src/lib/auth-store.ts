@@ -12,7 +12,7 @@ import type { OfficerRole } from "@/lib/domain/enums";
 
 export type ActorRole = OfficerRole | "COMMUNITY";
 
-export type Area = "patrol" | "incidents" | "alerts" | "conflict" | "reports";
+export type Area = "patrol" | "incidents" | "alerts" | "conflict" | "reports" | "radio";
 
 export interface ActorAccount {
   role: ActorRole;
@@ -34,7 +34,7 @@ export const ACTORS: ActorAccount[] = [
     persona: "RN-402 Mercer",
     pin: "4021",
     tagline: "Patrols, field incidents, risk response",
-    access: ["patrol", "incidents", "alerts", "conflict"],
+    access: ["patrol", "incidents", "alerts", "conflict", "radio"],
   },
   {
     role: "LIAISON",
@@ -42,7 +42,7 @@ export const ACTORS: ActorAccount[] = [
     persona: "Liaison Fernando",
     pin: "7312",
     tagline: "Risk coordination, conflict responses",
-    access: ["alerts", "conflict"],
+    access: ["alerts", "conflict", "radio"],
   },
   {
     role: "MANAGER",
@@ -50,7 +50,7 @@ export const ACTORS: ActorAccount[] = [
     persona: "Mgr. Perera",
     pin: "8450",
     tagline: "Operations dashboard, reports",
-    access: ["alerts", "reports"],
+    access: ["alerts", "reports", "radio"],
   },
   {
     role: "RESEARCHER",
