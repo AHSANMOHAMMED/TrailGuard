@@ -440,15 +440,20 @@ function ConflictPage() {
                   />
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  failRequested.current = true;
-                }}
-                className="mt-auto pb-1 text-center text-[11px] text-subtle underline-offset-2 hover:underline"
-              >
-                demo: simulate system error
-              </button>
+              <details className="mt-auto pb-1 text-center">
+                <summary className="cursor-pointer text-[11px] text-subtle hover:underline">
+                  Field test tools
+                </summary>
+                <button
+                  type="button"
+                  onClick={() => {
+                    failRequested.current = true;
+                  }}
+                  className="mt-1 text-[11px] text-subtle underline-offset-2 hover:underline"
+                >
+                  Simulate processing error
+                </button>
+              </details>
             </>
           ) : (
             <>

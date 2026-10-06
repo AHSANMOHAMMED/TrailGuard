@@ -31,10 +31,10 @@ import { cn } from "@/lib/utils";
  */
 
 const AREA_LABEL: Record<Area, string> = {
-  patrol: "UC01 · Ranger Patrol",
-  incidents: "UC02 · Field Incidents",
-  alerts: "UC03 · Wildlife Risk Alerts",
-  conflict: "UC04 · Conflict Reports",
+  patrol: "Ranger Patrol",
+  incidents: "Field Incidents",
+  alerts: "Wildlife Risk Alerts",
+  conflict: "Conflict Reports",
   reports: "Conservation Reports",
 };
 

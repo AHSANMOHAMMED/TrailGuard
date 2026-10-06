@@ -52,7 +52,6 @@ function Home() {
         <UseCaseCard
           area="patrol"
           allowed={canAccess("patrol")}
-          code="UC01"
           icon={<Map className="size-5" strokeWidth={2} />}
           title="Ranger Patrol"
           sub={`${ROUTE_META.name} · ${ROUTE_META.id} · ${ROUTE_META.distanceKm} km`}
@@ -63,7 +62,6 @@ function Home() {
         <UseCaseCard
           area="incidents"
           allowed={canAccess("incidents")}
-          code="UC02"
           icon={<Footprints className="size-5" strokeWidth={2} />}
           title="Report Field Incident"
           sub="Snare · carcass · campsite · footprints"
@@ -72,7 +70,6 @@ function Home() {
         <UseCaseCard
           area="alerts"
           allowed={canAccess("alerts")}
-          code="UC03"
           icon={<Siren className="size-5" strokeWidth={2} />}
           title="Wildlife Risk Alerts"
           sub={
@@ -85,7 +82,6 @@ function Home() {
         <UseCaseCard
           area="conflict"
           allowed={canAccess("conflict")}
-          code="UC04"
           icon={<Radio className="size-5" strokeWidth={2} />}
           title="Community Conflict Report"
           sub="Elephant sighting · crop raiding · via app or SMS"
@@ -123,7 +119,6 @@ const AREA_PATH: Record<Area, string> = {
 function UseCaseCard({
   area,
   allowed,
-  code,
   icon,
   title,
   sub,
@@ -131,7 +126,6 @@ function UseCaseCard({
 }: {
   area: Area;
   allowed: boolean;
-  code: string;
   icon: ReactNode;
   title: string;
   sub: string;
@@ -150,7 +144,6 @@ function UseCaseCard({
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-subtle">{code}</span>
           {allowed ? pill : <Pill tone="muted">Not your role</Pill>}
         </span>
         <span className="mt-0.5 block text-[15px] font-bold leading-tight">{title}</span>
