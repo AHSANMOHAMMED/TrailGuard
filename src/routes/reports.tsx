@@ -52,8 +52,7 @@ function ReportsPage() {
 
   return (
     <AppShell>
-      <p className="font-mono text-[11px] uppercase tracking-widest text-muted">UC04</p>
-      <h1 className="mt-1 text-3xl font-medium tracking-tight">Reports</h1>
+      <h1 className="text-3xl font-medium tracking-tight">Conservation Reports</h1>
       <p className="mt-2 text-sm text-muted">
         One consistent snapshot of synced records. Pending field writes are excluded. Export uses
         the same snapshot id.
