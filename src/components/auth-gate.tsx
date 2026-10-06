@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
+  ChevronRight,
   Delete,
   FlaskConical,
   Handshake,
@@ -60,12 +61,22 @@ export function Guard({ area, children }: { area: Area; children: ReactNode }) {
 
 export function LoginScreen() {
   const login = useAuth((s) => s.login);
+  const lockedUntil = useAuth((s) => s.lockedUntil);
   const [picked, setPicked] = useState<ActorAccount | null>(null);
   const [pin, setPin] = useState("");
   const [error, setError] = useState(false);
+  const [now, setNow] = useState(Date.now());
+
+  // Live countdown while the brute-force lockout is active.
+  useEffect(() => {
+    if (!lockedUntil) return;
+    const t = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(t);
+  }, [lockedUntil]);
+  const lockLeftS = lockedUntil ? Math.max(0, Math.ceil((lockedUntil - now) / 1000)) : 0;
 
   function enter(digit: string) {
-    if (!picked) return;
+    if (!picked || lockLeftS > 0) return;
     setError(false);
     const next = (pin + digit).slice(0, 4);
     setPin(next);
@@ -108,9 +119,7 @@ export function LoginScreen() {
                     <span className="block text-[15px] font-bold leading-tight">{a.title}</span>
                     <span className="block truncate text-[12px] text-muted">{a.tagline}</span>
                   </span>
-                  <span className="rounded-full bg-elevated px-2 py-1 font-mono text-[10px] text-subtle">
-                    PIN {a.pin}
-                  </span>
+                  <ChevronRight className="size-4 shrink-0 text-subtle" />
                 </button>
               );
             })}
@@ -159,13 +168,21 @@ export function LoginScreen() {
                 />
               ))}
             </div>
-            {error ? (
-              <p className="flex items-center justify-center gap-1.5 text-[12.5px] font-semibold text-danger">
-                <LockKeyhole className="size-3.5" /> Wrong PIN — try again
+            {error || lockLeftS > 0 ? (
+              <p
+                className={cn(
+                  "flex items-center justify-center gap-1.5 text-[12.5px] font-semibold",
+                  lockLeftS > 0 ? "text-warn" : "text-danger",
+                )}
+              >
+                <LockKeyhole className="size-3.5" />
+                {lockLeftS > 0
+                  ? `Too many attempts · locked for ${lockLeftS}s`
+                  : "Wrong PIN — try again"}
               </p>
             ) : (
               <p className="text-center text-[11.5px] text-subtle">
-                Demo PIN for {picked.title}: {picked.pin}
+                Enter the 4-digit PIN issued to your officer ID
               </p>
             )}
 
@@ -178,8 +195,9 @@ export function LoginScreen() {
                     key={i}
                     type="button"
                     aria-label="Delete digit"
+                    disabled={lockLeftS > 0}
                     onClick={() => setPin((p) => p.slice(0, -1))}
-                    className="flex h-[52px] items-center justify-center rounded-xl border border-border bg-surface text-muted hover:bg-elevated"
+                    className="flex h-[52px] items-center justify-center rounded-xl border border-border bg-surface text-muted hover:bg-elevated disabled:opacity-50"
                   >
                     <Delete className="size-5" strokeWidth={2} />
                   </button>
@@ -187,8 +205,9 @@ export function LoginScreen() {
                   <button
                     key={i}
                     type="button"
+                    disabled={lockLeftS > 0}
                     onClick={() => enter(key)}
-                    className="h-[52px] rounded-xl border border-border bg-surface text-[18px] font-semibold hover:bg-elevated"
+                    className="h-[52px] rounded-xl border border-border bg-surface text-[18px] font-semibold hover:bg-elevated disabled:opacity-50"
                   >
                     {key}
                   </button>
