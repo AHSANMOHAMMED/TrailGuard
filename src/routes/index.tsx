@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { ChevronRight, FileBarChart, Footprints, Lock, Map, Radio, Siren } from "lucide-react";
+import { ChevronRight, FileBarChart, Footprints, Lock, Map, Radio, RadioTower, Siren } from "lucide-react";
 import { Body, Phone, Pill } from "@/components/field";
 import { ConnectivityToggle } from "@/components/connectivity-toggle";
 import { LoginScreen, SessionChip } from "@/components/auth-gate";
@@ -86,6 +86,14 @@ function Home() {
           title="Community Conflict Report"
           sub="Elephant sighting · crop raiding · via app or SMS"
           pill={<Pill tone="muted">{conflicts.length} reported</Pill>}
+        />
+        <UseCaseCard
+          area="radio"
+          allowed={canAccess("radio")}
+          icon={<RadioTower className="size-5" strokeWidth={2} />}
+          title="Field Radio"
+          sub="Push-to-talk · 140–142 MHz channel plan"
+          pill={<Pill tone="muted">3 channels</Pill>}
         />
 
         <div className="mt-auto flex flex-col gap-2 pt-3">
