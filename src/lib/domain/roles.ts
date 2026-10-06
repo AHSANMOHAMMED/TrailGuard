@@ -27,7 +27,9 @@ export type Permission =
   | "conflict:close"
   // UC04 reports
   | "report:generate"
-  | "report:export";
+  | "report:export"
+  // Field radio
+  | "radio:transmit";
 
 export interface RoleProfile {
   role: OfficerRole;
@@ -49,6 +51,7 @@ const RANGER: RoleProfile = {
     "patrol:retry",
     "incident:create",
     "conflict:acknowledge",
+    "radio:transmit",
   ],
 };
 
@@ -65,6 +68,7 @@ const MANAGER: RoleProfile = {
     "conflict:escalate",
     "report:generate",
     "report:export",
+    "radio:transmit",
   ],
 };
 
@@ -72,7 +76,7 @@ const LIAISON: RoleProfile = {
   role: "LIAISON",
   name: "Liaison Officer",
   officerName: "Liaison Fernando",
-  permissions: ["conflict:acknowledge", "conflict:close", "conflict:escalate"],
+  permissions: ["conflict:acknowledge", "conflict:close", "conflict:escalate", "radio:transmit"],
 };
 
 const RESEARCHER: RoleProfile = {

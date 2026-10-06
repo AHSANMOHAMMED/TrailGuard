@@ -36,6 +36,7 @@ const AREA_LABEL: Record<Area, string> = {
   alerts: "Wildlife Risk Alerts",
   conflict: "Conflict Reports",
   reports: "Conservation Reports",
+  radio: "Field Radio",
 };
 
 const ACTOR_ICON: Record<ActorRole, typeof ShieldCheck> = {

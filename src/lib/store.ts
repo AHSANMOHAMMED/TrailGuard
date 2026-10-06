@@ -5,6 +5,7 @@ import type {
   ConflictReport,
   Incident,
   Patrol,
+  RadioMessage,
   ReportSnapshot,
   Waypoint,
 } from "@/lib/types";
@@ -86,6 +87,15 @@ function seedSynced(): { patrols: Patrol[]; incidents: Incident[] } {
 
 const seeded = seedSynced();
 
+/** VHF channel plan — ids are stable and referenced by radio messages. */
+export const RADIO_CHANNELS = [
+  { id: "OPS-1", name: "Operations", freq: "140.2000 MHz", desc: "Patrol coordination" },
+  { id: "EMG-7", name: "Emergency", freq: "141.3000 MHz", desc: "Risk response · rescue" },
+  { id: "CMN-3", name: "Community", freq: "142.8000 MHz", desc: "Liaison ↔ village hotline" },
+] as const;
+
+export type RadioChannelId = (typeof RADIO_CHANNELS)[number]["id"];
+
 interface FieldState {
   online: boolean;
   syncing: boolean;
@@ -94,6 +104,7 @@ interface FieldState {
   incidents: Incident[];
   alerts: Alert[];
   conflicts: ConflictReport[];
+  radioMessages: RadioMessage[];
   snapshot: ReportSnapshot | null;
   setOnline: (v: boolean) => void;
   startPatrol: () => Patrol;
@@ -121,8 +132,17 @@ interface FieldState {
   /** UC04 — staff records the response (SUBMITTED → RESPONDED). */
   respondConflict: (reportId: string) => void;
   markConflictSynced: (reportId: string) => void;
+  /** Field radio — record a push-to-talk or text transmission (UC-radio). */
+  transmitRadio: (input: {
+    channel: RadioChannelId;
+    fromRole: RadioMessage["fromRole"];
+    fromTitle: string;
+    kind: "voice" | "text";
+    text?: string;
+    durationS?: number;
+  }) => RadioMessage;
   generateReport: (from: string, to: string) => ReportSnapshot;
-  synchronize: () => Promise<{ patrols: number; incidents: number }>;
+  synchronize: () => Promise<{ patrols: number; incidents: number; radio: number }>;
   activePatrol: () => Patrol | undefined;
   pendingCount: () => number;
 }
@@ -149,12 +169,14 @@ export const useField = create<FieldState>()(
         },
       ],
       conflicts: [],
+      radioMessages: [],
       setOnline: (v) => set({ online: v }),
       activePatrol: () => get().patrols.find((p) => p.status === "ACTIVE"),
       pendingCount: () =>
         get().patrols.filter((p) => p.syncState === "PENDING").length +
         get().incidents.filter((i) => i.syncState === "PENDING").length +
-        get().conflicts.filter((c) => c.syncState === "PENDING").length,
+        get().conflicts.filter((c) => c.syncState === "PENDING").length +
+        get().radioMessages.filter((m) => m.syncState === "PENDING").length,
       startPatrol: () => {
         const existing = get().activePatrol();
         if (existing) return existing;
@@ -298,6 +320,22 @@ export const useField = create<FieldState>()(
           ),
         });
       },
+      transmitRadio: (input) => {
+        const msg: RadioMessage = {
+          messageId: uid(),
+          channel: input.channel,
+          fromRole: input.fromRole,
+          fromTitle: input.fromTitle,
+          kind: input.kind,
+          text: input.text,
+          durationS: input.durationS,
+          transmittedAt: new Date().toISOString(),
+          // Same contract as incidents: acked when online, queued when not.
+          syncState: get().online ? "SYNCED" : "PENDING",
+        };
+        set({ radioMessages: [msg, ...get().radioMessages] });
+        return msg;
+      },
       generateReport: (from, to) => {
         const fromD = new Date(from).getTime();
         const toD = new Date(to + "T23:59:59").getTime();
@@ -335,6 +373,7 @@ export const useField = create<FieldState>()(
         await new Promise((r) => setTimeout(r, 850));
         let patrols = 0;
         let incidents = 0;
+        let radio = 0;
         set({
           patrols: get().patrols.map((p) => {
             if (p.syncState === "PENDING" && p.status === "COMPLETED") {
@@ -353,10 +392,17 @@ export const useField = create<FieldState>()(
           conflicts: get().conflicts.map((c) =>
             c.syncState === "PENDING" ? { ...c, syncState: "SYNCED" } : c,
           ),
+          radioMessages: get().radioMessages.map((m) => {
+            if (m.syncState === "PENDING") {
+              radio += 1;
+              return { ...m, syncState: "SYNCED" };
+            }
+            return m;
+          }),
           lastSyncAt: new Date().toISOString(),
           syncing: false,
         });
-        return { patrols, incidents };
+        return { patrols, incidents, radio };
       },
     }),
     { name: "trailguard-field", skipHydration: true },
