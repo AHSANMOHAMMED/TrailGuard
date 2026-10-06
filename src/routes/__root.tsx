@@ -1,7 +1,8 @@
-import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
+import { createRootRoute, HeadContent, Link, Outlet, Scripts } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
+import { Body, Phone, Pill } from "@/components/field";
 import { Toaster } from "sonner";
 import { useField } from "@/lib/store";
 import appCss from "../styles.css?url";
@@ -28,7 +29,33 @@ export const Route = createRootRoute({
     ],
   }),
   component: RootComponent,
+  notFoundComponent: NotFound,
 });
+
+/** In-system 404 — keeps the phone shell instead of the router's default. */
+function NotFound() {
+  return (
+    <Phone>
+      <Body className="pt-10">
+        <div className="text-center">
+          <Pill tone="muted">Not found</Pill>
+          <h2 className="mt-2 text-[18px] font-bold">This screen does not exist</h2>
+          <p className="mt-1 text-[13px] text-muted">
+            The link you followed is not part of the field application.
+          </p>
+        </div>
+        <div className="mt-auto pt-2">
+          <Link
+            to="/"
+            className="flex h-[52px] w-full items-center justify-center rounded-xl bg-accent text-[15px] font-semibold text-accent-fg transition-colors hover:bg-[#174935]"
+          >
+            Back to Home
+          </Link>
+        </div>
+      </Body>
+    </Phone>
+  );
+}
 
 function RootComponent() {
   // Rehydrate the persisted on-device field store once per session.
