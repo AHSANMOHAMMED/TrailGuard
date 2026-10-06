@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { OfficerRole } from "@/lib/domain/enums";
-import { useRole } from "@/lib/role-store";
 
 /**
  * Role-based sign-in for the five wireframe actors. Fast by design: pick an
@@ -111,8 +110,6 @@ export const useAuth = create<AuthState>()(
           signedInAt: new Date().toISOString(),
         };
         set({ session });
-        // Keep the legacy ops-desk acting role in step for officer roles.
-        if (role !== "COMMUNITY") useRole.getState().setRole(role);
         return session;
       },
       logout: () => set({ session: null }),
