@@ -1,7 +1,7 @@
 export type SyncState = "PENDING" | "SYNCED" | "FAILED";
 export type LocationSource = "GPS" | "MANUAL";
 export type PatrolStatus = "ACTIVE" | "COMPLETED";
-export type AlertStatus = "OPEN" | "ASSIGNED" | "CLOSED";
+export type AlertStatus = "OPEN" | "ASSIGNED" | "ESCALATED" | "CLOSED" | "REVIEW";
 export type DeliveryState = "PENDING" | "SENT" | "FAILED";
 
 export interface Waypoint {
@@ -46,6 +46,14 @@ export interface Incident {
   observedAt: string;
   syncState: SyncState;
   hasPhoto: boolean;
+  /** Photo attachment sync — enables partial-upload branch (S3/R-05). */
+  photoSyncState?: SyncState;
+  photoAttachId?: string;
+  /**
+   * Demo S3: first sync acks the report only; photo stays PENDING with the
+   * same attachId until a second sync (never a second reportId).
+   */
+  demoPartial?: boolean;
   /** Backoff schedule while FAILED (S2/R-05). */
   retryAfter?: string;
   syncAttempts?: number;
@@ -66,6 +74,13 @@ export interface Alert {
   resolvedAt?: string;
   outcome?: string;
   resolutionNote?: string;
+  /** Active response assignment (R-04 — at most one). */
+  assigneeId?: string;
+  assigneeName?: string;
+  /** Notification delivery for the active assignment (≠ acknowledgement). */
+  deliveryState?: DeliveryState;
+  /** Failed re-notify attempts before escalation (R-06). */
+  notifyAttempts?: number;
 }
 
 /** UC04 — community human-wildlife conflict report. */
