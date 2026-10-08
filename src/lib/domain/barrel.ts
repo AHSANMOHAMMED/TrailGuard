@@ -7,3 +7,4 @@ export * from "./reporting";
 export * from "./ports";
 export * from "./sync-service";
 export * from "./roles";
+export * from "./patrol-ops";

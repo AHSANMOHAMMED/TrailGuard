@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { OfficerRole } from "@/lib/domain/enums";
-import { useRole } from "@/lib/role-store";
 
 /**
  * Role-based sign-in for the five wireframe actors. Fast by design: pick an
@@ -13,7 +12,7 @@ import { useRole } from "@/lib/role-store";
 
 export type ActorRole = OfficerRole | "COMMUNITY";
 
-export type Area = "patrol" | "incidents" | "alerts" | "conflict" | "reports";
+export type Area = "patrol" | "incidents" | "alerts" | "conflict" | "reports" | "radio";
 
 export interface ActorAccount {
   role: ActorRole;
@@ -35,7 +34,7 @@ export const ACTORS: ActorAccount[] = [
     persona: "RN-402 Mercer",
     pin: "4021",
     tagline: "Patrols, field incidents, risk response",
-    access: ["patrol", "incidents", "alerts", "conflict"],
+    access: ["patrol", "incidents", "alerts", "conflict", "radio"],
   },
   {
     role: "LIAISON",
@@ -43,7 +42,7 @@ export const ACTORS: ActorAccount[] = [
     persona: "Liaison Fernando",
     pin: "7312",
     tagline: "Risk coordination, conflict responses",
-    access: ["alerts", "conflict"],
+    access: ["alerts", "conflict", "radio"],
   },
   {
     role: "MANAGER",
@@ -51,7 +50,7 @@ export const ACTORS: ActorAccount[] = [
     persona: "Mgr. Perera",
     pin: "8450",
     tagline: "Operations dashboard, reports",
-    access: ["alerts", "reports"],
+    access: ["alerts", "reports", "radio"],
   },
   {
     role: "RESEARCHER",
@@ -88,6 +87,10 @@ interface AuthState {
   session: Session | null;
   /** True once the persisted session has been read on this device. */
   hydrated: boolean;
+  /** Consecutive failed PIN attempts (in-memory; resets on success). */
+  failedAttempts: number;
+  /** Epoch ms until which sign-in is locked after repeated failures. */
+  lockedUntil: number | null;
   setHydrated: () => void;
   /** Validates the actor PIN; returns the session or null on a wrong PIN. */
   login: (role: ActorRole, pin: string) => Session | null;
@@ -100,19 +103,29 @@ export const useAuth = create<AuthState>()(
     (set, get) => ({
       session: null,
       hydrated: false,
+      failedAttempts: 0,
+      lockedUntil: null,
       setHydrated: () => set({ hydrated: true }),
       login: (role, pin) => {
+        // Brute-force guard: five wrong attempts lock sign-in for 60 s.
+        const lockedUntil = get().lockedUntil;
+        if (lockedUntil && lockedUntil > Date.now()) return null;
         const actor = actorFor(role);
-        if (pin !== actor.pin) return null;
+        if (pin !== actor.pin) {
+          const failedAttempts = get().failedAttempts + 1;
+          set({
+            failedAttempts,
+            lockedUntil: failedAttempts >= 5 ? Date.now() + 60_000 : lockedUntil,
+          });
+          return null;
+        }
         const session: Session = {
           role,
           persona: actor.persona,
           title: actor.title,
           signedInAt: new Date().toISOString(),
         };
-        set({ session });
-        // Keep the legacy ops-desk acting role in step for officer roles.
-        if (role !== "COMMUNITY") useRole.getState().setRole(role);
+        set({ session, failedAttempts: 0, lockedUntil: null });
         return session;
       },
       logout: () => set({ session: null }),

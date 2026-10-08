@@ -21,13 +21,31 @@ buttons; every state has a text label + icon.
 Screens, flows and routes:
 
 - `/patrol` — **UC01** Conduct Assigned Ranger Patrol (assigned → GPS tracking →
-  manual waypoint A1 → offline A2 → sync restore A3 → complete → coverage summary)
+  manual waypoint A1 → offline A2 → sync restore A3 → complete → coverage summary),
+  with the full A02 rule set:
+  - **R-09** — mode chip (ONLINE / OFFLINE — QUEUED LOCALLY), last sync on the
+    assigned screen, per-record sync progress ("Syncing 2 of 7…")
+  - **R-10** — ≥64 px one-tap waypoint capture and an **undo toast** for a
+    mistaken manual mark (3b, "removed — no orphan records")
+  - **S1/R-05** — the in-flight waypoint tail is flushed before completing;
+    **S2/R-05** — upload failure → FAILED with exponential backoff capped at
+    30 min (5b), auto-retry when the schedule elapses
+  - **5a/5c** — sync runs immediately when already online at save; offline at
+    finish queues locally
+  - **R-07** — patrol coverage computed from the real recorded track
+    (covered km ÷ route km, capped 100)
+  - **UC01b (R-02a)** — Retry Failed Sync: an always-visible queue badge opens a
+    sync-queue panel with per-record failure reasons, backoff countdowns, and
+    per-record **Retry** that bypasses the schedule
 - `/incidents` — **UC02** Report Field Incident (type → photo → GPS details →
   review → validating submit → offline conditional → submitted)
 - `/alerts` — **UC03** Monitor Tracked Wildlife & Risk Alerts (incoming HIGH RISK →
   acknowledge → respond → coordination → resolve → resolved)
 - `/conflict` — **UC04** Manage Human-Wildlife Conflict Reports (channel →
   details → review → offline conditional → submitted → staff review → responded)
+- `/radio` — **Field Radio** push-to-talk over the park VHF channel plan (hold to
+  talk → voice note or text callout → channel log; queued transmissions forward
+  when coverage returns)
 
 The header wifi pill simulates connectivity so the offline alternative flows
 can be demonstrated. Underneath, the same offline-first domain rules apply
@@ -36,22 +54,45 @@ that report):
 
 - **Offline-first contract** — every write lands on-device (`PENDING`), nothing shows
   "Submitted" until sync ack; idempotent upserts by stable UUID.
-- **Sync engine** (`src/lib/domain/sync-service.ts`) — per-record progress, complete-receipt
-  for media, **partial-upload branch** (report acked, photo keeps retrying with the same ID),
-  exponential backoff capped at 30 min.
+- **Sync engine** (`src/lib/domain/sync-service.ts`, field store) — per-record
+  progress, complete-receipt for media, **partial-upload branch** (report acked,
+  photo keeps retrying with the same ID), exponential backoff capped at 30 min,
+  and per-record retry (UC01b) with the queue visible at all times.
 - **Conflict desk** — single-active-assignment rule, notification-failure ladder with
   availability restore, escalation, close-with-outcome.
 - **Reports** — snapshot over SYNCED records only, defined coverage formula
   (covered track km ÷ assigned route km), 92-day window cap, CSV export of the same
   snapshot id.
 - **Role-based sign-in** — five actors (Ranger, Community Liaison Officer, Park
-  Manager, Researcher, Community Member) sign in with a 4-digit field PIN
-  (`src/lib/auth-store.ts`; demo PINs are shown on the login screen). Sign-in is
-  on-device and instant, matching the offline-first contract. Every route is
-  wrapped in a `Guard` (`src/components/auth-gate.tsx`): actors only reach the
-  use cases they are associated with on the A01 use case diagram; others see an
-  explanatory access-restricted screen. The finer permission matrix
-  (`src/lib/domain/roles.ts`) still gates actions inside the legacy ops desk.
+  Manager, Researcher, Community Member) sign in with a private 4-digit field
+  PIN (`src/lib/auth-store.ts`); five wrong attempts lock sign-in for 60 s and
+  the PINs are never printed in the UI. Sign-in is on-device and instant,
+  matching the offline-first contract. Every route is wrapped in a `Guard`
+  (`src/components/auth-gate.tsx`): actors only reach the use cases they are
+  associated with on the A01 use case diagram; others see an explanatory
+  access-restricted screen. The permission matrix (`src/lib/domain/roles.ts`)
+  gates actions inside the ops desk from the signed-in session.
+
+#### Evaluator PINs
+
+PINs are credentials, so they live here (and in the viva notes), not on screen:
+
+| Actor | Persona | PIN | Access |
+|---|---|---|---|
+| Ranger | RN-402 Mercer | `4021` | Patrol · Incidents · Alerts · Conflict · Radio |
+| Community Liaison Officer | Liaison Fernando | `7312` | Alerts · Conflict · Radio |
+| Park Manager | Mgr. Perera | `8450` | Alerts · Reports · Radio |
+| Researcher | Dr. Jayawardena | `5260` | Reports |
+| Community Member | K. Bandara, Nagoda | `1111` | Conflict |
+
+#### Field Radio
+
+Push-to-talk voice and text over three channels — Operations `140.2000 MHz`,
+Emergency `141.3000 MHz`, Community `142.8000 MHz`. Hold the talk key to
+record (device microphone via MediaRecorder), release to transmit; clips
+play back from the channel log. Transmissions follow the same offline-first
+contract as every other record: acked `SYNCED` under coverage, queued
+`PENDING` in a dead zone, auto-forwarded on the next synchronisation.
 
 ### Run it
 
@@ -76,10 +117,10 @@ npm run build                   # production build (Vercel preset via Nitro)
 
 ```
 src/lib/domain/     Domain layer (framework-free): enums, model, transitions,
-                    idempotency, reporting, sync-service, ports, roles
+                    idempotency, reporting, sync-service, patrol-ops, ports, roles
 src/lib/store.ts    Zustand field-store adapter (persists to the device)
-src/lib/role-store.ts  Acting-role state (RBAC)
-src/routes/         / (ops desk) · /patrol · /incidents · /conflict · /reports
+src/routes/         / (field desk) · /patrol · /incidents · /alerts · /conflict ·
+                    /radio · /reports
 artifacts/a02/      A02 group deliverables (report, diagrams, scenarios, tests plan)
 ```
 

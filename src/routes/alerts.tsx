@@ -20,6 +20,7 @@ import {
 } from "@/components/field";
 import { useField } from "@/lib/store";
 import { Guard } from "@/components/auth-gate";
+import { useAuth } from "@/lib/auth-store";
 import { fmtClock } from "@/lib/utils";
 
 export const Route = createFileRoute("/alerts")({
@@ -55,7 +56,12 @@ type Step =
 
 function AlertsPage() {
   const router = useRouter();
+  const session = useAuth((s) => s.session);
   const { alerts, ackAlert, resolveAlert, resetAlert } = useField();
+
+  // Role assignment: Ranger and Community Liaison Officer acknowledge and
+  // resolve risk alerts (UC03 actors); the Park Manager monitors read-only.
+  const canAct = session?.role === "RANGER" || session?.role === "LIAISON";
 
   const [step, setStep] = useState<Step>("incoming");
   const [outcome, setOutcome] = useState<string | null>(null);
@@ -140,14 +146,21 @@ function AlertsPage() {
           </Card>
           <HintCard>Recent camera-trap image may be attached if available (conditional).</HintCard>
           <div className="mt-auto pt-2">
-            <BtnPrimary
-              onClick={() => {
-                ackAlert(alert.alertId);
-                setStep("acknowledged");
-              }}
-            >
-              Acknowledge Alert
-            </BtnPrimary>
+            {canAct ? (
+              <BtnPrimary
+                onClick={() => {
+                  ackAlert(alert.alertId);
+                  setStep("acknowledged");
+                }}
+              >
+                Acknowledge Alert
+              </BtnPrimary>
+            ) : (
+              <HintCard>
+                Monitoring view — acknowledgement and field response are performed by the Ranger
+                and the Community Liaison Officer.
+              </HintCard>
+            )}
           </div>
         </Body>
       </Phone>
