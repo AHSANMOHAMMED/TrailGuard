@@ -16,7 +16,9 @@ import {
   BtnOutline,
   BtnPrimary,
   Card,
+  CONSEQUENCE,
   HintCard,
+  ModeChip,
   OfflineBanner,
   Phone,
   Pill,
@@ -31,6 +33,11 @@ import { Guard } from "@/components/auth-gate";
 import { useAuth } from "@/lib/auth-store";
 import { useField } from "@/lib/store";
 import { fmtClock } from "@/lib/utils";
+import {
+  SMS_SHORT_CODE as DEMO_SMS_CODE,
+  conflictAckLabel,
+  isHighPriorityConflict,
+} from "@/lib/domain/conflict-demo";
 
 export const Route = createFileRoute("/conflict")({
   component: () => (
@@ -56,7 +63,8 @@ export const Route = createFileRoute("/conflict")({
 
 const TYPES = ["Elephant Sighting", "Crop Raiding", "Other Conflict"];
 const DEFAULT_LOCATION = "Nagoda east field, near the canal";
-const SMS_SHORT_CODE = "7444";
+// SMS short code from conflict-demo
+const SMS_SHORT_CODE = DEMO_SMS_CODE;
 
 type Step =
   | "intro"
@@ -73,7 +81,14 @@ type Step =
 function ConflictPage() {
   const router = useRouter();
   const session = useAuth((s) => s.session);
-  const { online, conflicts, createConflict, respondConflict, markConflictSynced } = useField();
+  const {
+    online,
+    conflicts,
+    createConflict,
+    respondConflict,
+    markConflictSynced,
+    synchronize,
+  } = useField();
 
   const [step, setStep] = useState<Step>("intro");
   const [channel, setChannel] = useState<"Mobile App" | "SMS">("Mobile App");
@@ -119,49 +134,69 @@ function ConflictPage() {
     description.trim().length === 0 ? "Short description" : null,
   ].filter((m): m is string => m !== null);
 
-  // Step 7 — the system validates, creates and stores the report. The record
-  // is only created at the end: on a system error nothing is submitted.
+  // Step 7 — validate + create PENDING; only claim Submitted after Sync ack.
   useEffect(() => {
     if (step !== "processing" || procFailed) return;
     setChecks(0);
     failRequested.current = false;
     const t = setInterval(() => setChecks((c) => c + 1), 380);
+    let cancelled = false;
     const done = setTimeout(() => {
       clearInterval(t);
       if (failRequested.current) {
         setProcFailed(true);
         return;
       }
-      const r = createConflict({
-        type: type ?? "Other Conflict",
-        location,
-        channel,
-        description,
-      });
-      setSelectedId(r.reportId);
-      if (online) {
-        setStep("submitted");
-      } else {
-        setWasOffline(true);
-        setStep("offline");
-      }
+      void (async () => {
+        const r = createConflict({
+          type: type ?? "Other Conflict",
+          location,
+          channel,
+          description,
+        });
+        setSelectedId(r.reportId);
+        if (online) {
+          await synchronize().catch(() => undefined);
+          if (!cancelled) setStep("submitted");
+        } else {
+          setWasOffline(true);
+          if (!cancelled) setStep("offline");
+        }
+      })();
     }, 2100);
     return () => {
+      cancelled = true;
       clearInterval(t);
       clearTimeout(done);
     };
-  }, [step, procFailed, online, type, location, channel, description, createConflict]);
+  }, [
+    step,
+    procFailed,
+    online,
+    type,
+    location,
+    channel,
+    description,
+    createConflict,
+    synchronize,
+  ]);
 
   // No-connectivity exception → connectivity returns while stored locally.
   useEffect(() => {
     if (step !== "offline" || !online || !selected) return;
     setSyncingNow(true);
+    let cancelled = false;
     const t = setTimeout(() => {
+      // Upsert by the same reportId — never mint a duplicate on restore.
       markConflictSynced(selected.reportId);
+      if (cancelled) return;
       setSyncingNow(false);
       setStep("submitted");
     }, 1500);
-    return () => clearTimeout(t);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
   }, [step, online, selected, markConflictSynced]);
 
   /* ---------- Panel 1 · Report Wildlife Conflict ---------- */
@@ -169,7 +204,10 @@ function ConflictPage() {
     return (
       <Phone>
         <ScreenHeader title="Report Wildlife Conflict" onBack="home">
-          <ConnectivityToggle />
+          <div className="flex items-center gap-2">
+            <ModeChip online={online} />
+            <ConnectivityToggle />
+          </div>
         </ScreenHeader>
         <Body>
           <div>
@@ -344,9 +382,12 @@ function ConflictPage() {
   if (step === "review") {
     return (
       <Phone>
-        <ScreenHeader title="Review Report" onBack={() => setStep("details")} />
+        <ScreenHeader title="Review Report" onBack={() => setStep("details")}>
+          <ModeChip online={online} />
+        </ScreenHeader>
         <Body>
           <p className="text-[14px] font-bold">Check the details before sending</p>
+          {!online ? <HintCard>{CONSEQUENCE.savedOffline}</HintCard> : null}
           <Card>
             <Row k="Conflict Type" v={type} strong />
             <Row k="Location" v={location} strong />
@@ -522,23 +563,41 @@ function ConflictPage() {
     );
   }
 
-  /* ---------- Panel 6 · Report Submitted ---------- */
+  /* ---------- Panel 6 · Submitted only after SYNCED ack ---------- */
   if (step === "submitted") {
+    const acked = selected?.syncState === "SYNCED";
     return (
       <Phone>
-        <ScreenHeader title="Report Submitted" />
+        <ScreenHeader title={acked ? (wasOffline ? "Report Synchronised" : "Report Submitted") : "Report Saved"} />
         <Body>
           <div className="pt-2">
             <SuccessCheck />
           </div>
           <div className="text-center">
-            <h2 className="text-[17px] font-bold">Report Submitted Successfully</h2>
-            <p className="text-[12px] text-muted">Wildlife staff will review your report.</p>
+            <h2 className="text-[17px] font-bold">
+              {acked
+                ? wasOffline
+                  ? "Report Synchronised Successfully"
+                  : "Report Submitted Successfully"
+                : "Saved on this phone"}
+            </h2>
+            <p className="text-[12px] text-muted">
+              {acked
+                ? "Wildlife staff will review your report."
+                : "Pending sync — Sync will upsert this same report id."}
+            </p>
+            <div className="mt-1.5">
+              <Pill tone={acked ? "ok" : "warn"}>
+                {acked ? (wasOffline ? "Synchronised" : "Submitted") : "Pending sync"}
+              </Pill>
+            </div>
           </div>
           <Card>
             <Row k="Conflict Type" v={type} strong />
             <Row k="Location" v={location} strong />
             <Row k="Reporting Channel" v={channel} strong />
+            <Row k="Status" v={acked ? "SYNCED" : "PENDING"} strong />
+            {selectedId ? <Row k="Report id" v={selectedId.slice(0, 8)} /> : null}
           </Card>
           {channel === "SMS" ? (
             <HintCard>
@@ -546,7 +605,8 @@ function ConflictPage() {
               SMS message.
             </HintCard>
           ) : null}
-          {wasOffline ? (
+          <HintCard>{acked ? CONSEQUENCE.synced : CONSEQUENCE.pendingSync}</HintCard>
+          {wasOffline && acked ? (
             <HintCard>
               <span className="font-semibold">Only if previously offline (Screen 5)</span>
               <span className="mt-1 flex items-center gap-1.5 font-semibold text-ok">
