@@ -14,8 +14,8 @@ BUILD_DIR="$MOBILE_DIR/build/apk"
 OUT_UNALIGNED="$BUILD_DIR/trailguard-debug-unaligned.apk"
 OUT_ALIGNED="$BUILD_DIR/trailguard-debug.apk"
 
-BUNDLE="$BUILD_DIR/trailguard-bundle/index.android.bundle"
-ASSETS_DIR="$BUILD_DIR/trailguard-bundle/assets"
+BUNDLE="$MOBILE_DIR/build/android-standalone/index.android.bundle"
+ASSETS_DIR="$MOBILE_DIR/build/android-standalone/assets"
 
 JAVA_HOME="${JAVA_HOME:-/Library/Java/JavaVirtualMachines/jdk-26.jdk/Contents/Home}"
 ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-/Users/ahsan/Library/Android/sdk}"
@@ -45,7 +45,7 @@ if [ ! -f "$ANDROID_JAR" ]; then
 fi
 
 TMPDIR=$(mktemp -d /tmp/trailguard_apk_build_XXXX)
-mkdir -p "$TMPDIR/res/values" "$TMPDIR/res/mipmap-hdpi" "$TMPDIR/res/mipmap-mdpi" "$TMPDIR/res/mipmap-xhdpi" "$TMPDIR/res/mipmap-xxhdpi" "$TMPDIR/res/mipmap-xxxhdpi" "$TMPDIR/assets"
+mkdir -p "$TMPDIR/res/values" "$TMPDIR/assets" "$TMPDIR/compiled"
 
 cat > "$TMPDIR/res/values/strings.xml" <<'RES'
 <?xml version="1.0" encoding="utf-8"?>
@@ -53,14 +53,6 @@ cat > "$TMPDIR/res/values/strings.xml" <<'RES'
     <string name="app_name">TrailGuard</string>
 </resources>
 RES
-
-for d in "$TMPDIR/res/mipmap-"*; do
-  cat > "$d/ic_launcher.xml" <<'RES'
-<?xml version="1.0" encoding="utf-8"?>
-<mipmap xmlns:android="http://schemas.android.com/apk/res/android">
-</mipmap>
-RES
-done
 
 cat > "$TMPDIR/AndroidManifest.xml" <<'MANIFEST'
 <?xml version="1.0" encoding="utf-8"?>
@@ -70,7 +62,8 @@ cat > "$TMPDIR/AndroidManifest.xml" <<'MANIFEST'
     android:versionName="1.0.0">
   <uses-permission android:name="android.permission.INTERNET" />
   <application
-      android:label="/android/app_name"
+      android:label="@string/app_name"
+      android:icon="@android:drawable/sym_def_app_icon"
       android:allowBackup="true"
       android:debuggable="true">
     <activity
@@ -91,29 +84,35 @@ if [ -d "$ASSETS_DIR" ]; then
 fi
 cp "$BUNDLE" "$TMPDIR/assets/index.android.bundle"
 
+echo "Compiling resources with aapt2..."
+"$AAPT2" compile --dir "$TMPDIR/res" -o "$TMPDIR/compiled" \
+  > "$TMPDIR/compile.out" 2> "$TMPDIR/compile.err" || {
+  echo "ERROR: aapt2 compile failed"
+  cat "$TMPDIR/compile.err"
+  exit 1
+}
+
 echo "Linking APK with aapt2..."
 cd "$TMPDIR"
-"$AAPT2" link -v \
+"$AAPT2" link -v --auto-add-overlay \
   -o "$TMPDIR/trailguard.apk" \
   --manifest "$TMPDIR/AndroidManifest.xml" \
   -I "$ANDROID_JAR" \
+  -R "$TMPDIR/compiled"/*.flat \
   -A "$TMPDIR/assets" \
-  > "$TMPDIR/link.out" 2> "$TMPDIR/link.err"
-
-if [ $? -ne 0 ]; then
+  > "$TMPDIR/link.out" 2> "$TMPDIR/link.err" || {
   echo "ERROR: aapt2 link failed"
   cat "$TMPDIR/link.err"
   exit 1
-fi
+}
 
 echo "Aligning APK with zipalign..."
-"$ZIPALIGN" -v -p 4 "$TMPDIR/trailguard.apk" "$TMPDIR/trailguard-aligned.apk" > "$TMPDIR/za.out" 2> "$TMPDIR/za.err"
-
-if [ $? -ne 0 ]; then
+"$ZIPALIGN" -v -p 4 "$TMPDIR/trailguard.apk" "$TMPDIR/trailguard-aligned.apk" \
+  > "$TMPDIR/za.out" 2> "$TMPDIR/za.err" || {
   echo "ERROR: zipalign failed"
   cat "$TMPDIR/za.err"
   exit 1
-fi
+}
 
 echo "Installing APK artifacts into $BUILD_DIR"
 mkdir -p "$BUILD_DIR"

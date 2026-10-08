@@ -4,30 +4,31 @@ import {
   ChevronRight,
   FileBarChart,
   Footprints,
-  Lock,
   Map,
   Radio,
   RadioTower,
   RefreshCw,
+  Shield,
   Siren,
 } from "lucide-react";
 import { Body, Phone, Pill } from "@/components/field";
 import { ConnectivityToggle } from "@/components/connectivity-toggle";
 import { LoginScreen, SessionChip } from "@/components/auth-gate";
 import { useAuth, type Area } from "@/lib/auth-store";
+import { actorMission, homeAreasFor } from "@/lib/actor-capabilities";
 import { useField, ROUTE_META } from "@/lib/store";
 import { fmtTime } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({ component: Home });
 
 /**
- * Field application home — entry point to the four A01 use case flows
- * (UC01 Patrol · UC02 Field Incident · UC03 Risk Alerts · UC04 Conflict
- * Reports). Requires a signed-in actor; cards the actor is not associated
- * with are shown locked.
+ * Field application home — only the signed-in actor's use cases are listed
+ * (A01 associations). Locked areas are hidden so each role sees a complete
+ * workspace for their job, not a wall of "Not your role" cards.
  */
 function Home() {
-  const { session, hydrated, canAccess } = useAuth();
+  const auth = useAuth();
+  const { session, hydrated, canAccess } = auth;
   const {
     patrols,
     incidents,
@@ -44,7 +45,14 @@ function Home() {
   if (!hydrated) {
     return (
       <Phone>
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6">
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6">
+          <img
+            src="/brand/trailguard-logo.jpg"
+            alt=""
+            className="size-16 rounded-2xl object-cover shadow-sm ring-1 ring-border"
+            width={64}
+            height={64}
+          />
           <p className="text-[17px] font-bold tracking-tight text-accent">TrailGuard</p>
           <p className="text-[12px] text-muted">Loading field session…</p>
         </div>
@@ -56,6 +64,12 @@ function Home() {
   const pending = pendingCount();
   const active = patrols.find((p) => p.status === "ACTIVE");
   const openAlert = alerts.find((a) => a.status !== "CLOSED");
+  const myAreas = homeAreasFor(
+    session.role,
+    (["patrol", "incidents", "alerts", "conflict", "radio", "reports", "admin"] as Area[]).filter(
+      (a) => canAccess(a),
+    ),
+  );
 
   async function onSync() {
     if (!online) {
@@ -78,23 +92,25 @@ function Home() {
 
   return (
     <Phone>
-      <header className="flex items-center gap-2.5 px-4 pb-1 pt-5">
-        <div>
-          <p className="text-[17px] font-bold leading-tight tracking-tight">TrailGuard</p>
-          <p className="text-[11px] text-muted">Yala National Park</p>
+      <div className="tg-wave-hero px-4 pb-10 pt-5">
+        <div className="flex items-start gap-2.5">
+          <div>
+            <p className="text-[18px] font-bold leading-tight tracking-tight text-white">TrailGuard</p>
+            <p className="text-[12px] text-white/75">Yala National Park</p>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <ConnectivityToggle tone="dark" />
+            <SessionChip tone="dark" />
+          </div>
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <ConnectivityToggle />
-          <SessionChip />
-        </div>
-      </header>
-      <Body className="pt-3">
-        <div className="flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2.5">
+      </div>
+      <Body className="tg-fade-up -mt-3 pt-1">
+        <div className="flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2.5 shadow-sm">
           <button
             type="button"
             onClick={() => void onSync()}
             disabled={syncing}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-accent-fg disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-accent-fg shadow-sm disabled:opacity-60"
           >
             <RefreshCw className={`size-3.5 ${syncing ? "animate-spin" : ""}`} strokeWidth={2} />
             Sync{pending > 0 ? ` (${pending})` : ""}
@@ -130,66 +146,100 @@ function Home() {
           </p>
         ) : null}
 
-        <UseCaseCard
-          area="patrol"
-          allowed={canAccess("patrol")}
-          icon={<Map className="size-5" strokeWidth={2} />}
-          title="Ranger Patrol"
-          sub={`${ROUTE_META.name} · ${ROUTE_META.id} · ${ROUTE_META.distanceKm} km`}
-          pill={
-            active ? <Pill tone="progress">In Progress</Pill> : <Pill tone="muted">Assigned</Pill>
-          }
-        />
-        <UseCaseCard
-          area="incidents"
-          allowed={canAccess("incidents")}
-          icon={<Footprints className="size-5" strokeWidth={2} />}
-          title="Report Field Incident"
-          sub="Snare · carcass · campsite · footprints"
-          pill={<Pill tone="muted">{incidents.length} on device</Pill>}
-        />
-        <UseCaseCard
-          area="alerts"
-          allowed={canAccess("alerts")}
-          icon={<Siren className="size-5" strokeWidth={2} />}
-          title="Wildlife Risk Alerts"
-          sub={
-            openAlert
-              ? `${openAlert.animal} near ${openAlert.zone} · ${openAlert.collar}`
-              : "No open risk alerts"
-          }
-          pill={openAlert ? <Pill tone="danger">High Risk</Pill> : <Pill tone="ok">Resolved</Pill>}
-        />
-        <UseCaseCard
-          area="conflict"
-          allowed={canAccess("conflict")}
-          icon={<Radio className="size-5" strokeWidth={2} />}
-          title="Community Conflict Report"
-          sub="Elephant sighting · crop raiding · via app or SMS"
-          pill={<Pill tone="muted">{conflicts.length} reported</Pill>}
-        />
-        <UseCaseCard
-          area="radio"
-          allowed={canAccess("radio")}
-          icon={<RadioTower className="size-5" strokeWidth={2} />}
-          title="Field Radio"
-          sub="Push-to-talk · 140–142 MHz channel plan"
-          pill={<Pill tone="muted">3 channels</Pill>}
-        />
+        <div className="rounded-xl border border-accent/20 bg-ok-bg/60 px-3 py-2.5">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-accent">
+            {session.title}
+          </p>
+          <p className="mt-0.5 text-[12.5px] leading-snug text-muted">
+            {actorMission(session.role)}
+          </p>
+        </div>
+
+        {myAreas.includes("patrol") ? (
+          <UseCaseCard
+            area="patrol"
+            icon={<Map className="size-5" strokeWidth={2} />}
+            title="Ranger Patrol"
+            sub={`${ROUTE_META.name} · ${ROUTE_META.id} · ${ROUTE_META.distanceKm} km`}
+            pill={
+              active ? <Pill tone="progress">In Progress</Pill> : <Pill tone="muted">Assigned</Pill>
+            }
+          />
+        ) : null}
+        {myAreas.includes("incidents") ? (
+          <UseCaseCard
+            area="incidents"
+            icon={<Footprints className="size-5" strokeWidth={2} />}
+            title="Report Field Incident"
+            sub="Snare · carcass · campsite · footprints"
+            pill={<Pill tone="muted">{incidents.length} on device</Pill>}
+          />
+        ) : null}
+        {myAreas.includes("alerts") ? (
+          <UseCaseCard
+            area="alerts"
+            icon={<Siren className="size-5" strokeWidth={2} />}
+            title="Wildlife Risk Alerts"
+            sub={
+              openAlert
+                ? `${openAlert.animal} near ${openAlert.zone} · ${openAlert.collar}`
+                : "No open risk alerts"
+            }
+            pill={openAlert ? <Pill tone="danger">HIGH RISK</Pill> : <Pill tone="ok">Resolved</Pill>}
+          />
+        ) : null}
+        {myAreas.includes("conflict") ? (
+          <UseCaseCard
+            area="conflict"
+            icon={<Radio className="size-5" strokeWidth={2} />}
+            title={
+              session.role === "COMMUNITY"
+                ? "Report Wildlife Conflict"
+                : "Community Conflict Desk"
+            }
+            sub={
+              session.role === "COMMUNITY"
+                ? "Elephant sighting · crop raiding · via app or SMS"
+                : "Review reports · record responses"
+            }
+            pill={<Pill tone="muted">{conflicts.length} reported</Pill>}
+          />
+        ) : null}
+        {myAreas.includes("radio") ? (
+          <UseCaseCard
+            area="radio"
+            icon={<RadioTower className="size-5" strokeWidth={2} />}
+            title="Field Radio"
+            sub={
+              session.role === "COMMUNITY"
+                ? "Community channel CMN-3 only"
+                : "Push-to-talk · OPS / EMG / CMN"
+            }
+            pill={<Pill tone="muted">Radio</Pill>}
+          />
+        ) : null}
+        {myAreas.includes("reports") ? (
+          <UseCaseCard
+            area="reports"
+            icon={<FileBarChart className="size-5" strokeWidth={2} />}
+            title="Conservation Reports"
+            sub="Synced records only · coverage snapshot · CSV export"
+            pill={<Pill tone="muted">Ops desk</Pill>}
+          />
+        ) : null}
+        {myAreas.includes("admin") ? (
+          <UseCaseCard
+            area="admin"
+            icon={<Shield className="size-5" strokeWidth={2} />}
+            title="Role Admin"
+            sub="Create and divide areas for every field actor"
+            pill={<Pill tone="progress">Super Admin</Pill>}
+          />
+        ) : null}
 
         <div className="mt-auto flex flex-col gap-2 pt-3">
-          {canAccess("reports") ? (
-            <Link
-              to="/reports"
-              className="flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-3 text-[13px] font-semibold text-muted hover:bg-elevated"
-            >
-              <FileBarChart className="size-4" strokeWidth={2} />
-              Conservation reports (ops desk)
-              <ChevronRight className="ml-auto size-4" />
-            </Link>
-          ) : null}
           <p className="text-center text-[11px] text-subtle">
-            Offline-first · records stay on device until sync acknowledgement
+            Offline-first field ops · Yala National Park
           </p>
         </div>
       </Body>
@@ -197,72 +247,43 @@ function Home() {
   );
 }
 
-const AREA_PATH: Record<Area, string> = {
+const AREA_PATH: Record<Area, "/patrol" | "/incidents" | "/alerts" | "/conflict" | "/reports" | "/radio" | "/admin"> = {
   patrol: "/patrol",
   incidents: "/incidents",
   alerts: "/alerts",
   conflict: "/conflict",
   reports: "/reports",
   radio: "/radio",
+  admin: "/admin",
 };
 
 function UseCaseCard({
   area,
-  allowed,
   icon,
   title,
   sub,
   pill,
 }: {
   area: Area;
-  allowed: boolean;
   icon: ReactNode;
   title: string;
   sub: string;
   pill: ReactNode;
 }) {
-  const inner = (
-    <>
-      <span
-        className={
-          allowed
-            ? "flex size-11 shrink-0 items-center justify-center rounded-xl bg-elevated text-accent"
-            : "flex size-11 shrink-0 items-center justify-center rounded-xl bg-elevated text-subtle"
-        }
-      >
-        {icon}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2">
-          {allowed ? pill : <Pill tone="muted">Not your role</Pill>}
-        </span>
-        <span className="mt-0.5 block text-[15px] font-bold leading-tight">{title}</span>
-        <span className="block truncate text-[12px] text-muted">{sub}</span>
-      </span>
-      {allowed ? (
-        <ChevronRight className="size-4 shrink-0 text-subtle" />
-      ) : (
-        <Lock className="size-4 shrink-0 text-subtle" strokeWidth={2} />
-      )}
-    </>
-  );
-
-  if (!allowed) {
-    return (
-      <div
-        aria-disabled
-        className="flex items-center gap-3 rounded-xl border border-border bg-surface p-3 opacity-60"
-      >
-        {inner}
-      </div>
-    );
-  }
   return (
     <Link
       to={AREA_PATH[area]}
-      className="flex items-center gap-3 rounded-xl border border-border bg-surface p-3 transition-colors hover:bg-elevated"
+      className="tg-card-lift flex items-center gap-3 rounded-xl border border-border bg-surface p-3.5 hover:bg-elevated"
     >
-      {inner}
+      <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-elevated text-accent">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2">{pill}</span>
+        <span className="mt-0.5 block text-[15px] font-bold leading-tight">{title}</span>
+        <span className="block truncate text-[12px] text-muted">{sub}</span>
+      </span>
+      <ChevronRight className="size-4 shrink-0 text-subtle" />
     </Link>
   );
 }

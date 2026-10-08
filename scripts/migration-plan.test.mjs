@@ -58,8 +58,18 @@ test("non-.sql entries are dropped (readdir also yields the auth/ directory)", (
 
 test("the auth schema ships outside the globbed directory", () => {
   const migrationsDir = join(projectRoot(), "migrations");
-  assert.deepEqual(pendingMigrations(readdirSync(migrationsDir), []), []);
+  const pending = pendingMigrations(readdirSync(migrationsDir), []);
+  // Better Auth DDL stays under migrations/auth/ until sign-in is opted in.
   assert.ok(readdirSync(join(migrationsDir, "auth")).includes("0001_auth.sql"));
+  assert.ok(
+    !pending.some((m) => m.name === "0001_auth.sql"),
+    "auth schema must not be copied into the globbed migrations/ root",
+  );
+  // TrailGuard field ops schema is the intentional top-level migration.
+  assert.ok(
+    pending.some((m) => m.name === "0002_field_ops.sql"),
+    "expected migrations/0002_field_ops.sql for ConservationAPI tables",
+  );
 });
 
 test("this workspace's auth schema copy is byte-identical to its source", () => {

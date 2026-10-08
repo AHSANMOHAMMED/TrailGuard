@@ -11,9 +11,9 @@ import { cn } from "@/lib/utils";
 
 export function Phone({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-dvh justify-center bg-[#e6ece5] md:py-8">
-      <div className="relative flex w-full max-w-[390px] flex-col bg-bg shadow-sm md:min-h-[844px] md:rounded-[30px] md:border md:border-[#cfd9cf] md:shadow-xl md:overflow-hidden">
-        {children}
+    <div className="tg-stage flex min-h-dvh justify-center md:py-8">
+      <div className="tg-phone">
+        <div className="tg-phone-scroll">{children}</div>
       </div>
     </div>
   );
@@ -30,7 +30,7 @@ export function ScreenHeader({
 }) {
   const router = useRouter();
   return (
-    <header className="flex items-center gap-1 px-3 pb-2 pt-4">
+    <header className="sticky top-0 z-20 flex items-center gap-1 border-b border-border/70 bg-bg/90 px-3 pb-2.5 pt-4 backdrop-blur-md">
       {onBack ? (
         <button
           type="button"
@@ -60,20 +60,22 @@ export function BtnPrimary({
   onClick,
   disabled,
   caption,
+  type = "button",
 }: {
   children: ReactNode;
   onClick?: () => void;
   disabled?: boolean;
   caption?: string;
+  type?: "button" | "submit";
 }) {
   return (
     <div className="w-full">
       {caption ? <p className="mb-1 text-center text-[11px] text-subtle">{caption}</p> : null}
       <button
-        type="button"
+        type={type}
         onClick={onClick}
         disabled={disabled}
-        className="h-[52px] w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-fg transition-colors hover:bg-[#174935] disabled:bg-[#c6d2c6] disabled:text-[#71836f]"
+        className="h-[52px] w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-fg shadow-[0_8px_18px_-10px_rgba(31,90,67,0.55)] transition-[background-color,transform,box-shadow] hover:bg-[#174935] active:scale-[0.99] disabled:bg-[#c6d2c6] disabled:text-[#71836f] disabled:shadow-none"
       >
         {children}
       </button>
@@ -210,7 +212,12 @@ export function GpsActive({ extra }: { extra?: ReactNode }) {
 
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn("rounded-xl border border-border bg-surface p-3", className)}>
+    <div
+      className={cn(
+        "rounded-xl border border-border bg-surface p-3 shadow-[0_1px_0_rgba(22,40,30,0.03)]",
+        className,
+      )}
+    >
       {children}
     </div>
   );

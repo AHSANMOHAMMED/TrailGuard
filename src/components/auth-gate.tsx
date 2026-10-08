@@ -2,8 +2,6 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
-  ChevronRight,
-  Delete,
   FlaskConical,
   Handshake,
   Home,
@@ -16,18 +14,17 @@ import {
 import { Body, BtnPrimary, Phone, Pill } from "@/components/field";
 import {
   ACTORS,
+  accessFor,
   actorFor,
   useAuth,
-  type ActorAccount,
   type ActorRole,
   type Area,
 } from "@/lib/auth-store";
 import { cn } from "@/lib/utils";
 
 /*
- * Sign-in and access control for the five wireframe actors, in the same
- * design system as the use case screens (50–52 px touch targets, every
- * state a text label + icon).
+ * Sign-in and access control for field actors. Role pick happens only on
+ * LoginScreen — onboarding is a feature tour (see /onboarding).
  */
 
 const AREA_LABEL: Record<Area, string> = {
@@ -37,9 +34,11 @@ const AREA_LABEL: Record<Area, string> = {
   conflict: "Conflict Reports",
   reports: "Conservation Reports",
   radio: "Field Radio",
+  admin: "Role Admin",
 };
 
 const ACTOR_ICON: Record<ActorRole, typeof ShieldCheck> = {
+  SUPER_ADMIN: LockKeyhole,
   RANGER: ShieldCheck,
   LIAISON: Handshake,
   MANAGER: TreePine,
@@ -52,7 +51,8 @@ const ACTOR_ICON: Record<ActorRole, typeof ShieldCheck> = {
  * associated actor for this use case → access-restricted screen.
  */
 export function Guard({ area, children }: { area: Area; children: ReactNode }) {
-  const { session, hydrated, canAccess } = useAuth();
+  const auth = useAuth();
+  const { session, hydrated, canAccess } = auth;
 
   if (!hydrated) {
     return (
@@ -70,14 +70,13 @@ export function Guard({ area, children }: { area: Area; children: ReactNode }) {
 }
 
 export function LoginScreen() {
-  const login = useAuth((s) => s.login);
+  const signIn = useAuth((s) => s.signIn);
   const lockedUntil = useAuth((s) => s.lockedUntil);
-  const [picked, setPicked] = useState<ActorAccount | null>(null);
+  const [userId, setUserId] = useState("");
   const [pin, setPin] = useState("");
   const [error, setError] = useState(false);
   const [now, setNow] = useState(Date.now());
 
-  // Live countdown while the brute-force lockout is active.
   useEffect(() => {
     if (!lockedUntil) return;
     const t = setInterval(() => setNow(Date.now()), 500);
@@ -85,13 +84,11 @@ export function LoginScreen() {
   }, [lockedUntil]);
   const lockLeftS = lockedUntil ? Math.max(0, Math.ceil((lockedUntil - now) / 1000)) : 0;
 
-  function enter(digit: string) {
-    if (!picked || lockLeftS > 0) return;
+  function submit(e?: { preventDefault(): void }) {
+    e?.preventDefault();
+    if (lockLeftS > 0) return;
     setError(false);
-    const next = (pin + digit).slice(0, 4);
-    setPin(next);
-    if (next.length === 4) {
-      if (login(picked.role, next)) return; // Guard re-renders into the app
+    if (!signIn(userId, pin)) {
       setError(true);
       setPin("");
     }
@@ -99,141 +96,127 @@ export function LoginScreen() {
 
   return (
     <Phone>
-      <Body className="pt-8">
-        <div className="flex flex-col items-center gap-1 pb-2 text-center">
-          <Mark />
-          <h1 className="text-[22px] font-bold tracking-tight">TrailGuard</h1>
-          <p className="text-[12.5px] text-muted">Yala National Park · Sign in to your role</p>
+      <div className="tg-wave-hero overflow-hidden px-0 pb-12 pt-0 text-center">
+        <div className="relative mx-auto aspect-[16/9] w-full overflow-hidden">
+          <img
+            src="/brand/trailguard-logo.jpg"
+            alt="TrailGuard"
+            className="size-full object-cover object-center"
+            width={780}
+            height={440}
+          />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#1f5a43]/90 via-[#1f5a43]/35 to-transparent" />
+        </div>
+        <div className="relative -mt-10 px-5">
+          <h1 className="text-[24px] font-bold tracking-tight text-white drop-shadow">TrailGuard</h1>
+          <p className="mt-1 text-[13px] text-white/85">Yala National Park · Field sign-in</p>
+        </div>
+      </div>
+
+      <Body className="tg-fade-up -mt-2 pt-2">
+        <form className="flex flex-col gap-3" onSubmit={submit}>
+          <div>
+            <p className="text-[15px] font-bold">Login</p>
+            <p className="mt-0.5 text-[12.5px] text-muted">
+              Enter your user ID and 4-digit field PIN.
+            </p>
+          </div>
+
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[12px] font-semibold text-muted">User ID</span>
+            <input
+              type="text"
+              name="userId"
+              autoComplete="username"
+              value={userId}
+              disabled={lockLeftS > 0}
+              onChange={(ev) => {
+                setUserId(ev.target.value);
+                setError(false);
+              }}
+              placeholder="e.g. RN-402"
+              className="h-[52px] w-full rounded-xl border border-border bg-surface px-3 text-[15px] text-fg shadow-sm outline-none ring-accent/40 placeholder:text-subtle focus:ring-2 disabled:opacity-50"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[12px] font-semibold text-muted">Field PIN</span>
+            <input
+              type="password"
+              name="pin"
+              inputMode="numeric"
+              autoComplete="current-password"
+              maxLength={4}
+              value={pin}
+              disabled={lockLeftS > 0}
+              onChange={(ev) => {
+                setPin(ev.target.value.replace(/\D/g, "").slice(0, 4));
+                setError(false);
+              }}
+              placeholder="••••"
+              className="h-[52px] w-full rounded-xl border border-border bg-surface px-3 text-[15px] tracking-[0.35em] text-fg shadow-sm outline-none ring-accent/40 placeholder:tracking-normal placeholder:text-subtle focus:ring-2 disabled:opacity-50"
+            />
+          </label>
+
+          {error || lockLeftS > 0 ? (
+            <p
+              className={cn(
+                "flex items-center gap-1.5 text-[12.5px] font-semibold",
+                lockLeftS > 0 ? "text-warn" : "text-danger",
+              )}
+            >
+              <LockKeyhole className="size-3.5" />
+              {lockLeftS > 0
+                ? `Too many attempts · locked for ${lockLeftS}s`
+                : "Wrong user ID or PIN — try again"}
+            </p>
+          ) : null}
+
+          <BtnPrimary
+            type="submit"
+            disabled={lockLeftS > 0 || !userId.trim() || pin.length < 4}
+          >
+            Sign in
+          </BtnPrimary>
+        </form>
+
+        <div className="mt-1 flex flex-col gap-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-subtle">
+            Quick demo fill · pick an actor
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {ACTORS.map((a) => (
+              <button
+                key={a.role}
+                type="button"
+                onClick={() => {
+                  setUserId(a.userId);
+                  setPin(a.pin);
+                  setError(false);
+                }}
+                className="rounded-xl border border-border bg-surface px-3 py-2.5 text-left text-[12px] shadow-sm hover:bg-elevated"
+              >
+                <span className="block font-semibold text-fg">{a.title}</span>
+                <span className="block truncate text-[10.5px] text-muted">{a.tagline}</span>
+                <span className="mt-0.5 block font-mono text-[10.5px] text-subtle">
+                  {a.userId} · {a.pin}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
 
-        {!picked ? (
-          <>
-            <p className="text-[13px] font-semibold">Who is using this device?</p>
-            {ACTORS.map((a) => {
-              const Icon = ACTOR_ICON[a.role];
-              return (
-                <button
-                  key={a.role}
-                  type="button"
-                  onClick={() => {
-                    setPicked(a);
-                    setPin("");
-                    setError(false);
-                  }}
-                  className="flex min-h-[64px] w-full items-center gap-3 rounded-xl border border-border bg-surface px-3 py-2.5 text-left transition-colors hover:bg-elevated"
-                >
-                  <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-elevated text-accent">
-                    <Icon className="size-5" strokeWidth={2} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[15px] font-bold leading-tight">{a.title}</span>
-                    <span className="block truncate text-[12px] text-muted">{a.tagline}</span>
-                  </span>
-                  <ChevronRight className="size-4 shrink-0 text-subtle" />
-                </button>
-              );
-            })}
-            <p className="mt-auto pt-2 text-center text-[11px] text-subtle">
-              On-device sign-in — works fully offline. Demo PINs are shown for the evaluation.
-            </p>
-          </>
-        ) : (
-          <>
-            <div className="flex items-center gap-3 rounded-xl border border-border bg-surface p-3">
-              <span className="flex size-11 items-center justify-center rounded-xl bg-elevated text-accent">
-                {(() => {
-                  const Icon = ACTOR_ICON[picked.role];
-                  return <Icon className="size-5" strokeWidth={2} />;
-                })()}
-              </span>
-              <span className="flex-1">
-                <span className="block text-[15px] font-bold leading-tight">{picked.title}</span>
-                <span className="block text-[12px] text-muted">{picked.persona}</span>
-              </span>
-              <button
-                type="button"
-                onClick={() => setPicked(null)}
-                className="text-[12px] font-semibold text-accent underline-offset-2 hover:underline"
-              >
-                Change
-              </button>
-            </div>
-
-            <p className="pt-1 text-center text-[13px] font-semibold">
-              Enter your 4-digit field PIN
-            </p>
-            <div
-              className="flex justify-center gap-2.5"
-              role="status"
-              aria-label={`${pin.length} of 4 digits entered`}
-            >
-              {[0, 1, 2, 3].map((i) => (
-                <span
-                  key={i}
-                  className={cn(
-                    "size-3.5 rounded-full border-2",
-                    i < pin.length ? "border-accent bg-accent" : "border-[#c6d2c6] bg-surface",
-                    error && "border-danger",
-                  )}
-                />
-              ))}
-            </div>
-            {error || lockLeftS > 0 ? (
-              <p
-                className={cn(
-                  "flex items-center justify-center gap-1.5 text-[12.5px] font-semibold",
-                  lockLeftS > 0 ? "text-warn" : "text-danger",
-                )}
-              >
-                <LockKeyhole className="size-3.5" />
-                {lockLeftS > 0
-                  ? `Too many attempts · locked for ${lockLeftS}s`
-                  : "Wrong PIN — try again"}
-              </p>
-            ) : (
-              <p className="text-center text-[11.5px] text-subtle">
-                Enter the 4-digit PIN issued to your officer ID
-              </p>
-            )}
-
-            <div className="mx-auto grid w-full max-w-[260px] grid-cols-3 gap-2">
-              {["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"].map((key, i) =>
-                key === "" ? (
-                  <span key={i} />
-                ) : key === "⌫" ? (
-                  <button
-                    key={i}
-                    type="button"
-                    aria-label="Delete digit"
-                    disabled={lockLeftS > 0}
-                    onClick={() => setPin((p) => p.slice(0, -1))}
-                    className="flex h-[52px] items-center justify-center rounded-xl border border-border bg-surface text-muted hover:bg-elevated disabled:opacity-50"
-                  >
-                    <Delete className="size-5" strokeWidth={2} />
-                  </button>
-                ) : (
-                  <button
-                    key={i}
-                    type="button"
-                    disabled={lockLeftS > 0}
-                    onClick={() => enter(key)}
-                    className="h-[52px] rounded-xl border border-border bg-surface text-[18px] font-semibold hover:bg-elevated disabled:opacity-50"
-                  >
-                    {key}
-                  </button>
-                ),
-              )}
-            </div>
-          </>
-        )}
+        <p className="mt-auto pt-3 text-center text-[11px] text-subtle">
+          On-device credentials · works offline
+        </p>
       </Body>
     </Phone>
   );
 }
 
 function AccessDenied({ area }: { area: Area }) {
-  const { session, logout } = useAuth();
-  const allowed = ACTORS.filter((a) => a.access.includes(area));
+  const { session, logout, roleAccess } = useAuth();
+  const allowed = ACTORS.filter((a) => accessFor(a.role, roleAccess).includes(area));
 
   return (
     <Phone>
@@ -245,11 +228,13 @@ function AccessDenied({ area }: { area: Area }) {
           <Pill tone="muted">Access restricted</Pill>
           <h2 className="mt-2 text-[18px] font-bold">{AREA_LABEL[area]}</h2>
           <p className="mt-1 text-[13px] text-muted">
-            {session ? `${session.title} is not an actor of this use case.` : ""}
+            {session
+              ? `${session.title} is not associated with this use case on the A01 diagram.`
+              : ""}
           </p>
         </div>
         <div className="rounded-xl border border-border bg-surface p-3">
-          <p className="text-[12px] font-semibold text-muted">Associated actors</p>
+          <p className="text-[12px] font-semibold text-muted">Actors who can open this</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {allowed.map((a) => (
               <span
@@ -276,20 +261,38 @@ function AccessDenied({ area }: { area: Area }) {
 }
 
 /** Signed-in chip for the home header: persona, role, sign out. */
-export function SessionChip() {
+export function SessionChip({ tone = "light" }: { tone?: "light" | "dark" }) {
   const { session, logout } = useAuth();
   if (!session) return null;
   const actor = actorFor(session.role);
   const Icon = ACTOR_ICON[actor.role];
+  const onDark = tone === "dark";
   return (
     <div className="flex items-center gap-2">
-      <span className="flex items-center gap-1.5 rounded-full border border-border bg-surface py-1 pl-1.5 pr-2.5">
-        <span className="flex size-6 items-center justify-center rounded-full bg-elevated text-accent">
+      <span
+        className={cn(
+          "flex items-center gap-1.5 rounded-full border py-1 pl-1.5 pr-2.5",
+          onDark
+            ? "border-white/30 bg-white/15 text-white"
+            : "border-border bg-surface",
+        )}
+      >
+        <span
+          className={cn(
+            "flex size-6 items-center justify-center rounded-full",
+            onDark ? "bg-white/20 text-white" : "bg-elevated text-accent",
+          )}
+        >
           <Icon className="size-3.5" strokeWidth={2} />
         </span>
         <span className="text-[11px] font-semibold leading-none">
           {session.persona}
-          <span className="block pt-0.5 text-[9px] font-normal uppercase tracking-wide text-muted">
+          <span
+            className={cn(
+              "block pt-0.5 text-[9px] font-normal uppercase tracking-wide",
+              onDark ? "text-white/70" : "text-muted",
+            )}
+          >
             {session.title}
           </span>
         </span>
@@ -299,24 +302,15 @@ export function SessionChip() {
         onClick={logout}
         aria-label="Sign out"
         title="Sign out"
-        className="flex size-9 items-center justify-center rounded-full border border-border bg-surface text-muted hover:bg-elevated hover:text-fg"
+        className={cn(
+          "flex size-9 items-center justify-center rounded-full border",
+          onDark
+            ? "border-white/30 bg-white/15 text-white hover:bg-white/25"
+            : "border-border bg-surface text-muted hover:bg-elevated hover:text-fg",
+        )}
       >
         <LogOut className="size-4" strokeWidth={2} />
       </button>
     </div>
-  );
-}
-
-function Mark() {
-  return (
-    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M12 3 4.5 6.5v5.2c0 4.7 3.2 8.7 7.5 10.3 4.3-1.6 7.5-5.6 7.5-10.3V6.5L12 3Z"
-        stroke="#1f5a43"
-        strokeWidth="1.6"
-        fill="#e7f2ea"
-      />
-      <path d="M8 13.5c2.2-1.6 3.4-1.6 8-3" stroke="#1f5a43" strokeWidth="1.6" />
-    </svg>
   );
 }

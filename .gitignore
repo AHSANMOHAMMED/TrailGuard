@@ -32,4 +32,18 @@ artifacts/TrailGuard/mobile/package-lock.json
 screenshots/*.png
 screenshots/*.json
 screenshots/*.pdf
+screenshots/pdf-pages/
+screenshots/pdf-panels/
 !screenshots/.gitkeep
+
+artifacts/TrailGuard/mobile/node_modules/
+artifacts/TrailGuard/mobile/build/
+
+# Regenerable design dumps, sample previews, course attachments
+artifacts/diagram_sources/
+artifacts/*.jpg
+artifacts/*.png
+attachments/
+**/.coverage
+artifacts/TrailGuard/mobile/trace-codegen*.js
+artifacts/TrailGuard/mobile/patch-codegen.js

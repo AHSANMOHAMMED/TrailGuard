@@ -4,6 +4,7 @@ import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { Body, Phone, Pill } from "@/components/field";
 import { Toaster } from "sonner";
+import { useAuth } from "@/lib/auth-store";
 import { useField } from "@/lib/store";
 import appCss from "../styles.css?url";
 
@@ -22,6 +23,7 @@ export const Route = createRootRoute({
       { name: "theme-color", content: "#1F5A43" },
     ],
     links: [
+      { rel: "icon", type: "image/png", href: "/favicon.png" },
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/__grok/manifest.webmanifest" },
@@ -58,9 +60,12 @@ function NotFound() {
 }
 
 function RootComponent() {
-  // Rehydrate the persisted on-device field store once per session.
+  // Rehydrate persisted auth + field stores so login / sync never stick on "Loading…".
   useEffect(() => {
     void useField.persist.rehydrate();
+    void Promise.resolve(useAuth.persist.rehydrate()).finally(() => {
+      useAuth.getState().setHydrated();
+    });
   }, []);
 
   return (

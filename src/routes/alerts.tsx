@@ -21,6 +21,7 @@ import {
 import { useField } from "@/lib/store";
 import { Guard } from "@/components/auth-gate";
 import { useAuth } from "@/lib/auth-store";
+import { isAlertAssigner, isAlertResponder } from "@/lib/actor-capabilities";
 import { fmtClock } from "@/lib/utils";
 
 export const Route = createFileRoute("/alerts")({
@@ -75,8 +76,8 @@ function AlertsPage() {
   } = useField();
 
   // Ranger + Liaison run the field response (Fig 14). Manager runs assign desk (A02).
-  const canAct = session?.role === "RANGER" || session?.role === "LIAISON";
-  const isManager = session?.role === "MANAGER";
+  const canAct = isAlertResponder(session?.role);
+  const isManager = isAlertAssigner(session?.role);
 
   const [step, setStep] = useState<Step>("incoming");
   const [outcome, setOutcome] = useState<string | null>(null);
@@ -114,7 +115,7 @@ function AlertsPage() {
           <p className="text-[12px] text-muted">Incoming alert</p>
           <div className="rounded-xl border-2 border-danger bg-danger-bg p-3">
             <div className="flex items-center justify-between">
-              <Pill tone="danger">High Risk</Pill>
+              <Pill tone="danger">HIGH RISK</Pill>
               <span className="rounded-full bg-danger px-2 py-0.5 text-[10px] font-bold uppercase text-white">
                 {statusLabel}
               </span>
@@ -129,20 +130,22 @@ function AlertsPage() {
           <Card>
             <Row k="Animal / Collar" v={`${alert.animal} · ${alert.collar}`} strong />
             <Row k="Risk Zone" v={`${alert.zone} (HIGH)`} strong />
-            <Row k="Confidence" v={alert.confidence} strong />
             <Row k="Time" v={detected} strong />
             <Row k="Status" v={statusLabel} strong />
           </Card>
-          <HintCard>
-            No high-risk zone detected → no alert is created (safe zone – conditional).
-          </HintCard>
-          <HintCard>
-            Ranger offline → alert delivered when connectivity returns (conditional).
-          </HintCard>
           <div className="mt-auto flex flex-col gap-2 pt-2">
-            <BtnPrimary onClick={() => setStep("details")}>View Alert</BtnPrimary>
-            {isManager ? (
-              <BtnOutline onClick={() => setStep("desk")}>Open assign desk (A02)</BtnOutline>
+            {canAct ? (
+              <BtnPrimary onClick={() => setStep("details")}>View Alert</BtnPrimary>
+            ) : isManager ? (
+              <BtnPrimary onClick={() => setStep("desk")}>Assign response (desk)</BtnPrimary>
+            ) : (
+              <HintCard>
+                Monitoring view for your role — field response is for Ranger / Liaison; assignment
+                is for the Park Manager.
+              </HintCard>
+            )}
+            {canAct && isManager ? (
+              <BtnOutline onClick={() => setStep("desk")}>Open assign desk</BtnOutline>
             ) : null}
           </div>
         </Body>
@@ -295,8 +298,8 @@ function AlertsPage() {
         <ScreenHeader title="Risk Alert" onBack={() => setStep("details")} />
         <Body>
           <div className="flex items-center gap-2">
-            <Pill tone="danger">High Risk</Pill>
-            <Pill tone="progress">Acknowledged</Pill>
+            <Pill tone="danger">HIGH RISK</Pill>
+            <Pill tone="progress">ACKNOWLEDGED</Pill>
           </div>
           <RiskMap approach={0.15} />
           <ConfirmNote title="ACKNOWLEDGED" sub="You are now responding to this alert" />
@@ -328,7 +331,7 @@ function AlertsPage() {
             <p className="mt-1 text-right text-[11px] text-muted">route toward risk area</p>
           </div>
           <div className="flex items-center gap-2">
-            <Pill tone="progress">Acknowledged</Pill>
+            <Pill tone="progress">ACKNOWLEDGED</Pill>
             <span className="text-[12px] text-muted">Heading NE · Nagoda east field</span>
           </div>
           <div className="flex gap-2">
@@ -380,7 +383,7 @@ function AlertsPage() {
           <Card>
             <p className="text-[12px] text-muted">Alert Status</p>
             <div className="mt-1 flex items-center justify-between">
-              <Pill tone="progress">Acknowledged</Pill>
+              <Pill tone="progress">ACKNOWLEDGED</Pill>
               <span className="text-[12px] font-semibold">
                 {alert.animal} · {alert.collar} · {alert.zone}
               </span>
@@ -404,7 +407,7 @@ function AlertsPage() {
         <ScreenHeader title="Risk Response" onBack={() => setStep("coordination")} />
         <Body>
           <p className="flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-wide text-ok">
-            <span className="size-1.5 rounded-full bg-ok" aria-hidden /> Response In Progress
+            <span className="size-1.5 rounded-full bg-ok" aria-hidden /> RESPONSE IN PROGRESS
           </p>
           <div>
             <RiskMap approach={0.8} />
@@ -413,7 +416,7 @@ function AlertsPage() {
           <Card>
             <Row k="Animal" v={`${alert.animal} · ${alert.collar}`} strong />
             <Row k="Zone" v={alert.zone} strong />
-            <Row k="Current Alert Status" v="ACKNOWLEDGED" strong />
+            <Row k="Current Alert Status" v="RESPONSE IN PROGRESS" strong />
           </Card>
           <p className="text-[12.5px] text-muted">
             Field team monitoring the animal near the risk boundary.
@@ -435,7 +438,7 @@ function AlertsPage() {
           <Card>
             <p className="text-[15px] font-bold">{title}</p>
             <div className="mt-1 flex items-center justify-between">
-              <Pill tone="progress">Acknowledged</Pill>
+              <Pill tone="progress">ACKNOWLEDGED</Pill>
               <span className="text-[12px] text-muted">
                 {alert.collar} · {alert.zone}
               </span>
@@ -485,7 +488,7 @@ function AlertsPage() {
           <SuccessCheck />
         </div>
         <div className="text-center">
-          <Pill tone="ok">Resolved</Pill>
+          <Pill tone="ok">RESOLVED</Pill>
           <h2 className="mt-1.5 text-[18px] font-bold">{title}</h2>
           <p className="text-[12px] text-muted">Resolved {resolvedLabel}</p>
         </div>

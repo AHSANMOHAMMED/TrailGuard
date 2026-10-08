@@ -31,6 +31,7 @@ import {
 import { ConnectivityToggle } from "@/components/connectivity-toggle";
 import { Guard } from "@/components/auth-gate";
 import { useAuth } from "@/lib/auth-store";
+import { isConflictStaff } from "@/lib/actor-capabilities";
 import { useField } from "@/lib/store";
 import { fmtClock } from "@/lib/utils";
 import {
@@ -106,19 +107,18 @@ function ConflictPage() {
   const [syncingNow, setSyncingNow] = useState(false);
 
   const selected = conflicts.find((c) => c.reportId === selectedId) ?? null;
-  const isStaff = session?.role === "RANGER" || session?.role === "LIAISON";
+  const isStaff = isConflictStaff(session?.role);
 
-  // Role assignment: only Ranger and Community Liaison Officer operate the
-  // dashboard and record responses (use case model, steps 9–13). Community
-  // members submit reports; everything past submission is staff work.
+  // Staff (Ranger / Liaison / Manager) operate the dashboard and record
+  // responses (steps 9–13). Community members submit only.
   if (!isStaff && (step === "dashboard" || step === "staffReview" || step === "responded")) {
     return (
       <Phone>
         <ScreenHeader title="Community Conflict Report" onBack={() => setStep("intro")} />
         <Body>
           <HintCard>
-            The operations dashboard and response recording are handled by the Ranger and the
-            Community Liaison Officer. Your report has been submitted for their review.
+            The operations dashboard and response recording are handled by park staff (Ranger,
+            Community Liaison Officer, or Park Manager). Your report is waiting for their review.
           </HintCard>
           <div className="mt-auto pt-2">
             <BtnPrimary onClick={() => router.navigate({ to: "/" })}>Back to Home</BtnPrimary>
@@ -201,14 +201,43 @@ function ConflictPage() {
 
   /* ---------- Panel 1 · Report Wildlife Conflict ---------- */
   if (step === "intro") {
+    // Staff land on an ops-first entry; community members get the submit flow.
+    if (isStaff) {
+      return (
+        <Phone>
+          <ScreenHeader title="Community Conflict Report" onBack="home" />
+          <Body>
+            <div>
+              <h2 className="text-[20px] font-bold tracking-tight">Conflict operations</h2>
+              <p className="text-[13px] text-muted">
+                Review community reports and record responses. Villagers submit; staff close the loop.
+              </p>
+            </div>
+            <Card>
+              <Row k="Open reports" v={String(conflicts.length)} strong />
+              <Row
+                k="Your role"
+                v={session?.title ?? "Staff"}
+                strong
+              />
+            </Card>
+            <div className="mt-auto flex flex-col gap-2 pt-2">
+              <BtnPrimary onClick={() => setStep("dashboard")}>
+                <span className="inline-flex items-center gap-2">
+                  <LayoutDashboard className="size-4" strokeWidth={2} />
+                  Operations Dashboard ({conflicts.length})
+                </span>
+              </BtnPrimary>
+              <BtnOutline onClick={() => setStep("channel")}>Submit a report (demo)</BtnOutline>
+            </div>
+          </Body>
+        </Phone>
+      );
+    }
+
     return (
       <Phone>
-        <ScreenHeader title="Report Wildlife Conflict" onBack="home">
-          <div className="flex items-center gap-2">
-            <ModeChip online={online} />
-            <ConnectivityToggle />
-          </div>
-        </ScreenHeader>
+        <ScreenHeader title="Report Wildlife Conflict" onBack="home" />
         <Body>
           <div>
             <h2 className="text-[20px] font-bold tracking-tight">Community Conflict Report</h2>
@@ -216,7 +245,7 @@ function ConflictPage() {
               Report wildlife sightings or conflict near the park.
             </p>
           </div>
-          <PinMap height={130} pinLabel="" caption="near park boundary" />
+          <PinMap height={130} pinLabel="" caption="Nagoda east field" />
           <div>
             <p className="mb-1.5 text-[13px] font-semibold">What you can report</p>
             <div className="flex flex-col gap-2">
@@ -245,14 +274,6 @@ function ConflictPage() {
           </p>
           <div className="mt-auto flex flex-col gap-2 pt-2">
             <BtnPrimary onClick={() => setStep("channel")}>Start Report</BtnPrimary>
-            {isStaff ? (
-              <BtnOutline onClick={() => setStep("dashboard")}>
-                <span className="inline-flex items-center gap-2">
-                  <LayoutDashboard className="size-4" strokeWidth={2} />
-                  Operations Dashboard ({conflicts.length})
-                </span>
-              </BtnOutline>
-            ) : null}
           </div>
         </Body>
       </Phone>
@@ -533,7 +554,7 @@ function ConflictPage() {
         <Body>
           <OfflineBanner text="Report Stored Locally" />
           <Pill tone="warn" className="w-fit">
-            Stored Locally
+            STORED LOCALLY
           </Pill>
           <Card>
             <Row k="Conflict Type" v={type} strong />
@@ -588,7 +609,7 @@ function ConflictPage() {
             </p>
             <div className="mt-1.5">
               <Pill tone={acked ? "ok" : "warn"}>
-                {acked ? (wasOffline ? "Synchronised" : "Submitted") : "Pending sync"}
+                {acked ? (wasOffline ? "SYNCHRONISED" : "SUBMITTED") : "STORED LOCALLY"}
               </Pill>
             </div>
           </div>
@@ -692,9 +713,9 @@ function ConflictPage() {
                       <span className="flex items-center gap-2">
                         <span className="text-[14px] font-bold">{c.type}</span>
                         {c.status === "RESPONDED" ? (
-                          <Pill tone="ok">Responded</Pill>
+                          <Pill tone="ok">RESPONDED</Pill>
                         ) : (
-                          <Pill tone="progress">Submitted</Pill>
+                          <Pill tone="progress">SUBMITTED</Pill>
                         )}
                       </span>
                       <span className="block truncate text-[12px] text-muted">
@@ -724,9 +745,9 @@ function ConflictPage() {
         <Body>
           <div className="flex items-center justify-between">
             {selected.status === "RESPONDED" ? (
-              <Pill tone="ok">Responded</Pill>
+              <Pill tone="ok">RESPONDED</Pill>
             ) : (
-              <Pill tone="progress">Submitted</Pill>
+              <Pill tone="progress">SUBMITTED</Pill>
             )}
             <span className="text-[12px] text-muted">
               Received {fmtClock(selected.receivedAt)} · {selected.channel}

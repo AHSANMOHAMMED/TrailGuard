@@ -37,3 +37,26 @@ export interface IncidentReport {
   syncState: SyncState;
   attachments: { attachId: UUID; uri: string; mimeType: string }[];
 }
+
+export interface ConflictRecord {
+  conflictId: UUID;
+  parkId: UUID;
+  species: string;
+  riskLevel: string;
+  geo: GeoPoint;
+  observedAt: string;
+  syncState: SyncState;
+  notes?: string;
+}
+
+export type SyncEntityType = 'patrol' | 'incident' | 'conflict';
+
+export interface SyncQueueRow {
+  queueId: UUID;
+  entityType: SyncEntityType;
+  entityId: UUID;
+  syncState: SyncState;
+  payload: string;
+  lastError: string | null;
+  updatedAt: string;
+}

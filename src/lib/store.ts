@@ -11,7 +11,6 @@ import type {
 } from "@/lib/types";
 import { uid } from "@/lib/utils";
 import { seedChatter } from "@/lib/radio-chatter";
-import { backoffAfter } from "@/lib/domain/transitions";
 import {
   buildQueue,
   flushWaypointTail,
@@ -31,34 +30,22 @@ import type {
 } from "@/lib/domain/model";
 import type { IncidentCategory } from "@/lib/domain/enums";
 import {
-  mirrorUpsertConflict,
-  mirrorUpsertIncident,
-  mirrorUpsertPatrol,
-  mirrorUpsertRadio,
-} from "@/lib/domain/server-mirror";
+  liveConservationApi,
+  upsertAlertLive,
+  upsertConflictLive,
+  upsertRadioLive,
+} from "@/lib/domain/conservation-client";
+import type { AlertUpsertInput } from "@/lib/domain/conservation-api";
+import { mirrorUpsertConflict } from "@/lib/domain/server-mirror";
+import { YALA_ROUTE, routePointAt as routePointAtYala } from "@/lib/domain/yala-route";
+import { applyFailed, applySynced, syncAttemptsOf } from "@/lib/field-sync";
 
 /** Assigned route exactly as on the UC01 hi-fi wireframe. */
-const ROUTE = {
-  id: "NB-03",
-  name: "North Boundary Patrol",
-  sector: "Northern park boundary",
-  distanceKm: 7.4,
-  estTime: "3 h",
-  gainM: 120,
-  assignedAt: "06:30 today",
-  details: "Northern park boundary, 7.4 km loop. Return to NB gate on completion.",
-  /** Simulated GPS trace anchors — the demo device moves along this line. */
-  start: { lat: 6.401, lng: 81.118 },
-  end: { lat: 6.466, lng: 81.142 },
-};
+const ROUTE = YALA_ROUTE;
 
 /** Interpolated position along the route for `t` in [0,1] (demo GPS trace). */
 export function routePointAt(t: number): { lat: number; lng: number } {
-  const c = Math.max(0, Math.min(1, t));
-  return {
-    lat: ROUTE.start.lat + (ROUTE.end.lat - ROUTE.start.lat) * c,
-    lng: ROUTE.start.lng + (ROUTE.end.lng - ROUTE.start.lng) * c,
-  };
+  return routePointAtYala(t);
 }
 
 function seedSynced(): { patrols: Patrol[]; incidents: Incident[] } {
@@ -187,6 +174,23 @@ function toDomainIncident(i: Incident): IncidentReport {
   };
 }
 
+function alertToUpsert(a: Alert): AlertUpsertInput {
+  return {
+    alertId: a.alertId,
+    animal: a.animal,
+    collar: a.collar,
+    zone: a.zone,
+    observedAt: a.observedAt,
+    receivedAt: a.receivedAt,
+    confidence: a.confidence,
+    status: a.status,
+    assigneeId: a.assigneeId,
+    assigneeName: a.assigneeName,
+    outcome: a.outcome,
+    resolutionNote: a.resolutionNote,
+  };
+}
+
 function toDomainAlert(a: Alert): DomainAlert {
   const status =
     a.status === "OPEN" || a.status === "REVIEW"
@@ -297,7 +301,22 @@ interface FieldState {
 
 export const useField = create<FieldState>()(
   persist(
-    (set, get) => ({
+    (set, get) => {
+      const pushAlertUpsert = (alertId: string) => {
+        if (!get().online) return;
+        const alert = get().alerts.find((a) => a.alertId === alertId);
+        if (!alert) return;
+        void upsertAlertLive(alertToUpsert(alert)).catch(() => undefined);
+      };
+
+      const pushAllAlertUpserts = () => {
+        if (!get().online) return;
+        for (const alert of get().alerts) {
+          void upsertAlertLive(alertToUpsert(alert)).catch(() => undefined);
+        }
+      };
+
+      return {
       online: true,
       syncing: false,
       lastSyncAt: "2026-08-31T06:12:00Z",
@@ -463,6 +482,7 @@ export const useField = create<FieldState>()(
               : a,
           ),
         });
+        pushAlertUpsert(alertId);
       },
       resolveAlert: (alertId, outcome, note) => {
         set({
@@ -478,15 +498,17 @@ export const useField = create<FieldState>()(
               : a,
           ),
         });
+        pushAlertUpsert(alertId);
       },
       resetAlert: (opts) => {
         const now = new Date().toISOString();
         const confidence = opts?.confidence ?? "High";
         const status = opts?.status ?? (confidence === "Low" ? "REVIEW" : "OPEN");
+        const alertId = `AL-${Math.floor(20 + Math.random() * 80)}`;
         set({
           alerts: [
             {
-              alertId: `AL-${Math.floor(20 + Math.random() * 80)}`,
+              alertId,
               animal: "Elephant",
               collar: "EL-07",
               zone: "Farmland",
@@ -499,6 +521,7 @@ export const useField = create<FieldState>()(
             ...get().alerts.filter((a) => a.status === "CLOSED"),
           ],
         });
+        pushAlertUpsert(alertId);
       },
       assignAlert: (alertId, officer) => {
         // R-04: assigning closes any prior active assignment on this alert.
@@ -516,6 +539,7 @@ export const useField = create<FieldState>()(
               : a,
           ),
         });
+        pushAlertUpsert(alertId);
       },
       failNotify: (alertId) => {
         const current = get().alerts.find((a) => a.alertId === alertId);
@@ -535,6 +559,7 @@ export const useField = create<FieldState>()(
                 : a,
             ),
           });
+          pushAlertUpsert(alertId);
           return "ESCALATED";
         }
         // R-06: restore availability — clear assignee, alert back to OPEN.
@@ -553,6 +578,7 @@ export const useField = create<FieldState>()(
               : a,
           ),
         });
+        pushAlertUpsert(alertId);
         return "OPEN";
       },
       escalateAlert: (alertId) => {
@@ -569,6 +595,7 @@ export const useField = create<FieldState>()(
               : a,
           ),
         });
+        pushAlertUpsert(alertId);
       },
       holdForTriage: (alertId) => {
         set({
@@ -576,6 +603,7 @@ export const useField = create<FieldState>()(
             a.alertId === alertId ? { ...a, status: "REVIEW", confidence: "Low" } : a,
           ),
         });
+        pushAlertUpsert(alertId);
       },
       createConflict: (input) => {
         const report: ConflictReport = {
@@ -778,46 +806,64 @@ export const useField = create<FieldState>()(
         }
 
         const snap = get();
-        if (kind === "PATROL") {
-          const patrol = snap.patrols.find((p) => p.patrolId === recordId);
-          if (!patrol) return "FAILED";
-          mirrorUpsertPatrol(toDomainPatrol(patrol));
-          set(applySynced(get(), kind, recordId));
-        } else if (kind === "INCIDENT") {
-          const incident = snap.incidents.find((i) => i.reportId === recordId);
-          if (!incident) return "FAILED";
-          mirrorUpsertIncident(toDomainIncident(incident));
-          // S3/R-05 demo: first ack flips report only; same attachId stays PENDING.
-          if (incident.demoPartial && incident.photoSyncState === "PENDING") {
-            set({
-              incidents: get().incidents.map((i) =>
-                i.reportId === recordId
-                  ? {
-                      ...i,
-                      syncState: "SYNCED" as const,
-                      photoSyncState: "PENDING" as const,
-                      demoPartial: false,
-                      retryAfter: undefined,
-                      failureReason: undefined,
-                    }
-                  : i,
-              ),
-            });
+        try {
+          if (kind === "PATROL") {
+            const patrol = snap.patrols.find((p) => p.patrolId === recordId);
+            if (!patrol) return "FAILED";
+            await liveConservationApi.upsertPatrol(toDomainPatrol(patrol));
+            set(applySynced(get(), kind, recordId));
+          } else if (kind === "INCIDENT") {
+            const incident = snap.incidents.find((i) => i.reportId === recordId);
+            if (!incident) return "FAILED";
+            const domain = toDomainIncident(incident);
+            // S3/R-05 demo: first ack flips report only; same attachId stays PENDING.
+            if (incident.demoPartial && incident.photoSyncState === "PENDING") {
+              await liveConservationApi.upsertIncident(
+                domain,
+                domain.attachments.filter((a) => a.syncState === "PENDING"),
+              );
+              set({
+                incidents: get().incidents.map((i) =>
+                  i.reportId === recordId
+                    ? {
+                        ...i,
+                        syncState: "SYNCED" as const,
+                        photoSyncState: "PENDING" as const,
+                        demoPartial: false,
+                        retryAfter: undefined,
+                        failureReason: undefined,
+                      }
+                    : i,
+                ),
+              });
+            } else {
+              await liveConservationApi.upsertIncident(domain, []);
+              set(applySynced(get(), kind, recordId));
+            }
           } else {
+            const conflict = snap.conflicts.find((c) => c.reportId === recordId);
+            if (!conflict) return "FAILED";
+            await upsertConflictLive({
+              reportId: conflict.reportId,
+              type: conflict.type,
+              location: conflict.location,
+              channel: conflict.channel,
+              description: conflict.description,
+            });
             set(applySynced(get(), kind, recordId));
           }
-        } else {
-          const conflict = snap.conflicts.find((c) => c.reportId === recordId);
-          if (!conflict) return "FAILED";
-          mirrorUpsertConflict({
-            reportId: conflict.reportId,
-            type: conflict.type,
-            location: conflict.location,
-            channel: conflict.channel,
-            description: conflict.description,
-            syncState: "SYNCED",
-          });
-          set(applySynced(get(), kind, recordId));
+        } catch (err) {
+          const attempt = syncAttemptsOf(get(), kind, recordId) + 1;
+          set(
+            applyFailed(
+              get(),
+              kind,
+              recordId,
+              err instanceof Error ? err.message : "Upload failed — kept on device",
+              attempt,
+            ),
+          );
+          return "FAILED";
         }
         set({ lastSyncAt: new Date().toISOString() });
         return "SYNCED";
@@ -831,119 +877,55 @@ export const useField = create<FieldState>()(
           throw new Error("Offline — records stay PENDING on device.");
         }
         set({ syncing: true });
-        const due = get()
-          .queueItems()
-          .filter((i) => i.retryDue);
-        let patrols = 0;
-        let incidents = 0;
-        for (const item of due) {
-          const result = await get().syncOne(item.kind, item.recordId);
-          if (result === "SYNCED") {
-            if (item.kind === "PATROL") patrols += 1;
-            if (item.kind === "INCIDENT") incidents += 1;
+        try {
+          const due = get()
+            .queueItems()
+            .filter((i) => i.retryDue);
+          let patrols = 0;
+          let incidents = 0;
+          for (const item of due) {
+            const result = await get().syncOne(item.kind, item.recordId);
+            if (result === "SYNCED") {
+              if (item.kind === "PATROL") patrols += 1;
+              if (item.kind === "INCIDENT" || item.kind === "CONFLICT") incidents += 1;
+            }
           }
-        }
-        let radio = 0;
-        const pendingRadio = get().radioMessages.filter((m) => m.syncState === "PENDING");
-        for (const m of pendingRadio) {
-          mirrorUpsertRadio({
-            messageId: m.messageId,
-            channel: m.channel,
-            syncState: "SYNCED",
+          let radio = 0;
+          const pendingRadio = get().radioMessages.filter((m) => m.syncState === "PENDING");
+          for (const m of pendingRadio) {
+            try {
+              await upsertRadioLive({
+                messageId: m.messageId,
+                channel: m.channel,
+                body: m.text,
+              });
+              radio += 1;
+              set({
+                radioMessages: get().radioMessages.map((msg) =>
+                  msg.messageId === m.messageId
+                    ? { ...msg, syncState: "SYNCED" as const }
+                    : msg,
+                ),
+              });
+            } catch {
+              /* keep PENDING — retry next Sync */
+            }
+          }
+          pushAllAlertUpserts();
+          set({
+            lastSyncAt: new Date().toISOString(),
+            syncing: false,
           });
-          radio += 1;
+          return { patrols, incidents, radio };
+        } catch (err) {
+          set({ syncing: false });
+          throw err;
         }
-        set({
-          radioMessages: get().radioMessages.map((m) =>
-            m.syncState === "PENDING" ? { ...m, syncState: "SYNCED" as const } : m,
-          ),
-          lastSyncAt: new Date().toISOString(),
-          syncing: false,
-        });
-        return { patrols, incidents, radio };
       },
-    }),
+    };
+    },
     { name: "trailguard-field", skipHydration: true },
   ),
 );
-
-// ---------------------------------------------------------------------------
-// Per-record sync helpers (pure state transforms — services are the only
-// writers of sync state). Record-level so the UC01b queue can retry one
-// record without touching the others (per-record isolation, R-05).
-// ---------------------------------------------------------------------------
-
-interface SyncTriple {
-  patrols: Patrol[];
-  incidents: Incident[];
-  conflicts: ConflictReport[];
-}
-
-function syncAttemptsOf(s: SyncTriple, kind: QueueKind, recordId: string): number {
-  if (kind === "PATROL") return s.patrols.find((p) => p.patrolId === recordId)?.syncAttempts ?? 0;
-  if (kind === "INCIDENT") return s.incidents.find((i) => i.reportId === recordId)?.syncAttempts ?? 0;
-  return s.conflicts.find((c) => c.reportId === recordId)?.syncAttempts ?? 0;
-}
-
-/** Server ack: PENDING/FAILED → SYNCED, schedule cleared (idempotent upsert). */
-function applySynced(s: SyncTriple, kind: QueueKind, recordId: string): Partial<SyncTriple> {
-  const ok = <T extends { retryAfter?: string; failureReason?: string }>(r: T) => ({
-    ...r,
-    retryAfter: undefined,
-    failureReason: undefined,
-  });
-  if (kind === "PATROL") {
-    return {
-      patrols: s.patrols.map((p) =>
-        p.patrolId === recordId ? { ...ok(p), syncState: "SYNCED" as const } : p,
-      ),
-    };
-  }
-  if (kind === "INCIDENT") {
-    return {
-      incidents: s.incidents.map((i) =>
-        i.reportId === recordId
-          ? {
-              ...ok(i),
-              syncState: "SYNCED" as const,
-              // Complete-receipt: photo flips with the report on full ack (S3/R-05).
-              photoSyncState: i.hasPhoto ? ("SYNCED" as const) : i.photoSyncState,
-            }
-          : i,
-      ),
-    };
-  }
-  return {
-    conflicts: s.conflicts.map((c) =>
-      c.reportId === recordId ? { ...ok(c), syncState: "SYNCED" as const } : c,
-    ),
-  };
-}
-
-/** 5b (S2/R-05): transport failure → FAILED, backoff doubles per attempt. */
-function applyFailed(
-  s: SyncTriple,
-  kind: QueueKind,
-  recordId: string,
-  reason: string,
-  attempt: number,
-): Partial<SyncTriple> {
-  // Backoff: 1 min, 2 min, 4 min … capped at 30 minutes (MAX_BACKOFF_MS).
-  const retryAfter = backoffAfter(attempt, new Date().toISOString());
-  const bad = <T>(r: T) => ({
-    ...r,
-    syncState: "FAILED" as const,
-    retryAfter,
-    syncAttempts: attempt,
-    failureReason: reason,
-  });
-  if (kind === "PATROL") {
-    return { patrols: s.patrols.map((p) => (p.patrolId === recordId ? bad(p) : p)) };
-  }
-  if (kind === "INCIDENT") {
-    return { incidents: s.incidents.map((i) => (i.reportId === recordId ? bad(i) : i)) };
-  }
-  return { conflicts: s.conflicts.map((c) => (c.reportId === recordId ? bad(c) : c)) };
-}
 
 export const ROUTE_META = ROUTE;

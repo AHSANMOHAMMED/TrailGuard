@@ -10,9 +10,11 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AlertsRouteImport } from './routes/alerts'
 import { Route as ConflictRouteImport } from './routes/conflict'
 import { Route as IncidentsRouteImport } from './routes/incidents'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PatrolRouteImport } from './routes/patrol'
 import { Route as RadioRouteImport } from './routes/radio'
 import { Route as ReportsRouteImport } from './routes/reports'
@@ -20,6 +22,11 @@ import { Route as ReportsRouteImport } from './routes/reports'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AlertsRoute = AlertsRouteImport.update({
@@ -35,6 +42,11 @@ const ConflictRoute = ConflictRouteImport.update({
 const IncidentsRoute = IncidentsRouteImport.update({
   id: '/incidents',
   path: '/incidents',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PatrolRoute = PatrolRouteImport.update({
@@ -55,18 +67,22 @@ const ReportsRoute = ReportsRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/alerts': typeof AlertsRoute
   '/conflict': typeof ConflictRoute
   '/incidents': typeof IncidentsRoute
+  '/onboarding': typeof OnboardingRoute
   '/patrol': typeof PatrolRoute
   '/radio': typeof RadioRoute
   '/reports': typeof ReportsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/alerts': typeof AlertsRoute
   '/conflict': typeof ConflictRoute
   '/incidents': typeof IncidentsRoute
+  '/onboarding': typeof OnboardingRoute
   '/patrol': typeof PatrolRoute
   '/radio': typeof RadioRoute
   '/reports': typeof ReportsRoute
@@ -74,9 +90,11 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/alerts': typeof AlertsRoute
   '/conflict': typeof ConflictRoute
   '/incidents': typeof IncidentsRoute
+  '/onboarding': typeof OnboardingRoute
   '/patrol': typeof PatrolRoute
   '/radio': typeof RadioRoute
   '/reports': typeof ReportsRoute
@@ -85,27 +103,33 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/alerts'
     | '/conflict'
     | '/incidents'
+    | '/onboarding'
     | '/patrol'
     | '/radio'
     | '/reports'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin'
     | '/alerts'
     | '/conflict'
     | '/incidents'
+    | '/onboarding'
     | '/patrol'
     | '/radio'
     | '/reports'
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/alerts'
     | '/conflict'
     | '/incidents'
+    | '/onboarding'
     | '/patrol'
     | '/radio'
     | '/reports'
@@ -113,9 +137,11 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
   AlertsRoute: typeof AlertsRoute
   ConflictRoute: typeof ConflictRoute
   IncidentsRoute: typeof IncidentsRoute
+  OnboardingRoute: typeof OnboardingRoute
   PatrolRoute: typeof PatrolRoute
   RadioRoute: typeof RadioRoute
   ReportsRoute: typeof ReportsRoute
@@ -128,6 +154,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/alerts': {
@@ -149,6 +182,13 @@ declare module '@tanstack/react-router' {
       path: '/incidents'
       fullPath: '/incidents'
       preLoaderRoute: typeof IncidentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/patrol': {
@@ -177,9 +217,11 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
   AlertsRoute: AlertsRoute,
   ConflictRoute: ConflictRoute,
   IncidentsRoute: IncidentsRoute,
+  OnboardingRoute: OnboardingRoute,
   PatrolRoute: PatrolRoute,
   RadioRoute: RadioRoute,
   ReportsRoute: ReportsRoute,

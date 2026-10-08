@@ -137,11 +137,40 @@ async function createPgliteSql(): Promise<Sql> {
   // passes serialized on a global chain so concurrent callers never
   // double-apply.
   const migrate = async (): Promise<void> => {
-    const migrations = import.meta.glob("/migrations/*.sql", {
-      query: "?raw",
-      import: "default",
-      eager: true,
-    }) as Record<string, string>;
+    let migrations: Record<string, string>;
+    const globFn = (
+      import.meta as ImportMeta & {
+        glob?: (
+          pattern: string,
+          opts: { query: string; import: string; eager: boolean },
+        ) => Record<string, string>;
+      }
+    ).glob;
+    if (typeof globFn === "function") {
+      migrations = globFn("/migrations/*.sql", {
+        query: "?raw",
+        import: "default",
+        eager: true,
+      });
+    } else {
+      // Node domain tests (tsx) have no Vite glob — read the same files as migrate.mjs.
+      const { readdir, readFile } = await import("node:fs/promises");
+      const { fileURLToPath } = await import("node:url");
+      const { dirname, join } = await import("node:path");
+      const migrationsDir = join(
+        dirname(fileURLToPath(import.meta.url)),
+        "..",
+        "..",
+        "migrations",
+      );
+      const entries = await readdir(migrationsDir);
+      migrations = {};
+      for (const name of entries) {
+        if (!name.endsWith(".sql")) continue;
+        const key = `/migrations/${name}`;
+        migrations[key] = await readFile(join(migrationsDir, name), "utf8");
+      }
+    }
     const doneRows = await pg.query<{ name: string }>(
       "select name from _migrations",
     );

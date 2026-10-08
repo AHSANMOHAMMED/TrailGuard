@@ -22,16 +22,28 @@ export interface MirrorRadio {
   syncState: "SYNCED";
 }
 
+export interface MirrorAlert {
+  alertId: string;
+  animal: string;
+  zone: string;
+  observedAt: string;
+  receivedAt: string;
+  confidence: string;
+  status: string;
+}
+
 let patrols: Patrol[] = [];
 let incidents: IncidentReport[] = [];
 let conflicts: MirrorConflict[] = [];
 let radio: MirrorRadio[] = [];
+let alerts: MirrorAlert[] = [];
 
 export function mirrorReset(): void {
   patrols = [];
   incidents = [];
   conflicts = [];
   radio = [];
+  alerts = [];
 }
 
 export function mirrorCounts(): {
@@ -39,12 +51,14 @@ export function mirrorCounts(): {
   incidents: number;
   conflicts: number;
   radio: number;
+  alerts: number;
 } {
   return {
     patrols: patrols.length,
     incidents: incidents.length,
     conflicts: conflicts.length,
     radio: radio.length,
+    alerts: alerts.length,
   };
 }
 
@@ -81,6 +95,16 @@ export function mirrorUpsertRadio(incoming: MirrorRadio): { created: boolean } {
   radio = radio.map((m, i) =>
     i === idx ? { ...m, ...incoming, syncState: "SYNCED" as const } : m,
   );
+  return { created: false };
+}
+
+export function mirrorUpsertAlert(incoming: MirrorAlert): { created: boolean } {
+  const idx = alerts.findIndex((a) => a.alertId === incoming.alertId);
+  if (idx === -1) {
+    alerts = [incoming, ...alerts];
+    return { created: true };
+  }
+  alerts = alerts.map((a, i) => (i === idx ? { ...a, ...incoming } : a));
   return { created: false };
 }
 

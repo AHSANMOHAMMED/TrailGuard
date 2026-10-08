@@ -52,28 +52,14 @@ type IncidentTypeOption = {
   icon: typeof CircleDashed;
 };
 
-const TYPE_GROUPS: { group: string; items: IncidentTypeOption[] }[] = [
-  {
-    group: "Snares",
-    items: [
-      { label: "Snare", icon: CircleDashed },
-      { label: "Illegal Campsite", icon: Tent },
-    ],
-  },
-  {
-    group: "Animal",
-    items: [
-      { label: "Carcass", icon: Bone },
-      { label: "Footprints", icon: PawPrint },
-    ],
-  },
-  {
-    group: "Other",
-    items: [{ label: "Other", icon: MoreHorizontal }],
-  },
+/** Flat type list matching Figure 10 hi-fi wireframe. */
+const INCIDENT_TYPES: IncidentTypeOption[] = [
+  { label: "Snare", icon: CircleDashed },
+  { label: "Carcass", icon: Bone },
+  { label: "Illegal Campsite", icon: Tent },
+  { label: "Footprints", icon: PawPrint },
+  { label: "Other", icon: MoreHorizontal },
 ];
-
-const TYPES: IncidentTypeOption[] = TYPE_GROUPS.flatMap((g) => g.items);
 
 type Step =
   "intro" | "type" | "photo" | "details" | "review" | "submitting" | "offline" | "submitted";
@@ -162,22 +148,17 @@ function IncidentPage() {
   if (step === "intro") {
     return (
       <Phone>
-        <ScreenHeader title="Report Field Incident" onBack="home">
-          <div className="flex items-center gap-2">
-            <ModeChip online={online} />
-            <ConnectivityToggle />
-          </div>
-        </ScreenHeader>
+        <ScreenHeader title="Report Field Incident" onBack="home" />
         <Body>
           <div>
             <h2 className="text-[20px] font-bold tracking-tight">New Field Incident</h2>
             <p className="text-[13px] text-muted">Record an incident encountered during patrol.</p>
           </div>
-          <PinMap caption="current patrol position" />
+          <PinMap caption="PATROL ROUTE AB-02" pinLabel="Incident location" />
           <div>
             <p className="mb-1.5 text-[13px] font-semibold">Examples of field incidents</p>
             <div className="grid grid-cols-2 gap-2">
-              {TYPES.slice(0, 4).map(({ label, icon: Icon }) => (
+              {INCIDENT_TYPES.slice(0, 4).map(({ label, icon: Icon }) => (
                 <div
                   key={label}
                   className="flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2.5"
@@ -211,20 +192,17 @@ function IncidentPage() {
             <h2 className="text-[18px] font-bold">What did you find?</h2>
             <p className="text-[12.5px] text-muted">Choose the closest category.</p>
           </div>
-          {TYPE_GROUPS.map(({ group, items }) => (
-            <div key={group} className="flex flex-col gap-2">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-subtle">{group}</p>
-              {items.map(({ label, icon: Icon }) => (
-                <RadioRow
-                  key={label}
-                  label={label}
-                  icon={<Icon className="size-4" strokeWidth={2} />}
-                  selected={type === label}
-                  onSelect={() => setType(label)}
-                />
-              ))}
-            </div>
-          ))}
+          <div className="flex flex-col gap-2">
+            {INCIDENT_TYPES.map(({ label, icon: Icon }) => (
+              <RadioRow
+                key={label}
+                label={label}
+                icon={<Icon className="size-4" strokeWidth={2} />}
+                selected={type === label}
+                onSelect={() => setType(label)}
+              />
+            ))}
+          </div>
           <div className="mt-auto flex flex-col gap-2 pt-2">
             <BtnPrimary disabled={!type} onClick={() => setStep("photo")}>
               Continue
@@ -288,7 +266,7 @@ function IncidentPage() {
         <Body>
           <div className="flex items-center justify-between">
             <p className="text-[13px] font-semibold">GPS Location</p>
-            <Pill tone="progress">Captured</Pill>
+            <Pill tone="progress">CAPTURED</Pill>
           </div>
           <PinMap height={120} />
           <Card>
@@ -300,12 +278,12 @@ function IncidentPage() {
             <p className="mb-1 text-[13px] font-semibold">Short Description</p>
             <textarea
               value={description}
-              onChange={(e) => setDescription(e.target.value.slice(0, 160))}
+              onChange={(e) => setDescription(e.target.value.slice(0, 100))}
               rows={3}
               placeholder="Wire snare found beside animal trail."
               className="w-full resize-none rounded-xl border border-border bg-surface px-3 py-2.5 text-[14px] outline-none focus:border-accent"
             />
-            <p className="text-right text-[11px] text-subtle">{description.length} / 160</p>
+            <p className="text-right text-[11px] text-subtle">{description.length} / 100</p>
           </div>
           <div className="mt-auto flex flex-col gap-2 pt-2">
             <BtnPrimary
@@ -432,7 +410,7 @@ function IncidentPage() {
           <OfflineBanner text="Incident Stored Locally" />
           <HintCard>{CONSEQUENCE.savedOffline}</HintCard>
           <Pill tone="warn" className="w-fit">
-            Pending Synchronisation
+            PENDING SYNCHRONISATION
           </Pill>
           <Card className="flex items-start gap-3">
             <div className="size-12 shrink-0 overflow-hidden rounded-lg border border-border">
@@ -485,16 +463,16 @@ function IncidentPage() {
     : "Saved on this phone";
   const statusPill = fullyAcked
     ? wasOffline
-      ? "Synchronised"
-      : "Submitted"
-    : "Pending sync";
+      ? "SYNCHRONISED"
+      : "SUBMITTED"
+    : "PENDING SYNCHRONISATION";
   const statusRow = fullyAcked
     ? wasOffline
       ? "SYNCHRONISED"
       : "SUBMITTED"
     : photoStillPending && lastIncident?.syncState === "SYNCED"
       ? "REPORT SYNCED · PHOTO PENDING"
-      : "PENDING SYNC";
+      : "PENDING SYNCHRONISATION";
 
   return (
     <Phone>

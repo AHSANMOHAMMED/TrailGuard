@@ -8,13 +8,6 @@ export PATH=$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$ANDROID_HOME/bu
 PROJ_DIR=/Users/ahsan/Documents/TrailGuard-main/artifacts/TrailGuard/mobile
 cd "$PROJ_DIR"
 
-# Patch react-native-screens 4.28: RN 0.74 codegen chokes on `| undefined` union.
-# Make onAttached a concrete optional function (safe — optional already, only the union is wrong).
-FILE="node_modules/react-native-screens/src/fabric/ScreenStackHeaderConfigNativeComponent.ts"
-echo "=== Patching $FILE ==="
-sed -i '' 's/onAttached\?: CT\.DirectEventHandler<OnAttachedEvent> | undefined;/onAttached?: CT.DirectEventHandler<OnAttachedEvent>;/' "$FILE"
-grep -n "onAttached" "$FILE" | head
-
 BUNDLE_OUT="$PROJ_DIR/build/android-standalone/index.android.bundle"
 ASSET_DIR="$PROJ_DIR/build/android-standalone/assets"
 rm -rf "$ASSET_DIR"

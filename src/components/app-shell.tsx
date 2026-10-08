@@ -58,7 +58,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-dvh flex-col bg-bg text-fg md:flex-row">
       <aside className="hidden w-56 shrink-0 border-r border-border bg-surface md:flex md:flex-col">
         <div className="flex items-center gap-2 px-5 py-5">
-          <Mark />
+          <BrandLogo className="size-8 rounded-lg" />
           <div>
             <div className="text-sm font-semibold tracking-tight">TrailGuard</div>
             <div className="font-mono text-[10px] uppercase tracking-wider text-muted">Field ops</div>
@@ -89,7 +89,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-border bg-bg/90 px-4 py-3 backdrop-blur-sm">
           <div className="flex items-center gap-2 md:hidden">
-            <Mark />
+            <BrandLogo className="size-7 rounded-md" />
             <span className="text-sm font-semibold">TrailGuard</span>
           </div>
           <div className="hidden items-center gap-2 md:flex">
@@ -148,17 +148,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 }
 
-function Mark() {
+function BrandLogo({ className }: { className?: string }) {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M12 3 4.5 6.5v5.2c0 4.7 3.2 8.7 7.5 10.3 4.3-1.6 7.5-5.6 7.5-10.3V6.5L12 3Z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        className="text-accent"
-      />
-      <path d="M8 13.5c2.2-1.6 3.4-1.6 8-3" stroke="currentColor" strokeWidth="1.5" className="text-fg" />
-    </svg>
+    <img
+      src="/brand/trailguard-logo.jpg"
+      alt=""
+      className={cn("object-cover", className)}
+      width={32}
+      height={32}
+    />
   );
 }
 

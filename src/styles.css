@@ -2,11 +2,8 @@
 @import "tailwindcss";
 
 /*
- * TrailGuard design system — exact tokens from the A01 high-fidelity wireframes
- * (CSSE_Group_1_NU_WE_v2.pdf): primary #1F5A43 · secondary #3B7A57 ·
- * background #F6F8F5 · success #2E7D50 · offline amber #D97706 ·
- * high-risk red reserved for the HIGH RISK alert state and risk-zone overlay.
- * Buttons 50–52 px; body text ≥ 13 px; every state has a text label + icon.
+ * TrailGuard design system — A01 tokens (#1F5A43 · #3B7A57 · #F6F8F5)
+ * plus wave atmosphere for the field shell (login / home / phone chrome).
  */
 @theme {
   --color-bg: #f6f8f5;
@@ -58,11 +55,151 @@
   }
 }
 
+/* ----- Wave atmosphere (login / phone shell) ----- */
+
+.tg-stage {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(59, 122, 87, 0.22), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(31, 90, 67, 0.14), transparent 50%),
+    linear-gradient(165deg, #dfe8e0 0%, #e6ece5 40%, #d4e0d6 100%);
+}
+
+.tg-stage::before,
+.tg-stage::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: auto 0 0 0;
+  height: min(28vh, 220px);
+  z-index: 0;
+  opacity: 0.55;
+  background-repeat: no-repeat;
+  background-size: 200% 100%;
+}
+
+.tg-stage::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 120' preserveAspectRatio='none'%3E%3Cpath fill='%231f5a43' fill-opacity='0.18' d='M0,64 C240,112 480,16 720,48 C960,80 1200,112 1440,64 L1440,120 L0,120 Z'/%3E%3C/svg%3E");
+  animation: tg-wave-drift 18s ease-in-out infinite alternate;
+}
+
+.tg-stage::after {
+  height: min(22vh, 170px);
+  opacity: 0.4;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 100' preserveAspectRatio='none'%3E%3Cpath fill='%233b7a57' fill-opacity='0.28' d='M0,40 C320,90 560,10 800,40 C1040,70 1280,90 1440,36 L1440,100 L0,100 Z'/%3E%3C/svg%3E");
+  animation: tg-wave-drift 12s ease-in-out infinite alternate-reverse;
+}
+
+.tg-phone {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 100%;
+  max-width: 390px;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-bg);
+  box-shadow: 0 1px 2px rgb(22 40 30 / 0.04);
+}
+
+@media (min-width: 768px) {
+  .tg-phone {
+    min-height: 844px;
+    border-radius: 30px;
+    border: 1px solid #cfd9cf;
+    box-shadow:
+      0 24px 48px -20px rgb(22 40 30 / 0.28),
+      0 0 0 1px rgb(255 255 255 / 0.4) inset;
+  }
+}
+
+.tg-phone-scroll {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tg-wave-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+  background: linear-gradient(160deg, #1f5a43 0%, #2e7d50 48%, #3b7a57 100%);
+  color: #f6f8f5;
+}
+
+.tg-wave-hero::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 48px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 48' preserveAspectRatio='none'%3E%3Cpath fill='%23f6f8f5' d='M0,24 C65,40 130,8 195,22 C260,36 325,44 390,18 L390,48 L0,48 Z'/%3E%3C/svg%3E")
+    no-repeat bottom / 100% 100%;
+  animation: tg-wave-bob 7s ease-in-out infinite;
+}
+
+.tg-card-lift {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease;
+}
+
+.tg-card-lift:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px -12px rgb(31 90 67 / 0.35);
+}
+
+.tg-fade-up {
+  animation: tg-fade-up 420ms ease-out both;
+}
+
+@keyframes tg-wave-drift {
+  from {
+    background-position: 0% 100%;
+  }
+  to {
+    background-position: 100% 100%;
+  }
+}
+
+@keyframes tg-wave-bob {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(-3%);
+  }
+}
+
+@keyframes tg-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .tg-stage::before,
+  .tg-stage::after,
+  .tg-wave-hero::after {
+    animation: none !important;
   }
 }

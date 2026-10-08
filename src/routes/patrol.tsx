@@ -25,8 +25,8 @@ import {
   OnlineBanner,
   Phone,
   Pill,
-  Row,
   RouteMap,
+  Row,
   ScreenHeader,
   SuccessCheck,
   Tile,
@@ -45,7 +45,6 @@ import {
 import {
   DEMO_COVER_POSITIONS,
   DEMO_GPS_EVERY,
-  coverageChip,
   formatPatrolDuration,
   queueBadgeLabel,
 } from "@/lib/domain/patrol-demo";
@@ -363,35 +362,19 @@ function PatrolPage() {
   if (showAssigned) {
     return (
       <Phone>
-        <ScreenHeader title="Assigned Patrol" onBack="home">
-          <QueueBadge
-            depth={queue.length}
-            failed={failedCount}
-            onClick={() => {
-              setQueueFrom("assigned");
-              setPhase("queue");
-            }}
-          />
-        </ScreenHeader>
+        <ScreenHeader title="Assigned Patrol" onBack="home" />
         <Body>
           <div className="flex items-center justify-between">
             <h2 className="text-[20px] font-bold tracking-tight">{ROUTE_META.name}</h2>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Pill tone="progress">Assigned</Pill>
-            {/* R-09 — connectivity mode chip, visible before starting */}
+            <Pill tone="progress">ASSIGNED</Pill>
             <ModeChip online={online} />
           </div>
           <Card>
             <Row k="PatrolRoute" v={ROUTE_META.id} strong />
             <Row k="Distance" v={`${ROUTE_META.distanceKm} km`} strong />
             <Row k="Assigned" v={ROUTE_META.assignedAt} strong />
-            <Row
-              k="Last sync"
-              v={lastSyncAt ? fmtClock(lastSyncAt) : "not yet"}
-              strong
-            />
-            <Row k="Offline map" v="Downloaded" strong />
           </Card>
           <div>
             <p className="mb-1 text-[12px] font-semibold text-muted">Route preview</p>
@@ -401,12 +384,6 @@ function PatrolPage() {
             <p className="text-[12px] font-semibold text-muted">Patrol Details</p>
             <p className="mt-1 text-[13px] leading-snug">{ROUTE_META.details}</p>
           </Card>
-          {!online ? (
-            <HintCard>
-              Offline — the patrol and its waypoints will be queued on this device and
-              synchronize when signal returns.
-            </HintCard>
-          ) : null}
           <div className="mt-auto pt-2">
             <BtnPrimary onClick={onStart}>Start Patrol</BtnPrimary>
           </div>
@@ -529,7 +506,7 @@ function PatrolPage() {
             <SuccessCheck />
           </div>
           <div className="text-center">
-            <Pill tone="ok">Completed</Pill>
+            <Pill tone="ok">COMPLETED</Pill>
             <h2 className="mt-1.5 text-[19px] font-bold">{ROUTE_META.name}</h2>
             <p className="text-[12px] text-muted">Route {ROUTE_META.id}</p>
           </div>
@@ -589,7 +566,7 @@ function PatrolPage() {
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Pill tone="progress">In Progress</Pill>
+            <Pill tone="progress">IN PROGRESS</Pill>
             <ModeChip online={online} />
           </div>
           <span className="text-right text-[11px] text-muted">
@@ -602,7 +579,7 @@ function PatrolPage() {
           extra={
             covered ? (
               <span className="ml-1 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-ok">
-                <span className="size-1.5 rounded-full bg-ok" aria-hidden /> Route Covered
+                <span className="size-1.5 rounded-full bg-ok" aria-hidden /> ROUTE COVERED
               </span>
             ) : undefined
           }
@@ -610,8 +587,11 @@ function PatrolPage() {
         <RouteMap progress={progress} />
         <div className="flex gap-2">
           <Tile k="Positions Recorded" v={positions} />
-          <Tile k="Track" v={`${trackKm.toFixed(1)} km`} />
-          <Tile k="Coverage" v={coverageChip(coverage)} />
+          <Tile k="Elapsed Time" v={formatPatrolDuration(elapsedS)} />
+          <Tile
+            k="Pending Sync"
+            v={online && queue.length === 0 ? "0" : String(Math.max(queue.length, online ? 0 : 1))}
+          />
         </div>
 
         {/* T1/H4 — queue depth visible at all times */}

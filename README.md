@@ -81,13 +81,27 @@ that report):
 
 PINs are credentials, so they live here (and in the viva notes), not on screen:
 
-| Actor | Persona | PIN | Access |
+Sign in on the **Login** form with **User ID + Field PIN** (no user list on screen):
+
+| User ID | Persona | PIN | Access |
 |---|---|---|---|
-| Ranger | RN-402 Mercer | `4021` | Patrol · Incidents · Alerts · Conflict · Radio (all channels) |
-| Community Liaison Officer | Liaison Fernando | `7312` | Alerts · Conflict · Radio (all channels) |
-| Park Manager | Mgr. Perera | `8450` | Alerts · Reports · Radio (all channels) · assign desk |
-| Researcher | Dr. Jayawardena | `5260` | Reports · Radio (all channels) |
-| Community Member | K. Bandara, Nagoda | `1111` | Conflict · Radio (CMN-3 only) |
+| `admin` | Park Systems Admin | `9999` | All areas + `/admin` role divide |
+| `RN-402` | RN-402 Mercer | `4021` | Patrol · Incidents · Alerts · Conflict · Radio |
+| `liaison` | Liaison Fernando | `7312` | Alerts · Conflict · Radio |
+| `manager` | Mgr. Perera | `8450` | Alerts (assign desk) · Conflict ops · Reports · Radio |
+| `researcher` | Dr. Jayawardena | `5260` | Reports · Radio |
+| `community` | K. Bandara, Nagoda | `1111` | Conflict · Radio (CMN-3 only) |
+
+First launch opens **onboarding** (feature tour). Then login with credentials above. Super Admin can change each role’s areas on `/admin`.
+
+**Maps:** Google Maps when online *and* `VITE_GOOGLE_MAPS_API_KEY` is set; otherwise **OfflineFieldMap** (bundled Yala basemap + GPS track/pins) so maps never blank offline.
+
+#### Database & sync
+
+- **No `DATABASE_URL`** — the app uses embedded **PGLite** (Postgres compiled to WASM) in `src/lib/db.ts`. No local Postgres install required.
+- **With `DATABASE_URL`** — the same SQL runs against **Neon** Postgres in deploy.
+- **Sync** — patrol, incident, conflict, radio, and alert writes upsert through **ConservationAPI** TanStack Start server functions (`src/lib/domain/conservation-api.ts`); the field store stays offline-first and pushes when online.
+- **Schema** — `migrations/0002_field_ops.sql` defines the `field_*` tables (patrols, incidents, conflicts, radio, alerts). Super Admin **Database & sync** on `/admin` shows live backend source and row counts.
 
 #### Field Radio
 
@@ -111,10 +125,11 @@ No `.env` needed: with `DATABASE_URL` unset the app uses embedded PGLite
 ### Test it
 
 ```sh
-npm run test:domain             # 74 unit tests over the domain layer
-npm run test:domain:coverage    # + coverage (95%+ lines on src/lib/domain)
+npm run test:all                # domain + typecheck + platform tests (CI gate)
+npm run test:domain             # domain / actor / radio unit tests
 npm run typecheck               # tsc --noEmit
-npm run build                   # production build (Vercel preset via Nitro)
+npm run check:auth              # auth env invariant
+npm run build                   # production build + db:migrate when DATABASE_URL is set
 ```
 
 ### Layout
@@ -123,8 +138,10 @@ npm run build                   # production build (Vercel preset via Nitro)
 src/lib/domain/     Domain layer (framework-free): enums, model, transitions,
                     idempotency, reporting, sync-service, patrol-ops, ports, roles
 src/lib/store.ts    Zustand field-store adapter (persists to the device)
-src/routes/         / (field desk) · /patrol · /incidents · /alerts · /conflict ·
-                    /radio · /reports
+src/routes/         / · /onboarding · /admin · /patrol · /incidents · /alerts ·
+                    /conflict · /radio · /reports
+src/components/field-map.tsx  Google Maps (online) + OfflineFieldMap (offline)
+migrations/0002_field_ops.sql Field upsert tables (PGLite local / Neon deploy)
 artifacts/a02/      A02 group deliverables (report, diagrams, scenarios, tests plan)
 ```
 
