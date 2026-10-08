@@ -1,6 +1,10 @@
 # TrailGuard Field (Expo)
 
-Offline-first Android/iOS field client. **No Neon, Docker, or cloud DB required on your Mac** — every field write lands in **expo-sqlite** on the device first (`PENDING`), then Sync upserts by stable UUID when `EXPO_PUBLIC_API_URL` is set.
+Offline-first Android/iOS field client for **every ranger phone**, all sharing **one** TrailGuard backend + database.
+
+1. Device writes land in **expo-sqlite** first (`PENDING`) — works with no signal.
+2. Sync upserts by stable UUID to the **shared** API: `EXPO_PUBLIC_API_URL` → deployed web app `/api/v1`.
+3. That API writes the same Neon/Postgres `field_*` tables the web Super Admin sees on `/admin`.
 
 ## Stack
 
@@ -27,11 +31,16 @@ npm install
 npm start
 ```
 
-Optional API base for sync (otherwise records stay PENDING on device):
+**Required for multi-phone / shared park data** — same URL on every device:
 
 ```bash
-export EXPO_PUBLIC_API_URL=https://your-host/api/v1
+# Deployed TrailGuard web app (Neon provisioned via deploy.database)
+export EXPO_PUBLIC_API_URL=https://YOUR_DEPLOYED_HOST/api/v1
 ```
+
+Check the shared DB is up: `GET $EXPO_PUBLIC_API_URL/health` → `{ shared: true, source: "neon"|"pglite", counts… }`.
+
+Without this env, records stay `PENDING` on each phone’s SQLite only (not visible to other users).
 
 ## Android APK (debug)
 

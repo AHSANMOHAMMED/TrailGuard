@@ -1,6 +1,27 @@
-const BASE = process.env.EXPO_PUBLIC_API_URL?.trim() ?? '';
+/**
+ * One shared backend for every phone.
+ * Point EXPO_PUBLIC_API_URL at the deployed TrailGuard host + `/api/v1`
+ * (same Neon/PGLite field_* DB the web app uses). Example:
+ *   EXPO_PUBLIC_API_URL=https://your-trailguard.example.com/api/v1
+ */
+function resolveBase(): string {
+  const fromEnv = process.env.EXPO_PUBLIC_API_URL?.trim() ?? '';
+  if (fromEnv) return fromEnv;
+  try {
+    // Expo Constants (optional) — app.config.js extra.apiUrl
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Constants = require('expo-constants').default as {
+      expoConfig?: { extra?: { apiUrl?: string } };
+    };
+    return Constants?.expoConfig?.extra?.apiUrl?.trim() ?? '';
+  } catch {
+    return '';
+  }
+}
 
-/** True when EXPO_PUBLIC_API_URL is set (required for server sync). */
+const BASE = resolveBase();
+
+/** True when a shared API base is configured (required for multi-phone sync). */
 export function isApiConfigured(): boolean {
   return BASE.length > 0;
 }
@@ -8,10 +29,24 @@ export function isApiConfigured(): boolean {
 export function getApiBase(): string {
   if (!isApiConfigured()) {
     throw new Error(
-      'TODO: set EXPO_PUBLIC_API_URL to your TrailGuard API base (e.g. https://host/api/v1) before syncing.'
+      'Set EXPO_PUBLIC_API_URL to the shared TrailGuard API (https://<deployed-host>/api/v1) so every phone syncs to one DB.'
     );
   }
   return BASE.replace(/\/$/, '');
+}
+
+/** GET /health — confirms shared backend + DB source + park-wide counts. */
+export async function fetchSharedHealth() {
+  const base = getApiBase();
+  const res = await fetch(`${base}/health`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json() as Promise<{
+    app: string;
+    status: string;
+    shared: boolean;
+    source: string;
+    counts: Record<string, number>;
+  }>;
 }
 
 export async function upsert(kind: 'patrol' | 'incident' | 'conflict', payload: object) {

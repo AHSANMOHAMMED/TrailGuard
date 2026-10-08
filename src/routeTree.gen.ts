@@ -18,6 +18,9 @@ import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PatrolRouteImport } from './routes/patrol'
 import { Route as RadioRouteImport } from './routes/radio'
 import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as ApiV1HealthRouteImport } from './routes/api/v1/health'
+import { Route as ApiV1ReportsGenerateRouteImport } from './routes/api/v1/reports/generate'
+import { Route as ApiV1SyncUpsertRouteImport } from './routes/api/v1/sync/upsert'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -64,6 +67,21 @@ const ReportsRoute = ReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiV1HealthRoute = ApiV1HealthRouteImport.update({
+  id: '/api/v1/health',
+  path: '/api/v1/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1ReportsGenerateRoute = ApiV1ReportsGenerateRouteImport.update({
+  id: '/api/v1/reports/generate',
+  path: '/api/v1/reports/generate',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1SyncUpsertRoute = ApiV1SyncUpsertRouteImport.update({
+  id: '/api/v1/sync/upsert',
+  path: '/api/v1/sync/upsert',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -75,6 +93,9 @@ export interface FileRoutesByFullPath {
   '/patrol': typeof PatrolRoute
   '/radio': typeof RadioRoute
   '/reports': typeof ReportsRoute
+  '/api/v1/health': typeof ApiV1HealthRoute
+  '/api/v1/reports/generate': typeof ApiV1ReportsGenerateRoute
+  '/api/v1/sync/upsert': typeof ApiV1SyncUpsertRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -86,6 +107,9 @@ export interface FileRoutesByTo {
   '/patrol': typeof PatrolRoute
   '/radio': typeof RadioRoute
   '/reports': typeof ReportsRoute
+  '/api/v1/health': typeof ApiV1HealthRoute
+  '/api/v1/reports/generate': typeof ApiV1ReportsGenerateRoute
+  '/api/v1/sync/upsert': typeof ApiV1SyncUpsertRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -98,6 +122,9 @@ export interface FileRoutesById {
   '/patrol': typeof PatrolRoute
   '/radio': typeof RadioRoute
   '/reports': typeof ReportsRoute
+  '/api/v1/health': typeof ApiV1HealthRoute
+  '/api/v1/reports/generate': typeof ApiV1ReportsGenerateRoute
+  '/api/v1/sync/upsert': typeof ApiV1SyncUpsertRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -111,6 +138,9 @@ export interface FileRouteTypes {
     | '/patrol'
     | '/radio'
     | '/reports'
+    | '/api/v1/health'
+    | '/api/v1/reports/generate'
+    | '/api/v1/sync/upsert'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -122,6 +152,9 @@ export interface FileRouteTypes {
     | '/patrol'
     | '/radio'
     | '/reports'
+    | '/api/v1/health'
+    | '/api/v1/reports/generate'
+    | '/api/v1/sync/upsert'
   id:
     | '__root__'
     | '/'
@@ -133,6 +166,9 @@ export interface FileRouteTypes {
     | '/patrol'
     | '/radio'
     | '/reports'
+    | '/api/v1/health'
+    | '/api/v1/reports/generate'
+    | '/api/v1/sync/upsert'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -145,6 +181,9 @@ export interface RootRouteChildren {
   PatrolRoute: typeof PatrolRoute
   RadioRoute: typeof RadioRoute
   ReportsRoute: typeof ReportsRoute
+  ApiV1HealthRoute: typeof ApiV1HealthRoute
+  ApiV1ReportsGenerateRoute: typeof ApiV1ReportsGenerateRoute
+  ApiV1SyncUpsertRoute: typeof ApiV1SyncUpsertRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -212,6 +251,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReportsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/v1/health': {
+      id: '/api/v1/health'
+      path: '/api/v1/health'
+      fullPath: '/api/v1/health'
+      preLoaderRoute: typeof ApiV1HealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/reports/generate': {
+      id: '/api/v1/reports/generate'
+      path: '/api/v1/reports/generate'
+      fullPath: '/api/v1/reports/generate'
+      preLoaderRoute: typeof ApiV1ReportsGenerateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/sync/upsert': {
+      id: '/api/v1/sync/upsert'
+      path: '/api/v1/sync/upsert'
+      fullPath: '/api/v1/sync/upsert'
+      preLoaderRoute: typeof ApiV1SyncUpsertRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -225,6 +285,9 @@ const rootRouteChildren: RootRouteChildren = {
   PatrolRoute: PatrolRoute,
   RadioRoute: RadioRoute,
   ReportsRoute: ReportsRoute,
+  ApiV1HealthRoute: ApiV1HealthRoute,
+  ApiV1ReportsGenerateRoute: ApiV1ReportsGenerateRoute,
+  ApiV1SyncUpsertRoute: ApiV1SyncUpsertRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

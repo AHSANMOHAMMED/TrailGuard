@@ -88,6 +88,14 @@ function AdminPage() {
               <p className="text-[14px] font-semibold">Database &amp; sync</p>
               <p className="mt-0.5 text-[12px] text-muted">
                 Backend: <span className="font-medium text-fg">{dbLabel}</span>
+                {" · "}shared by every phone
+              </p>
+              <p className="mt-1 break-all text-[11px] text-muted">
+                Phone API:{" "}
+                <span className="font-medium text-fg">/api/v1</span>
+                {" "}(set{" "}
+                <code className="rounded bg-surface px-1">EXPO_PUBLIC_API_URL</code>
+                {" "}to this host + /api/v1)
               </p>
               {dbError ? (
                 <p className="mt-1 text-[11px] text-warn">{dbError}</p>

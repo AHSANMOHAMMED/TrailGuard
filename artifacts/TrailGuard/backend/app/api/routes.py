@@ -26,6 +26,13 @@ def sync_upsert(body: UpsertBody, db: Session = Depends(get_db)):
         if not ack.get("complete"):
             raise HTTPException(status_code=409, detail="complete-receipt required for attachments")
         return ack
+    if body.kind == "conflict":
+        # Local FastAPI demo ack only — phones that share one park DB must use
+        # the deployed TanStack /api/v1 (writes field_conflicts on Neon/PGLite).
+        cid = body.payload.get("conflict_id") or body.payload.get("report_id")
+        if not cid:
+            raise HTTPException(status_code=400, detail="conflict_id required")
+        return {"id": cid, "version": 1, "complete": True}
     raise HTTPException(status_code=400, detail=f"Unknown kind: {body.kind}")
 
 class ReadingIn(BaseModel):

@@ -96,12 +96,22 @@ First launch opens **onboarding** (feature tour). Then login with credentials ab
 
 **Maps:** Google Maps when online *and* `VITE_GOOGLE_MAPS_API_KEY` is set; otherwise **OfflineFieldMap** (bundled Yala basemap + GPS track/pins) so maps never blank offline.
 
-#### Database & sync
+#### Database & sync (one backend, one DB, every phone)
 
-- **No `DATABASE_URL`** — the app uses embedded **PGLite** (Postgres compiled to WASM) in `src/lib/db.ts`. No local Postgres install required.
-- **With `DATABASE_URL`** — the same SQL runs against **Neon** Postgres in deploy.
-- **Sync** — patrol, incident, conflict, radio, and alert writes upsert through **ConservationAPI** TanStack Start server functions (`src/lib/domain/conservation-api.ts`); the field store stays offline-first and pushes when online.
-- **Schema** — `migrations/0002_field_ops.sql` defines the `field_*` tables (patrols, incidents, conflicts, radio, alerts). Super Admin **Database & sync** on `/admin` shows live backend source and row counts.
+```
+Phone A / Phone B / Web  →  /api/v1/sync/upsert  →  Neon Postgres (field_*)
+         (offline SQLite first)                      ↑ same tables
+```
+
+- **Preview / laptop** — no `DATABASE_URL` → embedded **PGLite** in `src/lib/db.ts` (still one shared process DB for that server).
+- **Deployed park** — platform injects `DATABASE_URL` (Neon). `.grok/app-env.json` has `"deploy": { "database": true }` so Neon is provisioned.
+- **HTTP Field Sync API** (phones + tools):
+  - `GET  /api/v1/health` — `{ shared, source, counts }`
+  - `POST /api/v1/sync/upsert` — `{ kind, payload }` idempotent UUID upsert
+  - `POST /api/v1/reports/generate` — park snapshot from shared counts
+- **Web UI** — same writes via ConservationAPI server functions (`src/lib/domain/conservation-api.ts`).
+- **Schema** — `migrations/0002_field_ops.sql` (`field_patrols`, `field_incidents`, `field_conflicts`, `field_radio`, `field_alerts`).
+- **Mobile** — set the **same** `EXPO_PUBLIC_API_URL=https://<deployed-host>/api/v1` on every APK so Sync drains each phone’s SQLite into that one DB. Super Admin `/admin` shows live backend + row counts.
 
 #### Field Radio
 

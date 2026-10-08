@@ -89,7 +89,7 @@ export async function synchronize(): Promise<SyncResult> {
       incidents: 0,
       conflicts: 0,
       errors: [
-        'TODO: set EXPO_PUBLIC_API_URL in app config to enable sync (SQLite records stay PENDING offline).',
+        'Set EXPO_PUBLIC_API_URL to the shared host /api/v1 so all phones sync to one DB (SQLite stays PENDING offline until then).',
       ],
     };
   }
