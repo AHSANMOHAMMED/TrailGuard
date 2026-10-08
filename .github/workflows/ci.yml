@@ -16,5 +16,42 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test:all
-      - run: npm run check:auth
+
+      - name: Check auth configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          npm run dev >"$RUNNER_TEMP/trailguard-vite.log" 2>&1 &
+          server_pid=$!
+
+          cleanup() {
+            kill "$server_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          ready=false
+          for _ in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:8080/__app-env >/dev/null; then
+              ready=true
+              break
+            fi
+
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              echo "Vite server exited unexpectedly:"
+              cat "$RUNNER_TEMP/trailguard-vite.log"
+              exit 1
+            fi
+
+            sleep 1
+          done
+
+          if [[ "$ready" != true ]]; then
+            echo "Timed out waiting for the Vite dev server:"
+            cat "$RUNNER_TEMP/trailguard-vite.log"
+            exit 1
+          fi
+
+          npm run check:auth
+
       - run: npm run build
