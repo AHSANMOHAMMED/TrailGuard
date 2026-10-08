@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Body, Phone, Pill } from "@/components/field";
 import { ConnectivityToggle } from "@/components/connectivity-toggle";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { LoginScreen, SessionChip } from "@/components/auth-gate";
 import { useAuth, type Area } from "@/lib/auth-store";
 import { actorMission, homeAreasFor } from "@/lib/actor-capabilities";
@@ -99,6 +100,7 @@ function Home() {
             <p className="text-[12px] text-white/75">Yala National Park</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
+            <ThemeToggle tone="dark" />
             <ConnectivityToggle tone="dark" />
             <SessionChip tone="dark" />
           </div>

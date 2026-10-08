@@ -1,24 +1,29 @@
-import React, { useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { getSession, setSession } from '../session';
+import React, { useEffect, useState } from 'react';
+import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
+import { DEFAULT_ACCESS, type Area, type Role } from '../roles';
+import { getSession, updateSessionAccess } from '../session';
+import { getColors, subscribeTheme } from '../theme';
 
-const AREAS = ['patrol', 'incidents', 'alerts', 'conflict', 'reports', 'radio'] as const;
-type Area = (typeof AREAS)[number];
-type Role = 'RANGER' | 'LIAISON' | 'MANAGER' | 'RESEARCHER' | 'COMMUNITY';
+const TOGGLE_AREAS: Area[] = ['patrol', 'incidents', 'alerts', 'conflict', 'reports', 'radio'];
 
-const DEFAULTS: Record<Role, Area[]> = {
-  RANGER: ['patrol', 'incidents', 'alerts', 'conflict', 'radio'],
-  LIAISON: ['alerts', 'conflict', 'radio'],
-  MANAGER: ['alerts', 'reports', 'radio'],
-  RESEARCHER: ['reports', 'radio'],
-  COMMUNITY: ['conflict', 'radio'],
-};
-
-type Props = { navigation: { replace: (r: string) => void; navigate: (r: string) => void } };
-
-export default function AdminScreen({ navigation }: Props) {
-  const [access, setAccess] = useState<Record<Role, Area[]>>({ ...DEFAULTS });
+export default function AdminScreen({
+  navigation,
+}: {
+  navigation: { navigate: (r: string) => void; replace: (r: string) => void };
+}) {
   const session = getSession();
+  const [access, setAccess] = useState<Record<Role, Area[]>>({ ...DEFAULT_ACCESS });
+  const [, bump] = useState(0);
+  useEffect(() => subscribeTheme(() => bump((n) => n + 1)), []);
+  const c = getColors();
+
+  useEffect(() => {
+    if (!session || session.role !== 'SUPER_ADMIN') {
+      navigation.replace(session ? 'Home' : 'Login');
+    }
+  }, [session, navigation]);
+
+  if (!session || session.role !== 'SUPER_ADMIN') return null;
 
   const toggle = (role: Role, area: Area) => {
     setAccess((prev) => {
@@ -28,73 +33,66 @@ export default function AdminScreen({ navigation }: Props) {
     });
   };
 
+  const staff = (Object.keys(DEFAULT_ACCESS) as Role[]).filter((r) => r !== 'SUPER_ADMIN');
+
   return (
-    <View style={styles.wrap}>
-      <Text style={styles.h}>Role admin</Text>
-      <Text style={styles.sub}>
-        {session?.title ?? 'Super Admin'} · divide areas offline (device only)
+    <ScrollView style={[styles.wrap, { backgroundColor: c.bg }]} contentContainerStyle={{ paddingBottom: 40 }}>
+      <Text style={[styles.title, { color: c.fg }]}>Role admin</Text>
+      <Text style={[styles.sub, { color: c.muted }]}>
+        Divide which areas each actor may open. Applied when they next open Home on this device.
       </Text>
-      {(Object.keys(DEFAULTS) as Role[]).map((role) => (
-        <View key={role} style={styles.card}>
-          <Text style={styles.role}>{role}</Text>
+      {staff.map((role) => (
+        <View key={role} style={[styles.card, { backgroundColor: c.card, borderColor: c.border }]}>
+          <Text style={[styles.role, { color: c.fg }]}>{role}</Text>
           <View style={styles.row}>
-            {AREAS.map((area) => {
+            {TOGGLE_AREAS.map((area) => {
               const on = access[role].includes(area);
               return (
                 <Pressable
                   key={area}
-                  style={[styles.chip, on && styles.chipOn]}
                   onPress={() => toggle(role, area)}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: on ? c.accent : c.elevated,
+                      borderColor: c.border,
+                    },
+                  ]}
                 >
-                  <Text style={[styles.chipT, on && styles.chipTOn]}>{area}</Text>
+                  <Text style={{ color: on ? c.accentFg : c.muted, fontSize: 11, fontWeight: '700' }}>
+                    {area}
+                  </Text>
                 </Pressable>
               );
             })}
           </View>
         </View>
       ))}
-      <Pressable style={styles.btn} onPress={() => navigation.navigate('Home')}>
-        <Text style={styles.btnT}>Open field home</Text>
-      </Pressable>
       <Pressable
-        style={styles.btnGhost}
+        style={[styles.btn, { backgroundColor: c.accent }]}
         onPress={() => {
-          setSession(null);
-          navigation.replace('Login');
+          // Persist matrix into session for demo; other logins use DEFAULT until re-opened Admin.
+          (globalThis as typeof globalThis & { __tgAccess?: Record<Role, Area[]> }).__tgAccess =
+            access;
+          updateSessionAccess(access.SUPER_ADMIN);
+          navigation.navigate('Home');
         }}
       >
-        <Text style={styles.btnGhostT}>Sign out</Text>
+        <Text style={{ color: c.accentFg, textAlign: 'center', fontWeight: '700' }}>
+          Save &amp; open Home
+        </Text>
       </Pressable>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, padding: 20, backgroundColor: '#0A100C' },
-  h: { color: '#fff', fontSize: 22, fontWeight: '700', marginTop: 8 },
-  sub: { color: '#8A9E8E', marginBottom: 16 },
-  card: {
-    backgroundColor: '#141E18',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#2E5038',
-    padding: 12,
-    marginBottom: 10,
-  },
-  role: { color: '#E6F0E6', fontWeight: '700', marginBottom: 8 },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: {
-    borderWidth: 1,
-    borderColor: '#2E5038',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  chipOn: { backgroundColor: '#2EA05F', borderColor: '#2EA05F' },
-  chipT: { color: '#8A9E8E', fontSize: 11, fontWeight: '600' },
-  chipTOn: { color: '#fff' },
-  btn: { backgroundColor: '#2EA05F', padding: 16, borderRadius: 12, marginTop: 8 },
-  btnT: { color: '#fff', textAlign: 'center', fontWeight: '700' },
-  btnGhost: { padding: 14, marginTop: 8 },
-  btnGhostT: { color: '#8A9E8E', textAlign: 'center', fontWeight: '600' },
+  wrap: { flex: 1, padding: 20 },
+  title: { fontSize: 22, fontWeight: '700', marginTop: 8 },
+  sub: { marginTop: 6, marginBottom: 16, lineHeight: 18 },
+  card: { borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 12 },
+  role: { fontWeight: '700', marginBottom: 8 },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
+  btn: { padding: 16, borderRadius: 12, marginTop: 8 },
 });

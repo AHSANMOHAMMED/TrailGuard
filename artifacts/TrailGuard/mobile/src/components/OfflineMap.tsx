@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { getRecentWaypoints, getWaypointsForPatrol } from '../store/localStore';
 import type { GeoPoint, Waypoint } from '../types/models';
+import { getColors, subscribeTheme } from '../theme';
 
 type Props = {
   patrolId?: string;
@@ -20,6 +21,9 @@ function formatPolyline(points: GeoPoint[]): string {
 
 export default function OfflineMap({ patrolId, livePoints }: Props) {
   const [stored, setStored] = useState<Waypoint[]>([]);
+  const [, bump] = useState(0);
+  useEffect(() => subscribeTheme(() => bump((n) => n + 1)), []);
+  const c = getColors();
 
   useEffect(() => {
     if (livePoints && livePoints.length > 0) return;
@@ -38,28 +42,36 @@ export default function OfflineMap({ patrolId, livePoints }: Props) {
   const polyline = formatPolyline(points);
 
   return (
-    <View style={styles.box} accessibilityLabel="Offline map">
-      <Text style={styles.label}>Offline map</Text>
-      <Text style={styles.hint}>Track (lat, lng) — no network required</Text>
-      <Text style={styles.polyline} numberOfLines={6}>
+    <View
+      style={[
+        styles.box,
+        { backgroundColor: c.card, borderColor: c.border },
+      ]}
+      accessibilityLabel="Offline map"
+    >
+      <Text style={[styles.label, { color: c.fg }]}>Offline map</Text>
+      <Text style={[styles.hint, { color: c.muted }]}>
+        Track (lat, lng) — no network required
+      </Text>
+      <Text style={[styles.polyline, { color: c.fg }]} numberOfLines={6}>
         {polyline}
       </Text>
-      <Text style={styles.meta}>{points.length} point{points.length === 1 ? '' : 's'}</Text>
+      <Text style={[styles.meta, { color: c.warn }]}>
+        {points.length} point{points.length === 1 ? '' : 's'}
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   box: {
-    backgroundColor: '#141E18',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#2E5038',
     padding: 14,
     marginBottom: 14,
   },
-  label: { color: '#E6F0E6', fontSize: 15, fontWeight: '700', marginBottom: 4 },
-  hint: { color: '#8A9E8E', fontSize: 12, marginBottom: 8 },
-  polyline: { color: '#A8C4A8', fontSize: 12, lineHeight: 18, fontFamily: 'monospace' },
-  meta: { color: '#D97706', fontSize: 11, marginTop: 8 },
+  label: { fontSize: 15, fontWeight: '700', marginBottom: 4 },
+  hint: { fontSize: 12, marginBottom: 8 },
+  polyline: { fontSize: 12, lineHeight: 18, fontFamily: 'monospace' },
+  meta: { fontSize: 11, marginTop: 8 },
 });

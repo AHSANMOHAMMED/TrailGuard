@@ -6,6 +6,7 @@ import { Body, Phone, Pill } from "@/components/field";
 import { Toaster } from "sonner";
 import { useAuth } from "@/lib/auth-store";
 import { useField } from "@/lib/store";
+import { ensureThemeBoot, useTheme } from "@/lib/theme-store";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "TrailGuard";
@@ -60,16 +61,22 @@ function NotFound() {
 }
 
 function RootComponent() {
+  const theme = useTheme((s) => s.theme);
+
   // Rehydrate persisted auth + field stores so login / sync never stick on "Loading…".
   useEffect(() => {
+    ensureThemeBoot();
+    void useTheme.persist.rehydrate();
     void useField.persist.rehydrate();
     void Promise.resolve(useAuth.persist.rehydrate()).finally(() => {
       useAuth.getState().setHydrated();
     });
   }, []);
 
+  const night = theme === "night";
+
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" data-theme={theme} className={night ? "night" : undefined} suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
@@ -78,13 +85,19 @@ function RootComponent() {
         <AuthProvider>
           <Outlet />
           <Toaster
-            theme="light"
+            theme={night ? "dark" : "light"}
             toastOptions={{
-              style: {
-                background: "#ffffff",
-                border: "1px solid #dde5dd",
-                color: "#16281e",
-              },
+              style: night
+                ? {
+                    background: "#141e18",
+                    border: "1px solid #2e5038",
+                    color: "#e6f0e6",
+                  }
+                : {
+                    background: "#ffffff",
+                    border: "1px solid #dde5dd",
+                    color: "#16281e",
+                  },
             }}
           />
         </AuthProvider>

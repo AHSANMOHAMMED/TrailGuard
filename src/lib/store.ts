@@ -38,7 +38,10 @@ import {
 import type { AlertUpsertInput } from "@/lib/domain/conservation-api";
 import { mirrorUpsertConflict } from "@/lib/domain/server-mirror";
 import { YALA_ROUTE, routePointAt as routePointAtYala } from "@/lib/domain/yala-route";
+import { buildDemoDataset } from "@/lib/domain/demo-dataset";
 import { applyFailed, applySynced, syncAttemptsOf } from "@/lib/field-sync";
+
+export { buildDemoDataset };
 
 /** Assigned route exactly as on the UC01 hi-fi wireframe. */
 const ROUTE = YALA_ROUTE;
@@ -47,70 +50,6 @@ const ROUTE = YALA_ROUTE;
 export function routePointAt(t: number): { lat: number; lng: number } {
   return routePointAtYala(t);
 }
-
-function seedSynced(): { patrols: Patrol[]; incidents: Incident[] } {
-  const t0 = new Date("2026-08-12T06:10:00Z").toISOString();
-  const t1 = new Date("2026-08-12T10:40:00Z").toISOString();
-  return {
-    patrols: [
-      {
-        patrolId: "pt-seed-01",
-        routeId: ROUTE.id,
-        routeName: ROUTE.name,
-        officerId: "off-mercer",
-        officerName: "RN-402 Mercer",
-        status: "COMPLETED",
-        startedAt: t0,
-        completedAt: t1,
-        syncState: "SYNCED",
-        waypoints: [
-          {
-            pointId: "wp-s1",
-            lat: 6.401,
-            lng: 81.118,
-            source: "GPS",
-            recordedAt: t0,
-            label: "WP-01",
-          },
-          {
-            pointId: "wp-s2",
-            lat: 6.412,
-            lng: 81.126,
-            source: "GPS",
-            recordedAt: t1,
-            label: "WP-08",
-          },
-        ],
-      },
-    ],
-    incidents: [
-      {
-        reportId: "ir-seed-01",
-        type: "Snare",
-        description: "Wire snare recovered near dry creek",
-        lat: 6.408,
-        lng: 81.121,
-        locationSource: "GPS",
-        observedAt: "2026-08-14T09:20:00Z",
-        syncState: "SYNCED",
-        hasPhoto: true,
-      },
-      {
-        reportId: "ir-seed-02",
-        type: "Crop-raid",
-        description: "Elephant damage, eastern farms",
-        lat: 6.39,
-        lng: 81.14,
-        locationSource: "MANUAL",
-        observedAt: "2026-08-20T18:05:00Z",
-        syncState: "SYNCED",
-        hasPhoto: false,
-      },
-    ],
-  };
-}
-
-const seeded = seedSynced();
 
 /** VHF channel plan — ids are stable and referenced by radio messages. */
 export const RADIO_CHANNELS = [
@@ -225,6 +164,8 @@ interface FieldState {
   radioMessages: RadioMessage[];
   snapshot: ReportSnapshot | null;
   setOnline: (v: boolean) => void;
+  /** Viva-only — load sample SYNCED rows; graded path starts empty. */
+  loadDemoDataset: () => void;
   startPatrol: () => Patrol;
   addWaypoint: (source: "GPS" | "MANUAL", geo?: { lat: number; lng: number }) => Waypoint | null;
   /** UC01 3b (R-10) — remove a mark made in error (defaults to the last). */
@@ -240,7 +181,7 @@ interface FieldState {
     description: string;
     locationSource: "GPS" | "MANUAL";
     hasPhoto: boolean;
-    /** Demo S3/R-05: ack the report but leave the photo PENDING. */
+    /** UC02 S3/R-05: ack the report now; keep photo PENDING with the same id. */
     partialPhoto?: boolean;
   }) => Incident;
   /** UC03 — ranger acknowledges a risk alert (NEW → ACKNOWLEDGED). */
@@ -317,27 +258,26 @@ export const useField = create<FieldState>()(
       };
 
       return {
-      online: true,
+      online: typeof navigator !== "undefined" ? navigator.onLine : true,
       syncing: false,
-      lastSyncAt: "2026-08-31T06:12:00Z",
+      lastSyncAt: null as string | null,
       feedOn: true,
-      patrols: seeded.patrols,
-      incidents: seeded.incidents,
+      patrols: [] as Patrol[],
+      incidents: [] as Incident[],
       snapshot: null,
-      alerts: [
-        {
-          alertId: "AL-19",
-          animal: "Elephant",
-          collar: "EL-07",
-          zone: "Farmland",
-          observedAt: "2026-09-24T06:52:00Z",
-          receivedAt: "2026-09-24T06:52:00Z",
-          confidence: "High",
-          status: "OPEN",
-        },
-      ],
+      alerts: [] as Alert[],
       conflicts: [],
       radioMessages: [],
+      loadDemoDataset: () => {
+        const demo = buildDemoDataset();
+        set({
+          patrols: demo.patrols,
+          incidents: demo.incidents,
+          alerts: demo.alerts,
+          lastSyncAt: new Date().toISOString(),
+        });
+        pushAllAlertUpserts();
+      },
       setOnline: (v) => set({ online: v }),
       activePatrol: () => get().patrols.find((p) => p.status === "ACTIVE"),
       pendingCount: () => {

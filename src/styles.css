@@ -189,6 +189,43 @@
   }
 }
 
+/* Night theme — opt-in via ThemeToggle (html.night / data-theme="night") */
+html.night {
+  --color-bg: #0a100c;
+  --color-surface: #141e18;
+  --color-elevated: #1a2620;
+  --color-fg: #e6f0e6;
+  --color-muted: #8a9e8e;
+  --color-subtle: #5f7366;
+  --color-accent: #2ea05f;
+  --color-accent-fg: #ffffff;
+  --color-secondary: #3b7a57;
+  --color-border: #2e5038;
+  --color-warn: #f0b429;
+  --color-warn-bg: #3a2e14;
+  --color-danger: #f07167;
+  --color-danger-bg: #3a1a18;
+  --color-ok: #3dcf7a;
+  --color-ok-bg: #163222;
+}
+
+html.night .tg-stage {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(46, 160, 95, 0.18), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(31, 90, 67, 0.28), transparent 50%),
+    linear-gradient(165deg, #0a100c 0%, #101810 40%, #0d1410 100%);
+}
+
+html.night .tg-phone {
+  border-color: #2e5038;
+  box-shadow: 0 24px 48px -20px rgb(0 0 0 / 0.55);
+}
+
+html.night .tg-wave-hero::after {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 48' preserveAspectRatio='none'%3E%3Cpath fill='%230a100c' d='M0,24 C65,40 130,8 195,22 C260,36 325,44 390,18 L390,48 L0,48 Z'/%3E%3C/svg%3E")
+    no-repeat bottom / 100% 100%;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

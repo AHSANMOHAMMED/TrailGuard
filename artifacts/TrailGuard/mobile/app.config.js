@@ -16,7 +16,14 @@ export default {
     version: "1.0.0",
     orientation: "portrait",
     platforms: ["ios", "android"],
-    userInterfaceStyle: "dark",
+    android: {
+      package: "com.trailguard.field",
+      permissions: ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
+    },
+    splash: {
+      backgroundColor: "#F6F8F5",
+    },
+    userInterfaceStyle: "light",
     extra: {
       apiUrl: sharedApi,
       eas: {

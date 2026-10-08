@@ -12,6 +12,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { Body, BtnPrimary, Phone, Pill } from "@/components/field";
+import { ThemeToggle } from "@/components/theme-toggle";
 import {
   ACTORS,
   accessFor,
@@ -96,7 +97,10 @@ export function LoginScreen() {
 
   return (
     <Phone>
-      <div className="tg-wave-hero overflow-hidden px-0 pb-12 pt-0 text-center">
+      <div className="tg-wave-hero relative overflow-hidden px-0 pb-12 pt-0 text-center">
+        <div className="absolute right-3 top-3 z-10">
+          <ThemeToggle tone="dark" />
+        </div>
         <div className="relative mx-auto aspect-[16/9] w-full overflow-hidden">
           <img
             src="/brand/trailguard-logo.jpg"

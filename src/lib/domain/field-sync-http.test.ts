@@ -66,4 +66,21 @@ describe("field-sync-http mobile upserts (shared DB)", () => {
     assert.ok(health.counts.incidents >= 1);
     assert.ok(health.counts.conflicts >= 1);
   });
+
+  it("idempotent patrol upsert does not duplicate rows", async () => {
+    const before = await fieldHealthPayload();
+    const payload = {
+      patrol_id: "p-idem-1",
+      route_id: "r-yala-1",
+      officer_id: "off-4021",
+      status: "COMPLETED",
+      started_at: "2026-10-08T10:00:00.000Z",
+      waypoints: [],
+    };
+    await handleMobileUpsert("patrol", payload);
+    await handleMobileUpsert("patrol", { ...payload, status: "COMPLETED" });
+    const after = await fieldHealthPayload();
+    assert.equal(after.counts.patrols, before.counts.patrols + 1);
+  });
 });
+

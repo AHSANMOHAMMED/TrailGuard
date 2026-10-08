@@ -4,9 +4,8 @@ import { useField } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 /**
- * Demo control for offline alternative flows, plus a bridge to the browser
- * online/offline events. Manual "simulate offline" sticks until the user
- * taps Online again (forcedOffline ref).
+ * Follows real navigator.onLine by default. Tap to "Simulate offline" for
+ * A02 R-09 alternative flows; tap again to restore (still respects real offline).
  */
 export function ConnectivityToggle({ tone = "light" }: { tone?: "light" | "dark" }) {
   const { online, setOnline } = useField();
@@ -20,7 +19,7 @@ export function ConnectivityToggle({ tone = "light" }: { tone?: "light" | "dark"
     const onOffline = () => setOnline(false);
     window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
-    if (!navigator.onLine) setOnline(false);
+    setOnline(navigator.onLine && !forcedOffline.current);
     return () => {
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
@@ -31,12 +30,16 @@ export function ConnectivityToggle({ tone = "light" }: { tone?: "light" | "dark"
     <button
       type="button"
       onClick={() => {
-        const next = !online;
-        forcedOffline.current = !next;
-        setOnline(next);
+        if (online) {
+          forcedOffline.current = true;
+          setOnline(false);
+        } else {
+          forcedOffline.current = false;
+          setOnline(navigator.onLine);
+        }
       }}
       aria-pressed={!online}
-      title={online ? "Simulate losing connectivity" : "Restore connectivity"}
+      title={online ? "Simulate offline (A02 R-09)" : "Restore connectivity"}
       className={cn(
         "flex h-9 items-center gap-1.5 rounded-full border px-3 text-[12px] font-semibold backdrop-blur-sm",
         tone === "dark"
@@ -49,7 +52,7 @@ export function ConnectivityToggle({ tone = "light" }: { tone?: "light" | "dark"
       )}
     >
       {online ? <Wifi className="size-3.5" /> : <CloudOff className="size-3.5" />}
-      {online ? "Online" : "Offline"}
+      {online ? "Online" : "Simulate offline"}
     </button>
   );
 }

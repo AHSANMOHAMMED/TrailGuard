@@ -53,3 +53,6 @@ attachments/
 **/.coverage
 artifacts/TrailGuard/mobile/trace-codegen*.js
 artifacts/TrailGuard/mobile/patch-codegen.js
+.vercel
+.env*
+.neon

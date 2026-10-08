@@ -1,5 +1,5 @@
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import React, { useEffect, useState } from 'react';
+import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { initLocalStore } from './src/store/localStore';
@@ -11,21 +11,39 @@ import IncidentScreen from './src/screens/IncidentScreen';
 import ConflictScreen from './src/screens/ConflictScreen';
 import ReportScreen from './src/screens/ReportScreen';
 import HomeScreen from './src/screens/HomeScreen';
+import { getColors, getTheme, subscribeTheme } from './src/theme';
 
 initLocalStore();
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
+  const [, bump] = useState(0);
+  useEffect(() => subscribeTheme(() => bump((n) => n + 1)), []);
+
+  const c = getColors();
+  const night = getTheme() === 'night';
+  const navTheme = {
+    ...(night ? DarkTheme : DefaultTheme),
+    colors: {
+      ...(night ? DarkTheme.colors : DefaultTheme.colors),
+      background: c.bg,
+      card: c.surface,
+      text: c.fg,
+      border: c.border,
+      primary: c.accent,
+    },
+  };
+
   return (
-    <NavigationContainer>
-      <StatusBar style="light" />
+    <NavigationContainer theme={navTheme}>
+      <StatusBar style={night ? 'light' : 'dark'} />
       <Stack.Navigator
         initialRouteName="Onboarding"
         screenOptions={{
-          headerStyle: { backgroundColor: '#0A100C' },
-          headerTintColor: '#E6F0E6',
-          contentStyle: { backgroundColor: '#0A100C' },
+          headerStyle: { backgroundColor: c.surface },
+          headerTintColor: c.fg,
+          contentStyle: { backgroundColor: c.bg },
         }}
       >
         <Stack.Screen name="Onboarding" component={OnboardingScreen} options={{ headerShown: false }} />

@@ -109,9 +109,17 @@ Phone A / Phone B / Web  →  /api/v1/sync/upsert  →  Neon Postgres (field_*)
   - `GET  /api/v1/health` — `{ shared, source, counts }`
   - `POST /api/v1/sync/upsert` — `{ kind, payload }` idempotent UUID upsert
   - `POST /api/v1/reports/generate` — park snapshot from shared counts
-- **Web UI** — same writes via ConservationAPI server functions (`src/lib/domain/conservation-api.ts`).
+- **Web UI** — ConservationAPI server functions; live sync **fails visibly** (no silent in-memory mirror). Graded path starts with an **empty** field store; Super Admin can **Load demo dataset (viva only)** on `/admin`.
 - **Schema** — `migrations/0002_field_ops.sql` (`field_patrols`, `field_incidents`, `field_conflicts`, `field_radio`, `field_alerts`).
-- **Mobile** — set the **same** `EXPO_PUBLIC_API_URL=https://<deployed-host>/api/v1` on every APK so Sync drains each phone’s SQLite into that one DB. Super Admin `/admin` shows live backend + row counts.
+- **Mobile APK** — build **requires** `EXPO_PUBLIC_API_URL=https://<host>/api/v1` (or LAN `http://IP:8080/api/v1`). After install, Home can override the URL and shows live health. Same host for every phone.
+
+#### Graded vs viva-only (assignment)
+
+| Graded (UC implementations + tests) | Viva / demo shell (not graded) |
+|---|---|
+| UC01 Patrol, UC02 Incidents, UC03 Alerts, UC04 Conflict + Reports | PIN login, logout, Super Admin role divide |
+| Offline-first sync, UUID upserts, coverage / report rules | Field Radio, Load demo dataset, Simulate offline toggle |
+| Domain tests under `src/lib/domain/` (~80% UC behavior) | Quick-fill actor chips on login |
 
 #### Field Radio
 

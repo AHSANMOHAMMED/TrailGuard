@@ -11,6 +11,7 @@ import {
   type Area,
 } from "@/lib/auth-store";
 import { fieldDbHealthFn } from "@/lib/domain/conservation-api";
+import { useField } from "@/lib/store";
 
 export const Route = createFileRoute("/admin")({
   component: () => (
@@ -45,6 +46,7 @@ function AdminPage() {
   const [dbLabel, setDbLabel] = useState<string>("…");
   const [counts, setCounts] = useState<FieldCounts | null>(null);
   const [dbError, setDbError] = useState<string | null>(null);
+  const loadDemoDataset = useField((s) => s.loadDemoDataset);
 
   useEffect(() => {
     let cancelled = false;
@@ -120,9 +122,16 @@ function AdminPage() {
           <Shield className="mt-0.5 size-4 text-accent" />
           <p className="text-[12px] leading-snug text-muted">
             Divide park roles offline. Changes stay on this device and apply on
-            next sign-in for each actor. PIN demo credentials stay the same.
+            next sign-in for each actor. PIN credentials are viva-only (not graded).
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => loadDemoDataset()}
+          className="w-full rounded-xl border border-dashed border-border bg-surface px-3 py-2.5 text-left text-[12px] font-semibold text-muted hover:bg-elevated"
+        >
+          Load demo dataset (viva only) — sample SYNCED patrols / incidents / EL-07 alert
+        </button>
         {staff.map((actor) => {
           const access = accessFor(actor.role, roleAccess);
           return (

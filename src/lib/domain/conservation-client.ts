@@ -1,7 +1,6 @@
 /**
  * Client-side ConservationAPI — calls PGLite/Neon server fns when online.
- * Falls back to in-memory mirror only when the server call fails in tests
- * without a running runtime (unit tests inject their own fake).
+ * Mirror fallback is TEST-ONLY so live sync never looks green while the DB is empty.
  */
 import type { ConservationApi } from "./ports";
 import type { IncidentReport, Patrol, PhotoAttachment, SyncAck } from "./model";
@@ -21,17 +20,25 @@ import {
   type AlertUpsertInput,
 } from "./conservation-api";
 
-async function withMirrorFallback<T>(
+function allowMirrorFallback(): boolean {
+  if (typeof process === "undefined") return false;
+  if (process.env.NODE_ENV === "test" || process.env.VITEST === "true") return true;
+  // `node --test` does not set NODE_ENV; mirror fallback keeps domain tests hermetic.
+  return process.argv.includes("--test");
+}
+
+async function withOptionalMirrorFallback<T>(
   primary: () => Promise<T>,
   fallback: () => T,
 ): Promise<T> {
   try {
     return await primary();
   } catch (err) {
-    // Surface SQL/runtime failures in the console so sync isn't silently
-    // "green" while field_* tables stay empty (tests still use the mirror).
-    console.warn("[ConservationAPI] server upsert failed; using mirror fallback", err);
-    return fallback();
+    if (allowMirrorFallback()) {
+      console.warn("[ConservationAPI] test mirror fallback", err);
+      return fallback();
+    }
+    throw err;
   }
 }
 
@@ -46,7 +53,7 @@ function ack(recordId: string, complete: boolean): SyncAck {
 
 export const liveConservationApi: ConservationApi = {
   async upsertPatrol(p: Patrol): Promise<SyncAck> {
-    await withMirrorFallback(
+    await withOptionalMirrorFallback(
       async () => {
         await upsertPatrolFn({
           data: {
@@ -76,7 +83,7 @@ export const liveConservationApi: ConservationApi = {
     pendingAttachments: PhotoAttachment[],
   ): Promise<SyncAck> {
     const complete = pendingAttachments.length === 0;
-    const result = await withMirrorFallback(
+    return withOptionalMirrorFallback(
       async () => {
         const r = await upsertIncidentFn({
           data: {
@@ -101,7 +108,6 @@ export const liveConservationApi: ConservationApi = {
         return ack(i.reportId, complete);
       },
     );
-    return result;
   },
 };
 
@@ -112,7 +118,7 @@ export async function upsertConflictLive(input: {
   channel: string;
   description: string;
 }): Promise<void> {
-  await withMirrorFallback(
+  await withOptionalMirrorFallback(
     async () => {
       await upsertConflictFn({ data: input });
     },
@@ -127,7 +133,7 @@ export async function upsertRadioLive(input: {
   channel: string;
   body?: string;
 }): Promise<void> {
-  await withMirrorFallback(
+  await withOptionalMirrorFallback(
     async () => {
       await upsertRadioFn({ data: input });
     },
@@ -138,7 +144,7 @@ export async function upsertRadioLive(input: {
 }
 
 export async function upsertAlertLive(input: AlertUpsertInput): Promise<void> {
-  await withMirrorFallback(
+  await withOptionalMirrorFallback(
     async () => {
       await upsertAlertFn({ data: input });
     },

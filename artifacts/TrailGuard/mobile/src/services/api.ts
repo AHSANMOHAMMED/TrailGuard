@@ -1,41 +1,56 @@
 /**
- * One shared backend for every phone.
- * Point EXPO_PUBLIC_API_URL at the deployed TrailGuard host + `/api/v1`
- * (same Neon/PGLite field_* DB the web app uses). Example:
- *   EXPO_PUBLIC_API_URL=https://your-trailguard.example.com/api/v1
+ * Shared Field Sync client — every phone → one TrailGuard /api/v1 host.
+ *
+ * Resolution order:
+ * 1. Runtime URL saved in SQLite (Settings on Home)
+ * 2. EXPO_PUBLIC_API_URL / app.config extra.apiUrl baked at build time
  */
-function resolveBase(): string {
+import { getSetting, setSetting } from '../store/localStore';
+
+const BUILD_DEFAULT = (() => {
   const fromEnv = process.env.EXPO_PUBLIC_API_URL?.trim() ?? '';
-  if (fromEnv) return fromEnv;
+  if (fromEnv) return fromEnv.replace(/\/$/, '');
   try {
-    // Expo Constants (optional) — app.config.js extra.apiUrl
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const Constants = require('expo-constants').default as {
       expoConfig?: { extra?: { apiUrl?: string } };
     };
-    return Constants?.expoConfig?.extra?.apiUrl?.trim() ?? '';
+    return Constants?.expoConfig?.extra?.apiUrl?.trim()?.replace(/\/$/, '') ?? '';
   } catch {
     return '';
   }
+})();
+
+/** Current API base (runtime override wins). */
+export function getApiBaseOrEmpty(): string {
+  const runtime = getSetting('api_base')?.trim().replace(/\/$/, '') ?? '';
+  return runtime || BUILD_DEFAULT;
 }
 
-const BASE = resolveBase();
-
-/** True when a shared API base is configured (required for multi-phone sync). */
 export function isApiConfigured(): boolean {
-  return BASE.length > 0;
+  return getApiBaseOrEmpty().length > 0;
 }
 
 export function getApiBase(): string {
-  if (!isApiConfigured()) {
+  const base = getApiBaseOrEmpty();
+  if (!base) {
     throw new Error(
-      'Set EXPO_PUBLIC_API_URL to the shared TrailGuard API (https://<deployed-host>/api/v1) so every phone syncs to one DB.'
+      'Set the shared API URL on Home (e.g. https://host/api/v1) so every phone syncs to one DB.'
     );
   }
-  return BASE.replace(/\/$/, '');
+  return base;
 }
 
-/** GET /health — confirms shared backend + DB source + park-wide counts. */
+/** Persist a runtime API base (and clear with empty string to fall back to build default). */
+export function setApiBase(url: string) {
+  const cleaned = url.trim().replace(/\/$/, '');
+  setSetting('api_base', cleaned);
+}
+
+export function getBuildDefaultApiBase(): string {
+  return BUILD_DEFAULT;
+}
+
 export async function fetchSharedHealth() {
   const base = getApiBase();
   const res = await fetch(`${base}/health`);

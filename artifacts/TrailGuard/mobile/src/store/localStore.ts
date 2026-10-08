@@ -65,6 +65,11 @@ const SCHEMA = `
   );
   CREATE UNIQUE INDEX IF NOT EXISTS idx_sync_queue_entity
     ON sync_queue(entity_type, entity_id);
+
+  CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY NOT NULL,
+    value TEXT NOT NULL
+  );
 `;
 
 let initialized = false;
@@ -73,6 +78,28 @@ export function initLocalStore() {
   if (initialized) return;
   db.execSync(SCHEMA);
   initialized = true;
+}
+
+export function getSetting(key: string): string | null {
+  initLocalStore();
+  const row = db.getFirstSync<{ value: string }>(
+    'SELECT value FROM app_settings WHERE key = ?',
+    [key]
+  );
+  return row?.value ?? null;
+}
+
+export function setSetting(key: string, value: string) {
+  initLocalStore();
+  if (!value) {
+    db.runSync('DELETE FROM app_settings WHERE key = ?', [key]);
+    return;
+  }
+  db.runSync(
+    `INSERT INTO app_settings (key, value) VALUES (?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+    [key, value]
+  );
 }
 
 function nowIso() {

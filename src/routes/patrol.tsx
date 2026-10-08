@@ -141,8 +141,8 @@ function PatrolPage() {
 
   const running = (phase === "progress" || phase === "waypoint") && !!active;
 
-  // GPS tick: simulated device positions while the patrol runs. Every
-  // GPS_EVERY-th position commits a real timestamped GPS waypoint (step 3).
+  // GPS tick: prefer device geolocation; fall back to labeled route simulation
+  // (desktop preview / denied permission) so UC01 coverage still progresses.
   const posRef = useRef(positions);
   posRef.current = positions;
   useEffect(() => {
@@ -153,7 +153,22 @@ function PatrolPage() {
       const next = n + 1;
       setPositions(next);
       setElapsedS((s) => s + 1);
-      if (next % GPS_EVERY === 0) {
+      if (next % GPS_EVERY !== 0) return;
+      const geo = typeof navigator !== "undefined" && navigator.geolocation;
+      if (geo) {
+        geo.getCurrentPosition(
+          (pos) => {
+            useField.getState().addWaypoint("GPS", {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+            });
+          },
+          () => {
+            useField.getState().addWaypoint("GPS", routePointAt(next / COVER_AT));
+          },
+          { enableHighAccuracy: true, maximumAge: 5000, timeout: 4000 },
+        );
+      } else {
         useField.getState().addWaypoint("GPS", routePointAt(next / COVER_AT));
       }
     }, 700);

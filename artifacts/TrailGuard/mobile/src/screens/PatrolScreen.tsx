@@ -1,20 +1,86 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import OfflineMap from '../components/OfflineMap';
 import * as PatrolService from '../services/patrolService';
 import { synchronize } from '../services/syncService';
 import { countPendingSync } from '../store/localStore';
 import type { GeoPoint } from '../types/models';
+import { getSession } from '../session';
+import { getColors, subscribeTheme } from '../theme';
 
-export default function PatrolScreen() {
+async function readDeviceGeo(): Promise<{ geo: GeoPoint; source: 'GPS' | 'MANUAL' }> {
+  try {
+    // Optional native module — present after `npx expo install expo-location`.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Location = require('expo-location') as {
+      requestForegroundPermissionsAsync: () => Promise<{ status: string }>;
+      getCurrentPositionAsync: (opts: { accuracy: number }) => Promise<{
+        coords: { latitude: number; longitude: number };
+      }>;
+      Accuracy: { Balanced: number };
+    };
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      throw new Error('Location permission denied');
+    }
+    const pos = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+    return {
+      geo: { lat: pos.coords.latitude, lng: pos.coords.longitude },
+      source: 'GPS',
+    };
+  } catch {
+    // Confirmed MANUAL fallback (no random fake track).
+    return new Promise((resolve, reject) => {
+      Alert.alert(
+        'Location',
+        'GPS unavailable. Drop a MANUAL waypoint at the last known field pin (6.4100, 81.1200)?',
+        [
+          { text: 'Cancel', style: 'cancel', onPress: () => reject(new Error('Cancelled')) },
+          {
+            text: 'Use MANUAL pin',
+            onPress: () =>
+              resolve({ geo: { lat: 6.41, lng: 81.12 }, source: 'MANUAL' as const }),
+          },
+        ]
+      );
+    });
+  }
+}
+
+export default function PatrolScreen({
+  navigation,
+}: {
+  navigation: { replace: (r: string) => void };
+}) {
+  const session = getSession();
+  const [, bump] = useState(0);
   const [status, setStatus] = useState('Idle');
   const [points, setPoints] = useState(0);
   const [patrolId, setPatrolId] = useState<string | undefined>();
   const [liveTrack, setLiveTrack] = useState<GeoPoint[]>([]);
   const [pending, setPending] = useState(countPendingSync());
 
+  useEffect(() => subscribeTheme(() => bump((n) => n + 1)), []);
+  const c = getColors();
+
+  useEffect(() => {
+    if (!session) {
+      navigation.replace('Login');
+      return;
+    }
+    if (!session.access.includes('patrol')) {
+      navigation.replace('Home');
+    }
+  }, [session, navigation]);
+
+  if (!session || !session.access.includes('patrol')) return null;
+
+  const officerId = session.userId || session.role;
+
   const start = () => {
-    const p = PatrolService.startPatrol('RT-07', 'officer-demo');
+    const p = PatrolService.startPatrol('RT-07', officerId);
     setPatrolId(p.patrolId);
     setLiveTrack([]);
     setStatus(`ACTIVE · ${p.patrolId.slice(0, 8)}`);
@@ -22,10 +88,10 @@ export default function PatrolScreen() {
     setPending(countPendingSync());
   };
 
-  const waypoint = () => {
+  const waypoint = async () => {
     try {
-      const geo = { lat: 6.4 + Math.random() * 0.01, lng: 81.1 + Math.random() * 0.01 };
-      PatrolService.recordPoint(geo, 'GPS');
+      const { geo, source } = await readDeviceGeo();
+      PatrolService.recordPoint(geo, source);
       setLiveTrack((t) => [...t, geo]);
       setPoints((n) => n + 1);
     } catch (e: unknown) {
@@ -55,27 +121,43 @@ export default function PatrolScreen() {
   };
 
   return (
-    <View style={styles.wrap}>
-      <Text style={styles.h}>Route RT-07 · North Ridge</Text>
-      <Text style={styles.meta}>{status} · points {points}</Text>
-      <Text style={styles.offlineHint}>
-        SQLite on device · {pending} pending upload{pending === 1 ? '' : 's'} · sync when online
+    <View style={[styles.wrap, { backgroundColor: c.bg }]}>
+      <Text style={[styles.h, { color: c.fg }]}>Route RT-07 · North Ridge</Text>
+      <Text style={[styles.meta, { color: c.warn }]}>
+        {status} · points {points} · officer {officerId}
+      </Text>
+      <Text style={[styles.offlineHint, { color: c.muted }]}>
+        Device GPS when permitted · MANUAL pin only if GPS unavailable · {pending} pending
       </Text>
       <OfflineMap patrolId={patrolId} livePoints={liveTrack.length > 0 ? liveTrack : undefined} />
-      <Pressable style={styles.btn} onPress={start}><Text style={styles.btnT}>Start Patrol</Text></Pressable>
-      <Pressable style={styles.btnSecondary} onPress={waypoint}><Text style={styles.btnT}>+ Waypoint</Text></Pressable>
-      <Pressable style={styles.btnSecondary} onPress={finish}><Text style={styles.btnT}>Finish</Text></Pressable>
-      <Pressable style={styles.btn} onPress={sync}><Text style={styles.btnT}>Sync now</Text></Pressable>
+      <Pressable style={[styles.btn, { backgroundColor: c.accent }]} onPress={start}>
+        <Text style={[styles.btnT, { color: c.accentFg }]}>Start Patrol</Text>
+      </Pressable>
+      <Pressable
+        style={[styles.btnSecondary, { backgroundColor: c.elevated, borderColor: c.border }]}
+        onPress={() => void waypoint()}
+      >
+        <Text style={[styles.btnT, { color: c.fg }]}>+ Waypoint</Text>
+      </Pressable>
+      <Pressable
+        style={[styles.btnSecondary, { backgroundColor: c.elevated, borderColor: c.border }]}
+        onPress={finish}
+      >
+        <Text style={[styles.btnT, { color: c.fg }]}>Finish</Text>
+      </Pressable>
+      <Pressable style={[styles.btn, { backgroundColor: c.accent }]} onPress={sync}>
+        <Text style={[styles.btnT, { color: c.accentFg }]}>Sync now</Text>
+      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, padding: 20, backgroundColor: '#0A100C' },
-  h: { color: '#fff', fontSize: 18, fontWeight: '700' },
-  meta: { color: '#D97706', marginVertical: 8 },
-  offlineHint: { color: '#8A9E8E', fontSize: 12, marginBottom: 12, lineHeight: 18 },
-  btn: { backgroundColor: '#2EA05F', padding: 16, borderRadius: 12, marginBottom: 10 },
-  btnSecondary: { backgroundColor: '#1C2A20', padding: 16, borderRadius: 12, marginBottom: 10 },
-  btnT: { color: '#fff', textAlign: 'center', fontWeight: '700' },
+  wrap: { flex: 1, padding: 20 },
+  h: { fontSize: 18, fontWeight: '700' },
+  meta: { marginVertical: 8 },
+  offlineHint: { fontSize: 12, marginBottom: 12, lineHeight: 18 },
+  btn: { padding: 16, borderRadius: 12, marginBottom: 10 },
+  btnSecondary: { borderWidth: 1, padding: 16, borderRadius: 12, marginBottom: 10 },
+  btnT: { textAlign: 'center', fontWeight: '700' },
 });

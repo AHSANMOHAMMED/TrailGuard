@@ -339,8 +339,8 @@ function IncidentPage() {
                 onChange={(e) => setPartialPhoto(e.target.checked)}
               />
               <span>
-                Demo partial upload (S3): ack the report now, keep the photo PENDING with the same
-                attachment id until retry.
+                Submit report before photo finishes (UC02 S3): ack the report now; keep the photo
+                PENDING with the same attachment id until retry.
               </span>
             </label>
           ) : (
