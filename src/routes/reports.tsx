@@ -99,8 +99,12 @@ function ReportsPage() {
           <Button
             className="mt-4 w-full"
             onClick={() => {
-              generateReport(from, to);
-              toast.message("Snapshot generated");
+              try {
+                generateReport(from, to);
+                toast.message("Snapshot generated");
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : "Could not generate report");
+              }
             }}
           >
             Generate report
