@@ -14,6 +14,7 @@ import { Route as AlertsRouteImport } from './routes/alerts'
 import { Route as ConflictRouteImport } from './routes/conflict'
 import { Route as IncidentsRouteImport } from './routes/incidents'
 import { Route as PatrolRouteImport } from './routes/patrol'
+import { Route as RadioRouteImport } from './routes/radio'
 import { Route as ReportsRouteImport } from './routes/reports'
 
 const IndexRoute = IndexRouteImport.update({
@@ -41,6 +42,11 @@ const PatrolRoute = PatrolRouteImport.update({
   path: '/patrol',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RadioRoute = RadioRouteImport.update({
+  id: '/radio',
+  path: '/radio',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReportsRoute = ReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
@@ -53,6 +59,7 @@ export interface FileRoutesByFullPath {
   '/conflict': typeof ConflictRoute
   '/incidents': typeof IncidentsRoute
   '/patrol': typeof PatrolRoute
+  '/radio': typeof RadioRoute
   '/reports': typeof ReportsRoute
 }
 export interface FileRoutesByTo {
@@ -61,6 +68,7 @@ export interface FileRoutesByTo {
   '/conflict': typeof ConflictRoute
   '/incidents': typeof IncidentsRoute
   '/patrol': typeof PatrolRoute
+  '/radio': typeof RadioRoute
   '/reports': typeof ReportsRoute
 }
 export interface FileRoutesById {
@@ -70,14 +78,28 @@ export interface FileRoutesById {
   '/conflict': typeof ConflictRoute
   '/incidents': typeof IncidentsRoute
   '/patrol': typeof PatrolRoute
+  '/radio': typeof RadioRoute
   '/reports': typeof ReportsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/alerts' | '/conflict' | '/incidents' | '/patrol' | '/reports'
+    | '/'
+    | '/alerts'
+    | '/conflict'
+    | '/incidents'
+    | '/patrol'
+    | '/radio'
+    | '/reports'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/alerts' | '/conflict' | '/incidents' | '/patrol' | '/reports'
+  to:
+    | '/'
+    | '/alerts'
+    | '/conflict'
+    | '/incidents'
+    | '/patrol'
+    | '/radio'
+    | '/reports'
   id:
     | '__root__'
     | '/'
@@ -85,6 +107,7 @@ export interface FileRouteTypes {
     | '/conflict'
     | '/incidents'
     | '/patrol'
+    | '/radio'
     | '/reports'
   fileRoutesById: FileRoutesById
 }
@@ -94,6 +117,7 @@ export interface RootRouteChildren {
   ConflictRoute: typeof ConflictRoute
   IncidentsRoute: typeof IncidentsRoute
   PatrolRoute: typeof PatrolRoute
+  RadioRoute: typeof RadioRoute
   ReportsRoute: typeof ReportsRoute
 }
 
@@ -134,6 +158,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PatrolRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/radio': {
+      id: '/radio'
+      path: '/radio'
+      fullPath: '/radio'
+      preLoaderRoute: typeof RadioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reports': {
       id: '/reports'
       path: '/reports'
@@ -150,6 +181,7 @@ const rootRouteChildren: RootRouteChildren = {
   ConflictRoute: ConflictRoute,
   IncidentsRoute: IncidentsRoute,
   PatrolRoute: PatrolRoute,
+  RadioRoute: RadioRoute,
   ReportsRoute: ReportsRoute,
 }
 export const routeTree = rootRouteImport

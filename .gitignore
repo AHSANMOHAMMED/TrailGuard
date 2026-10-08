@@ -21,3 +21,9 @@ artifacts/*.zip
 .grok/
 .vercel/
 .freebuff/
+
+# Android APK build artifacts — reproducible via scripts/build-android-apk.sh
+artifacts/TrailGuard/mobile/build/apk/
+artifacts/TrailGuard/mobile/dist-android/
+artifacts/TrailGuard/mobile/.expo/
+artifacts/TrailGuard/mobile/package-lock.json

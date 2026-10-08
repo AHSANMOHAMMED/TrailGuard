@@ -8,18 +8,21 @@
     "ios": "expo start --ios"
   },
   "dependencies": {
+    "@react-navigation/native": "^6.1.0",
+    "@react-navigation/native-stack": "^6.9.0",
     "expo": "~51.0.0",
     "expo-sqlite": "~14.0.0",
     "expo-status-bar": "~1.12.1",
     "react": "18.2.0",
-    "react-native": "0.74.0",
-    "@react-navigation/native": "^6.1.0",
-    "@react-navigation/native-stack": "^6.9.0",
-    "uuid": "^9.0.0"
+    "react-native": "^0.74.5",
+    "react-native-gesture-handler": "^3.3.0",
+    "react-native-safe-area-context": "^5.10.1",
+    "react-native-screens": "4.28.0",
+    "uuid": "9.0.1"
   },
   "devDependencies": {
     "@types/react": "~18.2.0",
-    "typescript": "^5.3.0"
+    "typescript": "~5.3.3"
   },
   "private": true
 }

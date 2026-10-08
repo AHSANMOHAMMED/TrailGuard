@@ -53,6 +53,8 @@ export interface RouteMeta {
 export const ROUTE_INDEX: Record<string, RouteMeta> = {
   "RT-07": { routeId: "RT-07", name: "North Ridge Corridor", distanceKm: 12.4 },
   "RT-03": { routeId: "RT-03", name: "Eastern Loop", distanceKm: 8.2 },
+  /** Wireframe demo route used by the live field store (UC01). */
+  "NB-03": { routeId: "NB-03", name: "North Boundary Patrol", distanceKm: 7.4 },
 };
 
 /**

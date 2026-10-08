@@ -93,6 +93,26 @@ function ConflictPage() {
   const selected = conflicts.find((c) => c.reportId === selectedId) ?? null;
   const isStaff = session?.role === "RANGER" || session?.role === "LIAISON";
 
+  // Role assignment: only Ranger and Community Liaison Officer operate the
+  // dashboard and record responses (use case model, steps 9–13). Community
+  // members submit reports; everything past submission is staff work.
+  if (!isStaff && (step === "dashboard" || step === "staffReview" || step === "responded")) {
+    return (
+      <Phone>
+        <ScreenHeader title="Community Conflict Report" onBack={() => setStep("intro")} />
+        <Body>
+          <HintCard>
+            The operations dashboard and response recording are handled by the Ranger and the
+            Community Liaison Officer. Your report has been submitted for their review.
+          </HintCard>
+          <div className="mt-auto pt-2">
+            <BtnPrimary onClick={() => router.navigate({ to: "/" })}>Back to Home</BtnPrimary>
+          </div>
+        </Body>
+      </Phone>
+    );
+  }
+
   const missing = [
     !type ? "Conflict type" : null,
     location.trim().length === 0 ? "Incident location" : null,
@@ -420,15 +440,20 @@ function ConflictPage() {
                   />
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  failRequested.current = true;
-                }}
-                className="mt-auto pb-1 text-center text-[11px] text-subtle underline-offset-2 hover:underline"
-              >
-                demo: simulate system error
-              </button>
+              <details className="mt-auto pb-1 text-center">
+                <summary className="cursor-pointer text-[11px] text-subtle hover:underline">
+                  Field test tools
+                </summary>
+                <button
+                  type="button"
+                  onClick={() => {
+                    failRequested.current = true;
+                  }}
+                  className="mt-1 text-[11px] text-subtle underline-offset-2 hover:underline"
+                >
+                  Simulate processing error
+                </button>
+              </details>
             </>
           ) : (
             <>
@@ -531,7 +556,11 @@ function ConflictPage() {
             </HintCard>
           ) : null}
           <div className="mt-auto pt-2">
-            <BtnPrimary onClick={() => setStep("dashboard")}>Done</BtnPrimary>
+            {isStaff ? (
+              <BtnPrimary onClick={() => setStep("dashboard")}>Done</BtnPrimary>
+            ) : (
+              <BtnPrimary onClick={() => router.navigate({ to: "/" })}>Done</BtnPrimary>
+            )}
           </div>
         </Body>
       </Phone>

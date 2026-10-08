@@ -1,29 +1,41 @@
 import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Map, Shield, Siren, FileBarChart, Radio, CloudOff, Cloud } from "lucide-react";
+import { Map, Shield, Siren, FileBarChart, Radio, RadioTower, CloudOff, Cloud } from "lucide-react";
 import { useField } from "@/lib/store";
-import { useRole } from "@/lib/role-store";
-import { RoleSwitcher } from "@/components/role-switcher";
+import { can, type Permission } from "@/lib/domain/roles";
+import { useAuth } from "@/lib/auth-store";
+import { SessionChip } from "@/components/auth-gate";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn, fmtTime } from "@/lib/utils";
 
-const NAV = [
+const NAV: {
+  to: string;
+  label: string;
+  icon: typeof Map;
+  exact?: boolean;
+  always?: boolean;
+  perm?: Permission;
+}[] = [
   { to: "/", label: "Ops", icon: Shield, exact: true, always: true },
-  { to: "/patrol", label: "Patrol", icon: Map, perm: "patrol:start" as const },
-  { to: "/incidents", label: "Incidents", icon: Radio, perm: "incident:create" as const },
-  { to: "/conflict", label: "Conflict", icon: Siren, perm: "conflict:acknowledge" as const },
-  { to: "/reports", label: "Reports", icon: FileBarChart, perm: "report:generate" as const },
+  { to: "/patrol", label: "Patrol", icon: Map, perm: "patrol:start" },
+  { to: "/incidents", label: "Incidents", icon: Radio, perm: "incident:create" },
+  { to: "/conflict", label: "Conflict", icon: Siren, perm: "conflict:acknowledge" },
+  { to: "/radio", label: "Radio", icon: RadioTower, perm: "radio:transmit" },
+  { to: "/reports", label: "Reports", icon: FileBarChart, perm: "report:generate" },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const { online, setOnline, lastSyncAt, syncing, synchronize, pendingCount } = useField();
-  const role = useRole();
+  const session = useAuth((s) => s.session);
+  // The signed-in actor is the single source of truth for what this shell shows.
+  const role = session?.role ?? null;
+  const may = (p: Permission) => (role ? can(role, p) : false);
   const pending = pendingCount();
-  const visibleNav = NAV.filter((item) => item.always || (item.perm && role.can(item.perm)));
+  const visibleNav = NAV.filter((item) => item.always || (item.perm && may(item.perm)));
 
   useEffect(() => {
     void useField.persist.rehydrate();
@@ -32,7 +44,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   async function onSync() {
     try {
       const r = await synchronize();
-      toast.success(`Synced ${r.patrols} patrols, ${r.incidents} incidents`);
+      toast.success(
+        r.radio > 0
+          ? `Synced ${r.patrols} patrols, ${r.incidents} incidents, ${r.radio} radio transmissions`
+          : `Synced ${r.patrols} patrols, ${r.incidents} incidents`,
+      );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Sync failed");
     }
@@ -82,7 +98,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <RoleSwitcher />
+            <SessionChip />
             <button
               type="button"
               onClick={() => setOnline(!online)}
@@ -95,8 +111,8 @@ export function AppShell({ children }: { children: ReactNode }) {
               size="sm"
               variant={pending ? "warn" : "secondary"}
               onClick={onSync}
-              disabled={syncing || !role.can("patrol:sync")}
-              title={role.can("patrol:sync") ? undefined : "Sync is a ranger/manager action"}
+              disabled={syncing || !may("patrol:sync")}
+              title={may("patrol:sync") ? undefined : "Sync is a ranger/manager action"}
             >
               {syncing ? "Syncing…" : pending ? `Sync ${pending}` : "Sync"}
             </Button>
