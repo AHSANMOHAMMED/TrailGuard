@@ -54,7 +54,16 @@ const ACTOR_ICON: Record<ActorRole, typeof ShieldCheck> = {
 export function Guard({ area, children }: { area: Area; children: ReactNode }) {
   const { session, hydrated, canAccess } = useAuth();
 
-  if (!hydrated) return <Phone>{null}</Phone>;
+  if (!hydrated) {
+    return (
+      <Phone>
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6">
+          <p className="text-[17px] font-bold tracking-tight text-accent">TrailGuard</p>
+          <p className="text-[12px] text-muted">Loading field session…</p>
+        </div>
+      </Phone>
+    );
+  }
   if (!session) return <LoginScreen />;
   if (!canAccess(area)) return <AccessDenied area={area} />;
   return <>{children}</>;
