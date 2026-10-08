@@ -879,16 +879,15 @@ function SyncStateCard({
       </Card>
     );
   }
-  const state = patrol.syncState === "FAILED" ? "FAILED" : "PENDING";
   return (
     <Card>
       <p className="flex items-center gap-1.5 text-[13px] font-bold text-warn">
         <CloudUpload className="size-4" />
         {patrol.status === "COMPLETED" && !online
           ? "Pending — will sync when signal returns"
-          : patrolSyncStatusLabel(state)}
+          : patrolSyncStatusLabel("PENDING")}
       </p>
-      <p className="mt-0.5 text-[11.5px] text-muted">{patrolSyncHint(state)}</p>
+      <p className="mt-0.5 text-[11.5px] text-muted">{patrolSyncHint("PENDING")}</p>
       <button
         type="button"
         onClick={onOpenQueue}
