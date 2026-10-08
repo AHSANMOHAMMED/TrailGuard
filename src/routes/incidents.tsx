@@ -15,7 +15,9 @@ import {
   BtnOutline,
   BtnPrimary,
   Card,
+  CONSEQUENCE,
   HintCard,
+  ModeChip,
   OfflineBanner,
   Phone,
   Pill,
@@ -42,23 +44,43 @@ export const Route = createFileRoute("/incidents")({
  * UC02-S01 — Report Field Incident.
  * Screens follow the hi-fi wireframe panels 1–8 (Figure 10): start → type →
  * photo → details → review → validating submit → offline conditional →
- * submitted.
+ * submitted. A02 R-09/R-10: mode chip + grouped categories.
  */
 
-const TYPES = [
-  { label: "Snare", icon: CircleDashed },
-  { label: "Carcass", icon: Bone },
-  { label: "Illegal Campsite", icon: Tent },
-  { label: "Footprints", icon: PawPrint },
-  { label: "Other", icon: MoreHorizontal },
-] as const;
+type IncidentTypeOption = {
+  label: string;
+  icon: typeof CircleDashed;
+};
+
+const TYPE_GROUPS: { group: string; items: IncidentTypeOption[] }[] = [
+  {
+    group: "Snares",
+    items: [
+      { label: "Snare", icon: CircleDashed },
+      { label: "Illegal Campsite", icon: Tent },
+    ],
+  },
+  {
+    group: "Animal",
+    items: [
+      { label: "Carcass", icon: Bone },
+      { label: "Footprints", icon: PawPrint },
+    ],
+  },
+  {
+    group: "Other",
+    items: [{ label: "Other", icon: MoreHorizontal }],
+  },
+];
+
+const TYPES: IncidentTypeOption[] = TYPE_GROUPS.flatMap((g) => g.items);
 
 type Step =
   "intro" | "type" | "photo" | "details" | "review" | "submitting" | "offline" | "submitted";
 
 function IncidentPage() {
   const router = useRouter();
-  const { online, createIncident, synchronize } = useField();
+  const { online, createIncident, synchronize, incidents } = useField();
 
   const [step, setStep] = useState<Step>("intro");
   const [type, setType] = useState<string | null>(null);
@@ -68,54 +90,83 @@ function IncidentPage() {
   const [checks, setChecks] = useState(0);
   const [wasOffline, setWasOffline] = useState(false);
   const [syncingNow, setSyncingNow] = useState(false);
+  /** Demo S3/R-05 — report acked, photo stays PENDING with same attachId. */
+  const [partialPhoto, setPartialPhoto] = useState(false);
+  const [lastIncidentId, setLastIncidentId] = useState<string | null>(null);
 
-  // Panel 6 — validation ticks, then route online → 8, offline → 7.
+  // Panel 6 — validation ticks, then route online → upsert-ack → 8, offline → 7.
   useEffect(() => {
     if (step !== "submitting") return;
     setChecks(0);
     const t = setInterval(() => setChecks((c) => c + 1), 350);
+    let cancelled = false;
     const done = setTimeout(() => {
       clearInterval(t);
-      createIncident({
-        type: type ?? "Other",
-        description,
-        locationSource: "GPS",
-        hasPhoto: true,
-      });
-      if (online) {
-        setStep("submitted");
-      } else {
-        setWasOffline(true);
-        setStep("offline");
-      }
+      void (async () => {
+        const ir = createIncident({
+          type: type ?? "Other",
+          description,
+          locationSource: "GPS",
+          hasPhoto: true,
+          partialPhoto: online && partialPhoto,
+        });
+        setLastIncidentId(ir.reportId);
+        if (online) {
+          // Never claim Submitted until Sync upsert-acks the same UUID.
+          await synchronize().catch(() => undefined);
+          if (!cancelled) setStep("submitted");
+        } else {
+          setWasOffline(true);
+          if (!cancelled) setStep("offline");
+        }
+      })();
     }, 2100);
     return () => {
+      cancelled = true;
       clearInterval(t);
       clearTimeout(done);
     };
-  }, [step, online, type, description, createIncident]);
+  }, [step, online, type, description, createIncident, partialPhoto, synchronize]);
 
   // Panel 7 → 8 — connectivity returns while the incident is stored locally.
   useEffect(() => {
     if (step !== "offline" || !online) return;
     setSyncingNow(true);
+    let cancelled = false;
     const t = setTimeout(() => {
-      void synchronize().catch(() => undefined);
-      setSyncingNow(false);
-      setStep("submitted");
+      void (async () => {
+        await synchronize().catch(() => undefined);
+        if (cancelled) return;
+        setSyncingNow(false);
+        setStep("submitted");
+      })();
     }, 1600);
-    return () => clearTimeout(t);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
   }, [step, online, synchronize]);
 
   const photoTime = photoAt ? fmtClock(photoAt) : "";
   const gpsTime = gpsAt ? fmtClock(gpsAt) : "";
+  const lastIncident = lastIncidentId
+    ? incidents.find((i) => i.reportId === lastIncidentId)
+    : undefined;
+  const photoStillPending = Boolean(
+    lastIncident?.hasPhoto && lastIncident.photoSyncState === "PENDING",
+  );
+  const fullyAcked =
+    lastIncident?.syncState === "SYNCED" && !photoStillPending;
 
   /* ---------- Panel 1 · Report Field Incident ---------- */
   if (step === "intro") {
     return (
       <Phone>
         <ScreenHeader title="Report Field Incident" onBack="home">
-          <ConnectivityToggle />
+          <div className="flex items-center gap-2">
+            <ModeChip online={online} />
+            <ConnectivityToggle />
+          </div>
         </ScreenHeader>
         <Body>
           <div>
@@ -148,27 +199,32 @@ function IncidentPage() {
     );
   }
 
-  /* ---------- Panel 2 · Incident Type ---------- */
+  /* ---------- Panel 2 · Incident Type (R-10 grouped chips) ---------- */
   if (step === "type") {
     return (
       <Phone>
-        <ScreenHeader title="Incident Type" onBack={() => setStep("intro")} />
+        <ScreenHeader title="Incident Type" onBack={() => setStep("intro")}>
+          <ModeChip online={online} />
+        </ScreenHeader>
         <Body>
           <div>
             <h2 className="text-[18px] font-bold">What did you find?</h2>
             <p className="text-[12.5px] text-muted">Choose the closest category.</p>
           </div>
-          <div className="flex flex-col gap-2">
-            {TYPES.map(({ label, icon: Icon }) => (
-              <RadioRow
-                key={label}
-                label={label}
-                icon={<Icon className="size-4" strokeWidth={2} />}
-                selected={type === label}
-                onSelect={() => setType(label)}
-              />
-            ))}
-          </div>
+          {TYPE_GROUPS.map(({ group, items }) => (
+            <div key={group} className="flex flex-col gap-2">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-subtle">{group}</p>
+              {items.map(({ label, icon: Icon }) => (
+                <RadioRow
+                  key={label}
+                  label={label}
+                  icon={<Icon className="size-4" strokeWidth={2} />}
+                  selected={type === label}
+                  onSelect={() => setType(label)}
+                />
+              ))}
+            </div>
+          ))}
           <div className="mt-auto flex flex-col gap-2 pt-2">
             <BtnPrimary disabled={!type} onClick={() => setStep("photo")}>
               Continue
@@ -269,7 +325,9 @@ function IncidentPage() {
   if (step === "review") {
     return (
       <Phone>
-        <ScreenHeader title="Review Incident" onBack={() => setStep("details")} />
+        <ScreenHeader title="Review Incident" onBack={() => setStep("details")}>
+          <ModeChip online={online} />
+        </ScreenHeader>
         <Body>
           <p className="text-[14px] font-bold">Check the details before submitting</p>
           <Card className="flex items-center gap-3">
@@ -294,9 +352,22 @@ function IncidentPage() {
               <p className="text-[13.5px] leading-snug">{description}</p>
             </Card>
           </div>
-          <HintCard>
-            Edit returns to the relevant step before final submission (alternative flow).
-          </HintCard>
+          {online ? (
+            <label className="flex items-start gap-2 rounded-lg border border-dashed border-border bg-surface px-3 py-2 text-[12px] text-muted">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={partialPhoto}
+                onChange={(e) => setPartialPhoto(e.target.checked)}
+              />
+              <span>
+                Demo partial upload (S3): ack the report now, keep the photo PENDING with the same
+                attachment id until retry.
+              </span>
+            </label>
+          ) : (
+            <HintCard>{CONSEQUENCE.savedOffline}</HintCard>
+          )}
           <div className="mt-auto flex flex-col gap-2 pt-2">
             <BtnPrimary onClick={() => setStep("submitting")}>Submit Incident</BtnPrimary>
             <BtnOutline onClick={() => setStep("type")}>Edit</BtnOutline>
@@ -359,6 +430,7 @@ function IncidentPage() {
         </ScreenHeader>
         <Body>
           <OfflineBanner text="Incident Stored Locally" />
+          <HintCard>{CONSEQUENCE.savedOffline}</HintCard>
           <Pill tone="warn" className="w-fit">
             Pending Synchronisation
           </Pill>
@@ -400,28 +472,66 @@ function IncidentPage() {
     );
   }
 
-  /* ---------- Panel 8 · Incident Submitted ---------- */
+  /* ---------- Panel 8 · ack screen (Submitted only after SYNCED) ---------- */
+  const title = fullyAcked
+    ? wasOffline
+      ? "Incident Synchronised"
+      : "Incident Submitted"
+    : "Incident Saved";
+  const heading = fullyAcked
+    ? wasOffline
+      ? "Incident Synchronised Successfully"
+      : "Incident Submitted Successfully"
+    : "Saved on this phone";
+  const statusPill = fullyAcked
+    ? wasOffline
+      ? "Synchronised"
+      : "Submitted"
+    : "Pending sync";
+  const statusRow = fullyAcked
+    ? wasOffline
+      ? "SYNCHRONISED"
+      : "SUBMITTED"
+    : photoStillPending && lastIncident?.syncState === "SYNCED"
+      ? "REPORT SYNCED · PHOTO PENDING"
+      : "PENDING SYNC";
+
   return (
     <Phone>
-      <ScreenHeader title="Incident Submitted" />
+      <ScreenHeader title={title} />
       <Body>
         <div className="pt-2">
           <SuccessCheck />
         </div>
         <div className="text-center">
-          <h2 className="text-[17px] font-bold">Incident Submitted Successfully</h2>
-          <p className="text-[12px] text-muted">Linked to your active patrol.</p>
+          <h2 className="text-[17px] font-bold">{heading}</h2>
+          <p className="text-[12px] text-muted">
+            {fullyAcked ? "Linked to your active patrol." : "Will send when Sync acknowledges this id."}
+          </p>
           <div className="mt-1.5">
-            <Pill tone="ok">{wasOffline ? "Synchronised" : "Submitted"}</Pill>
+            <Pill tone={fullyAcked ? "ok" : "warn"}>{statusPill}</Pill>
           </div>
         </div>
         <Card>
           <Row k="Incident Type" v={type} strong />
           <Row k="GPS Location" v="8.4123° N, 80.4021° E" strong />
           <Row k="Captured" v={gpsTime} strong />
-          <Row k="Photo" v="attached" strong />
-          <Row k="Submission status" v={wasOffline ? "SYNCHRONISED" : "SUBMITTED"} strong />
+          <Row
+            k="Photo"
+            v={photoStillPending ? "PENDING (same attach id)" : "attached"}
+            strong
+          />
+          <Row k="Submission status" v={statusRow} strong />
+          {lastIncidentId ? <Row k="Report id" v={lastIncidentId.slice(0, 8)} /> : null}
         </Card>
+        {photoStillPending ? (
+          <HintCard>
+            Partial upload (S3/R-05): report acknowledged; photo keeps the same attach id and
+            retries from the sync queue — never a second report id.
+          </HintCard>
+        ) : (
+          <HintCard>{fullyAcked ? CONSEQUENCE.synced : CONSEQUENCE.pendingSync}</HintCard>
+        )}
         <PinMap height={130} caption="Incident recorded on patrol NB-03" />
         <div className="mt-auto pt-2">
           <BtnPrimary onClick={() => router.navigate({ to: "/" })}>Continue Patrol</BtnPrimary>
