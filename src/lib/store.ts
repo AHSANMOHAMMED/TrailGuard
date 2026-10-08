@@ -30,6 +30,12 @@ import type {
   Patrol as DomainPatrol,
 } from "@/lib/domain/model";
 import type { IncidentCategory } from "@/lib/domain/enums";
+import {
+  mirrorUpsertConflict,
+  mirrorUpsertIncident,
+  mirrorUpsertPatrol,
+  mirrorUpsertRadio,
+} from "@/lib/domain/server-mirror";
 
 /** Assigned route exactly as on the UC01 hi-fi wireframe. */
 const ROUTE = {
@@ -158,6 +164,7 @@ function toDomainPatrol(p: Patrol): DomainPatrol {
 }
 
 function toDomainIncident(i: Incident): IncidentReport {
+  const photoState = i.photoSyncState ?? i.syncState;
   return {
     reportId: i.reportId,
     category: TYPE_TO_CATEGORY[i.type] ?? "OTHER",
@@ -168,19 +175,34 @@ function toDomainIncident(i: Incident): IncidentReport {
     syncState: i.syncState,
     retryAfter: i.retryAfter,
     attachments: i.hasPhoto
-      ? [{ attachId: `${i.reportId}-photo`, uri: "local://photo", mimeType: "image/jpeg", syncState: i.syncState }]
+      ? [
+          {
+            attachId: i.photoAttachId ?? `${i.reportId}-photo`,
+            uri: "local://photo",
+            mimeType: "image/jpeg",
+            syncState: photoState,
+          },
+        ]
       : [],
   };
 }
 
 function toDomainAlert(a: Alert): DomainAlert {
+  const status =
+    a.status === "OPEN" || a.status === "REVIEW"
+      ? "OPEN"
+      : a.status === "ASSIGNED"
+        ? "ASSIGNED"
+        : a.status === "ESCALATED"
+          ? "ESCALATED"
+          : "CLOSED";
   return {
     alertId: a.alertId,
     animal: a.animal,
     zoneId: a.zone,
     zoneName: a.zone,
     confidence: a.confidence === "High" ? "HIGH" : a.confidence === "Medium" ? "MEDIUM" : "LOW",
-    status: a.status === "OPEN" ? "OPEN" : a.status === "ASSIGNED" ? "ASSIGNED" : "CLOSED",
+    status,
     observedAt: a.observedAt,
     receivedAt: a.receivedAt,
   };
@@ -214,13 +236,23 @@ interface FieldState {
     description: string;
     locationSource: "GPS" | "MANUAL";
     hasPhoto: boolean;
+    /** Demo S3/R-05: ack the report but leave the photo PENDING. */
+    partialPhoto?: boolean;
   }) => Incident;
   /** UC03 — ranger acknowledges a risk alert (NEW → ACKNOWLEDGED). */
   ackAlert: (alertId: string) => void;
   /** UC03 — close the alert with an outcome (ACKNOWLEDGED → RESOLVED). */
   resolveAlert: (alertId: string, outcome: string, note?: string) => void;
   /** UC03 — re-raise the demo alert so the flow can be run again. */
-  resetAlert: () => void;
+  resetAlert: (opts?: { confidence?: Alert["confidence"]; status?: Alert["status"] }) => void;
+  /** UC03 R-04 — manager assigns one available officer (closes prior active). */
+  assignAlert: (alertId: string, officer: { id: string; name: string }) => void;
+  /** UC03 R-06 — notification FAILED → restore availability, alert OPEN, bump attempts. */
+  failNotify: (alertId: string) => "OPEN" | "ESCALATED";
+  /** UC03 R-02b — escalate to backup after ladder exhausts. */
+  escalateAlert: (alertId: string) => void;
+  /** UC03 R-08 — hold low-confidence alerts in REVIEW (no paging). */
+  holdForTriage: (alertId: string) => void;
   /** UC04 — community member submits a human-wildlife conflict report. */
   createConflict: (input: {
     type: string;
@@ -289,11 +321,23 @@ export const useField = create<FieldState>()(
       radioMessages: [],
       setOnline: (v) => set({ online: v }),
       activePatrol: () => get().patrols.find((p) => p.status === "ACTIVE"),
-      pendingCount: () =>
-        get().patrols.filter((p) => p.syncState === "PENDING" || p.syncState === "FAILED").length +
-        get().incidents.filter((i) => i.syncState === "PENDING" || i.syncState === "FAILED").length +
-        get().conflicts.filter((c) => c.syncState === "PENDING" || c.syncState === "FAILED").length +
-        get().radioMessages.filter((m) => m.syncState === "PENDING").length,
+      pendingCount: () => {
+        const s = get();
+        const patrols = s.patrols.filter(
+          (p) =>
+            p.status !== "ACTIVE" &&
+            (p.syncState === "PENDING" || p.syncState === "FAILED"),
+        ).length;
+        const incidents = s.incidents.filter((i) => {
+          const photoPending = Boolean(i.hasPhoto && i.photoSyncState === "PENDING");
+          return i.syncState === "PENDING" || i.syncState === "FAILED" || photoPending;
+        }).length;
+        const conflicts = s.conflicts.filter(
+          (c) => c.syncState === "PENDING" || c.syncState === "FAILED",
+        ).length;
+        const radio = s.radioMessages.filter((m) => m.syncState === "PENDING").length;
+        return patrols + incidents + conflicts + radio;
+      },
       startPatrol: () => {
         const existing = get().activePatrol();
         if (existing) return existing;
@@ -386,17 +430,22 @@ export const useField = create<FieldState>()(
         return done;
       },
       createIncident: (input) => {
+        const reportId = uid();
+        const photoAttachId = input.hasPhoto ? `${reportId}-photo` : undefined;
+        // Product rule: every write is PENDING until Sync upsert-acks the same id.
         const ir: Incident = {
-          reportId: uid(),
+          reportId,
           type: input.type,
           description: input.description,
           lat: 6.405 + Math.random() * 0.01,
           lng: 81.12 + Math.random() * 0.01,
           locationSource: input.locationSource,
           observedAt: new Date().toISOString(),
-          // Online submits ack immediately; offline submits stay on-device (A1/A2).
-          syncState: get().online ? "SYNCED" : "PENDING",
+          syncState: "PENDING",
           hasPhoto: input.hasPhoto,
+          photoAttachId,
+          photoSyncState: input.hasPhoto ? "PENDING" : undefined,
+          demoPartial: Boolean(input.partialPhoto && input.hasPhoto),
         };
         set({ incidents: [ir, ...get().incidents] });
         return ir;
@@ -405,7 +454,12 @@ export const useField = create<FieldState>()(
         set({
           alerts: get().alerts.map((a) =>
             a.alertId === alertId
-              ? { ...a, status: "ASSIGNED", acknowledgedAt: new Date().toISOString() }
+              ? {
+                  ...a,
+                  status: "ASSIGNED",
+                  acknowledgedAt: new Date().toISOString(),
+                  deliveryState: a.deliveryState ?? "SENT",
+                }
               : a,
           ),
         });
@@ -425,8 +479,10 @@ export const useField = create<FieldState>()(
           ),
         });
       },
-      resetAlert: () => {
+      resetAlert: (opts) => {
         const now = new Date().toISOString();
+        const confidence = opts?.confidence ?? "High";
+        const status = opts?.status ?? (confidence === "Low" ? "REVIEW" : "OPEN");
         set({
           alerts: [
             {
@@ -436,11 +492,89 @@ export const useField = create<FieldState>()(
               zone: "Farmland",
               observedAt: now,
               receivedAt: now,
-              confidence: "High",
-              status: "OPEN",
+              confidence,
+              status,
+              notifyAttempts: 0,
             },
-            ...get().alerts,
+            ...get().alerts.filter((a) => a.status === "CLOSED"),
           ],
+        });
+      },
+      assignAlert: (alertId, officer) => {
+        // R-04: assigning closes any prior active assignment on this alert.
+        set({
+          alerts: get().alerts.map((a) =>
+            a.alertId === alertId
+              ? {
+                  ...a,
+                  status: "ASSIGNED",
+                  assigneeId: officer.id,
+                  assigneeName: officer.name,
+                  deliveryState: "SENT",
+                  notifyAttempts: a.notifyAttempts ?? 0,
+                }
+              : a,
+          ),
+        });
+      },
+      failNotify: (alertId) => {
+        const current = get().alerts.find((a) => a.alertId === alertId);
+        const attempts = (current?.notifyAttempts ?? 0) + 1;
+        if (attempts >= 2) {
+          set({
+            alerts: get().alerts.map((a) =>
+              a.alertId === alertId
+                ? {
+                    ...a,
+                    status: "ESCALATED",
+                    deliveryState: "FAILED",
+                    notifyAttempts: attempts,
+                    assigneeId: "off-backup",
+                    assigneeName: "Backup RN-511",
+                  }
+                : a,
+            ),
+          });
+          return "ESCALATED";
+        }
+        // R-06: restore availability — clear assignee, alert back to OPEN.
+        set({
+          alerts: get().alerts.map((a) =>
+            a.alertId === alertId
+              ? {
+                  ...a,
+                  status: "OPEN",
+                  deliveryState: "FAILED",
+                  notifyAttempts: attempts,
+                  assigneeId: undefined,
+                  assigneeName: undefined,
+                  acknowledgedAt: undefined,
+                }
+              : a,
+          ),
+        });
+        return "OPEN";
+      },
+      escalateAlert: (alertId) => {
+        set({
+          alerts: get().alerts.map((a) =>
+            a.alertId === alertId
+              ? {
+                  ...a,
+                  status: "ESCALATED",
+                  assigneeId: "off-backup",
+                  assigneeName: "Backup RN-511",
+                  deliveryState: "SENT",
+                }
+              : a,
+          ),
+        });
+      },
+      holdForTriage: (alertId) => {
+        set({
+          alerts: get().alerts.map((a) =>
+            a.alertId === alertId ? { ...a, status: "REVIEW", confidence: "Low" } : a,
+          ),
         });
       },
       createConflict: (input) => {
@@ -453,7 +587,8 @@ export const useField = create<FieldState>()(
           status: "SUBMITTED",
           highPriority: input.type === "Elephant Sighting",
           receivedAt: new Date().toISOString(),
-          syncState: get().online ? "SYNCED" : "PENDING",
+          // Local-first: PENDING until Sync upsert-acks this same reportId.
+          syncState: "PENDING",
         };
         set({ conflicts: [report, ...get().conflicts] });
         return report;
@@ -468,10 +603,26 @@ export const useField = create<FieldState>()(
         });
       },
       markConflictSynced: (reportId) => {
+        // Prefer synchronize/syncOne; this helper still upserts by the same id
+        // so a connectivity-restore path cannot mint a duplicate.
+        const conflict = get().conflicts.find((c) => c.reportId === reportId);
+        if (!conflict) return;
+        if (!get().online) return;
+        mirrorUpsertConflict({
+          reportId: conflict.reportId,
+          type: conflict.type,
+          location: conflict.location,
+          channel: conflict.channel,
+          description: conflict.description,
+          syncState: "SYNCED",
+        });
         set({
           conflicts: get().conflicts.map((c) =>
-            c.reportId === reportId ? { ...c, syncState: "SYNCED" } : c,
+            c.reportId === reportId
+              ? { ...c, syncState: "SYNCED", retryAfter: undefined, failureReason: undefined }
+              : c,
           ),
+          lastSyncAt: new Date().toISOString(),
         });
       },
       transmitRadio: (input) => {
@@ -484,8 +635,8 @@ export const useField = create<FieldState>()(
           text: input.text,
           durationS: input.durationS,
           transmittedAt: new Date().toISOString(),
-          // Same contract as incidents: acked when online, queued when not.
-          syncState: get().online ? "SYNCED" : "PENDING",
+          // Same contract: PENDING until Sync upsert-acks this messageId.
+          syncState: "PENDING",
         };
         set({ radioMessages: [msg, ...get().radioMessages] });
         return msg;
@@ -568,12 +719,15 @@ export const useField = create<FieldState>()(
           });
         }
         for (const i of s.incidents) {
-          if (i.syncState === "SYNCED") continue;
+          const photoPending = i.hasPhoto && i.photoSyncState === "PENDING";
+          if (i.syncState === "SYNCED" && !photoPending) continue;
           recs.push({
             kind: "INCIDENT",
             recordId: i.reportId,
             label: `Incident · ${i.type}`,
-            sublabel: i.description,
+            sublabel: photoPending && i.syncState === "SYNCED"
+              ? `Photo pending · ${i.photoAttachId ?? "attach"}`
+              : i.description,
             syncState: i.syncState === "FAILED" ? "FAILED" : "PENDING",
             syncAttempts: i.syncAttempts ?? 0,
             retryAfter: i.retryAfter,
@@ -599,13 +753,14 @@ export const useField = create<FieldState>()(
         const s = get();
         if (!s.online) {
           // 5b (S2/R-05): transport unreachable → FAILED with a backoff schedule.
+          // Same recordId is kept — never mint a new UUID on retry.
           const attempt = syncAttemptsOf(s, kind, recordId) + 1;
           set(
             applyFailed(s, kind, recordId, "Transport unreachable — device offline", attempt),
           );
           return "FAILED";
         }
-        // Upload latency, then the server ack (idempotent upsert by stable ID).
+        // Upload latency, then ConservationAPI upsert by stable id.
         await new Promise((r) => setTimeout(r, 450));
         // 5b — the connection can drop MID-transfer: re-check after the upload.
         if (!get().online) {
@@ -621,7 +776,49 @@ export const useField = create<FieldState>()(
           );
           return "FAILED";
         }
-        set(applySynced(get(), kind, recordId));
+
+        const snap = get();
+        if (kind === "PATROL") {
+          const patrol = snap.patrols.find((p) => p.patrolId === recordId);
+          if (!patrol) return "FAILED";
+          mirrorUpsertPatrol(toDomainPatrol(patrol));
+          set(applySynced(get(), kind, recordId));
+        } else if (kind === "INCIDENT") {
+          const incident = snap.incidents.find((i) => i.reportId === recordId);
+          if (!incident) return "FAILED";
+          mirrorUpsertIncident(toDomainIncident(incident));
+          // S3/R-05 demo: first ack flips report only; same attachId stays PENDING.
+          if (incident.demoPartial && incident.photoSyncState === "PENDING") {
+            set({
+              incidents: get().incidents.map((i) =>
+                i.reportId === recordId
+                  ? {
+                      ...i,
+                      syncState: "SYNCED" as const,
+                      photoSyncState: "PENDING" as const,
+                      demoPartial: false,
+                      retryAfter: undefined,
+                      failureReason: undefined,
+                    }
+                  : i,
+              ),
+            });
+          } else {
+            set(applySynced(get(), kind, recordId));
+          }
+        } else {
+          const conflict = snap.conflicts.find((c) => c.reportId === recordId);
+          if (!conflict) return "FAILED";
+          mirrorUpsertConflict({
+            reportId: conflict.reportId,
+            type: conflict.type,
+            location: conflict.location,
+            channel: conflict.channel,
+            description: conflict.description,
+            syncState: "SYNCED",
+          });
+          set(applySynced(get(), kind, recordId));
+        }
         set({ lastSyncAt: new Date().toISOString() });
         return "SYNCED";
       },
@@ -647,14 +844,19 @@ export const useField = create<FieldState>()(
           }
         }
         let radio = 0;
+        const pendingRadio = get().radioMessages.filter((m) => m.syncState === "PENDING");
+        for (const m of pendingRadio) {
+          mirrorUpsertRadio({
+            messageId: m.messageId,
+            channel: m.channel,
+            syncState: "SYNCED",
+          });
+          radio += 1;
+        }
         set({
-          radioMessages: get().radioMessages.map((m) => {
-            if (m.syncState === "PENDING") {
-              radio += 1;
-              return { ...m, syncState: "SYNCED" };
-            }
-            return m;
-          }),
+          radioMessages: get().radioMessages.map((m) =>
+            m.syncState === "PENDING" ? { ...m, syncState: "SYNCED" as const } : m,
+          ),
           lastSyncAt: new Date().toISOString(),
           syncing: false,
         });
@@ -700,7 +902,14 @@ function applySynced(s: SyncTriple, kind: QueueKind, recordId: string): Partial<
   if (kind === "INCIDENT") {
     return {
       incidents: s.incidents.map((i) =>
-        i.reportId === recordId ? { ...ok(i), syncState: "SYNCED" as const } : i,
+        i.reportId === recordId
+          ? {
+              ...ok(i),
+              syncState: "SYNCED" as const,
+              // Complete-receipt: photo flips with the report on full ack (S3/R-05).
+              photoSyncState: i.hasPhoto ? ("SYNCED" as const) : i.photoSyncState,
+            }
+          : i,
       ),
     };
   }

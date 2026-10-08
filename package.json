@@ -17,8 +17,8 @@
     "typecheck": "tsc --noEmit",
     "check:auth": "node scripts/check-auth-invariant.mjs",
     "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/app-data/readiness-schedule.test.ts src/lib/auth/gate-identity.test.ts src/lib/auth/sign-in-gate.test.ts",
-    "test:domain": "node --import tsx --test src/lib/domain/*.test.ts",
-    "test:domain:coverage": "node --import tsx --test --experimental-test-coverage src/lib/domain/*.test.ts",
+    "test:domain": "node --import tsx --test src/lib/domain/*.test.ts src/lib/radio-acl.test.ts",
+    "test:domain:coverage": "node --import tsx --test --experimental-test-coverage src/lib/domain/*.test.ts src/lib/radio-acl.test.ts",
     "lint": "eslint .",
     "format": "prettier --write ."
   },
