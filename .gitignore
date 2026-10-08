@@ -27,3 +27,9 @@ artifacts/TrailGuard/mobile/build/apk/
 artifacts/TrailGuard/mobile/dist-android/
 artifacts/TrailGuard/mobile/.expo/
 artifacts/TrailGuard/mobile/package-lock.json
+
+# Agent/browser smoke outputs (regenerable; do not commit)
+screenshots/*.png
+screenshots/*.json
+screenshots/*.pdf
+!screenshots/.gitkeep
