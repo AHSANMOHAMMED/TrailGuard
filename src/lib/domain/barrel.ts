@@ -10,3 +10,5 @@ export * from "./roles";
 export * from "./patrol-ops";
 export * from "./patrol-demo";
 export * from "./server-mirror";
+
+export * from "./patrol-sync-copy";
