@@ -18,8 +18,9 @@ import { ConnectivityToggle } from "@/components/connectivity-toggle";
 import { Guard } from "@/components/auth-gate";
 import { useAuth } from "@/lib/auth-store";
 import { RADIO_CHANNELS, useField, type RadioChannelId } from "@/lib/store";
+import { nextChatter } from "@/lib/radio-chatter";
 import type { RadioMessage } from "@/lib/types";
-import { fmtClock } from "@/lib/utils";
+import { cn, fmtClock } from "@/lib/utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/radio")({
@@ -46,7 +47,7 @@ const voiceClips = new Map<string, string>();
 function RadioPage() {
   const router = useRouter();
   const session = useAuth((s) => s.session);
-  const { online, radioMessages, transmitRadio, synchronize } = useField();
+  const { online, radioMessages, transmitRadio, synchronize, feedOn, setFeedOn, receiveRadio, seedRadioLog } = useField();
 
   const [channel, setChannel] = useState<RadioChannelId>("OPS-1");
   const [text, setText] = useState("");
@@ -56,9 +57,35 @@ function RadioPage() {
   const mediaRef = useRef<{ rec: MediaRecorder; stream: MediaStream } | null>(null);
   const recSRef = useRef(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const tickRef = useRef(0);
 
   const channelMeta = RADIO_CHANNELS.find((c) => c.id === channel) ?? RADIO_CHANNELS[0];
   const log = radioMessages.filter((m) => m.channel === channel);
+
+  // A fresh device opens on a channel that already has traffic on the air.
+  useEffect(() => {
+    seedRadioLog(channel);
+  }, [channel, seedRadioLog]);
+
+  // Live unit-to-unit feed: other stations transmit on the shared frequencies.
+  // Roughly one transmission every couple of minutes, so the log visibly moves
+  // during a demonstration without drowning the presenter's own traffic.
+  useEffect(() => {
+    if (!feedOn || !online) return;
+    const t = setInterval(() => {
+      tickRef.current += 1;
+      const incoming = nextChatter(tickRef.current, channel);
+      if (incoming) {
+        receiveRadio({
+          channel,
+          fromRole: incoming.fromRole,
+          fromTitle: incoming.fromTitle,
+          text: incoming.text ?? "",
+        });
+      }
+    }, 45_000);
+    return () => clearInterval(t);
+  }, [feedOn, online, channel, receiveRadio]);
 
   // Live transmission timer while the talk key is held.
   useEffect(() => {
@@ -224,9 +251,30 @@ function RadioPage() {
 
         {/* Transmission log */}
         <div>
-          <p className="mb-1.5 text-[12px] font-semibold text-muted">
-            {channelMeta.name} log · {channelMeta.freq}
-          </p>
+          <div className="mb-1.5 flex items-center justify-between">
+            <p className="text-[12px] font-semibold text-muted">
+              {channelMeta.name} log · {channelMeta.freq}
+            </p>
+            <button
+              type="button"
+              onClick={() => setFeedOn(!feedOn)}
+              aria-pressed={feedOn}
+              title={feedOn ? "Mute the network feed" : "Resume the network feed"}
+              className={cn(
+                "flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                feedOn ? "border-ok/40 bg-ok-bg text-ok" : "border-border bg-surface text-subtle",
+              )}
+            >
+              <span
+                className={cn(
+                  "size-1.5 rounded-full",
+                  feedOn ? "animate-pulse bg-ok" : "bg-subtle",
+                )}
+                aria-hidden
+              />
+              {feedOn ? "Feed live" : "Feed muted"}
+            </button>
+          </div>
           {log.length === 0 ? (
             <Card>
               <p className="text-[13px] text-muted">No transmissions on this channel yet.</p>
@@ -247,7 +295,7 @@ function RadioPage() {
                       <span className="text-[13.5px] font-bold">{m.fromTitle}</span>
                       {m.syncState === "PENDING" ? (
                         <Pill tone="warn">Queued</Pill>
-                      ) : (
+                      ) : m.messageId.startsWith("radio-seed-") ? null : (
                         <Pill tone="ok">Sent</Pill>
                       )}
                     </span>

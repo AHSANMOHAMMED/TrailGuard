@@ -11,6 +11,8 @@ import type {
 } from "@/lib/types";
 import { uid } from "@/lib/utils";
 
+import { seedChatter } from "@/lib/radio-chatter";
+
 /** Assigned route exactly as on the UC01 hi-fi wireframe. */
 const ROUTE = {
   id: "NB-03",
@@ -100,6 +102,8 @@ interface FieldState {
   online: boolean;
   syncing: boolean;
   lastSyncAt: string | null;
+  /** When true, simulated transmissions from other units arrive on channel. */
+  feedOn: boolean;
   patrols: Patrol[];
   incidents: Incident[];
   alerts: Alert[];
@@ -141,6 +145,17 @@ interface FieldState {
     text?: string;
     durationS?: number;
   }) => RadioMessage;
+  /** Field radio — an incoming transmission heard on channel (network feed). */
+  receiveRadio: (input: {
+    channel: RadioChannelId;
+    fromRole: RadioMessage["fromRole"];
+    fromTitle: string;
+    text: string;
+  }) => void;
+  /** Field radio — pause/resume the simulated unit-to-unit network feed. */
+  setFeedOn: (v: boolean) => void;
+  /** Field radio — backfill channel history on first open. */
+  seedRadioLog: (channel: RadioChannelId) => void;
   generateReport: (from: string, to: string) => ReportSnapshot;
   synchronize: () => Promise<{ patrols: number; incidents: number; radio: number }>;
   activePatrol: () => Patrol | undefined;
@@ -153,6 +168,7 @@ export const useField = create<FieldState>()(
       online: true,
       syncing: false,
       lastSyncAt: "2026-08-31T06:12:00Z",
+      feedOn: true,
       patrols: seeded.patrols,
       incidents: seeded.incidents,
       snapshot: null,
@@ -335,6 +351,30 @@ export const useField = create<FieldState>()(
         };
         set({ radioMessages: [msg, ...get().radioMessages] });
         return msg;
+      },
+      receiveRadio: (input) => {
+        // Over-the-air traffic arrives already acknowledged — the network,
+        // not this device, carries it. Only heard when the device is on.
+        if (!get().online) return;
+        const msg: RadioMessage = {
+          messageId: uid(),
+          channel: input.channel,
+          fromRole: input.fromRole,
+          fromTitle: input.fromTitle,
+          kind: "text",
+          text: input.text,
+          transmittedAt: new Date().toISOString(),
+          syncState: "SYNCED",
+        };
+        set({ radioMessages: [msg, ...get().radioMessages] });
+      },
+      setFeedOn: (v) => set({ feedOn: v }),
+      seedRadioLog: (channel) => {
+        // Idempotent: the UI calls this on channel open; never duplicate.
+        if (get().radioMessages.some((m) => m.channel === channel)) return;
+        const history = seedChatter(channel, 4);
+        if (history.length === 0) return;
+        set({ radioMessages: [...history, ...get().radioMessages] });
       },
       generateReport: (from, to) => {
         const fromD = new Date(from).getTime();
