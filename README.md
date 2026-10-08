@@ -21,7 +21,22 @@ buttons; every state has a text label + icon.
 Screens, flows and routes:
 
 - `/patrol` — **UC01** Conduct Assigned Ranger Patrol (assigned → GPS tracking →
-  manual waypoint A1 → offline A2 → sync restore A3 → complete → coverage summary)
+  manual waypoint A1 → offline A2 → sync restore A3 → complete → coverage summary),
+  with the full A02 rule set:
+  - **R-09** — mode chip (ONLINE / OFFLINE — QUEUED LOCALLY), last sync on the
+    assigned screen, per-record sync progress ("Syncing 2 of 7…")
+  - **R-10** — ≥64 px one-tap waypoint capture and an **undo toast** for a
+    mistaken manual mark (3b, "removed — no orphan records")
+  - **S1/R-05** — the in-flight waypoint tail is flushed before completing;
+    **S2/R-05** — upload failure → FAILED with exponential backoff capped at
+    30 min (5b), auto-retry when the schedule elapses
+  - **5a/5c** — sync runs immediately when already online at save; offline at
+    finish queues locally
+  - **R-07** — patrol coverage computed from the real recorded track
+    (covered km ÷ route km, capped 100)
+  - **UC01b (R-02a)** — Retry Failed Sync: an always-visible queue badge opens a
+    sync-queue panel with per-record failure reasons, backoff countdowns, and
+    per-record **Retry** that bypasses the schedule
 - `/incidents` — **UC02** Report Field Incident (type → photo → GPS details →
   review → validating submit → offline conditional → submitted)
 - `/alerts` — **UC03** Monitor Tracked Wildlife & Risk Alerts (incoming HIGH RISK →
@@ -39,9 +54,10 @@ that report):
 
 - **Offline-first contract** — every write lands on-device (`PENDING`), nothing shows
   "Submitted" until sync ack; idempotent upserts by stable UUID.
-- **Sync engine** (`src/lib/domain/sync-service.ts`) — per-record progress, complete-receipt
-  for media, **partial-upload branch** (report acked, photo keeps retrying with the same ID),
-  exponential backoff capped at 30 min.
+- **Sync engine** (`src/lib/domain/sync-service.ts`, field store) — per-record
+  progress, complete-receipt for media, **partial-upload branch** (report acked,
+  photo keeps retrying with the same ID), exponential backoff capped at 30 min,
+  and per-record retry (UC01b) with the queue visible at all times.
 - **Conflict desk** — single-active-assignment rule, notification-failure ladder with
   availability restore, escalation, close-with-outcome.
 - **Reports** — snapshot over SYNCED records only, defined coverage formula
@@ -101,7 +117,7 @@ npm run build                   # production build (Vercel preset via Nitro)
 
 ```
 src/lib/domain/     Domain layer (framework-free): enums, model, transitions,
-                    idempotency, reporting, sync-service, ports, roles
+                    idempotency, reporting, sync-service, patrol-ops, ports, roles
 src/lib/store.ts    Zustand field-store adapter (persists to the device)
 src/routes/         / (field desk) · /patrol · /incidents · /alerts · /conflict ·
                     /radio · /reports
