@@ -26,8 +26,14 @@ export interface Patrol {
   waypoints: Waypoint[];
   /** Total PatrolPositions recorded (GPS + manual) during the patrol (UC01). */
   positions?: number;
-  /** Patrol coverage achieved for the route, percent (UC01). */
+  /** Patrol coverage achieved for the route, percent (UC01, R-07 formula). */
   coveragePct?: number;
+  /** Backoff schedule while FAILED (S2/R-05) — exponential, capped at 30 min. */
+  retryAfter?: string;
+  /** Upload attempts so far — drives the backoff exponent. */
+  syncAttempts?: number;
+  /** Last transport failure reason, surfaced in the UC01b queue (R-02a). */
+  failureReason?: string;
 }
 
 export interface Incident {
@@ -40,6 +46,10 @@ export interface Incident {
   observedAt: string;
   syncState: SyncState;
   hasPhoto: boolean;
+  /** Backoff schedule while FAILED (S2/R-05). */
+  retryAfter?: string;
+  syncAttempts?: number;
+  failureReason?: string;
 }
 
 export interface Alert {
@@ -70,6 +80,10 @@ export interface ConflictReport {
   receivedAt: string;
   respondedAt?: string;
   syncState: SyncState;
+  /** Backoff schedule while FAILED (S2/R-05). */
+  retryAfter?: string;
+  syncAttempts?: number;
+  failureReason?: string;
 }
 
 /** Field radio — a push-to-talk transmission on a channel frequency. */
