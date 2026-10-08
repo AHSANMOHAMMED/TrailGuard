@@ -49,6 +49,10 @@ import {
   formatPatrolDuration,
   queueBadgeLabel,
 } from "@/lib/domain/patrol-demo";
+import {
+  patrolSyncHint,
+  patrolSyncStatusLabel,
+} from "@/lib/domain/patrol-sync-copy";
 import type { Waypoint } from "@/lib/types";
 
 export const Route = createFileRoute("/patrol")({
@@ -881,7 +885,7 @@ function SyncStateCard({
         <CloudUpload className="size-4" />
         {patrol.status === "COMPLETED" && !online
           ? "Pending — will sync when signal returns"
-          : "Pending — synchronizing shortly"}
+          : "{patrolSyncStatusLabel((donePatrol?.syncState ?? "PENDING") as "PENDING" | "FAILED" | "SYNCED")}"}
       </p>
       <p className="mt-0.5 text-[11.5px] text-muted">
         Saved on this phone · queued for the ConservationAPI upsert
