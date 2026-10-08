@@ -33,6 +33,11 @@ import { Guard } from "@/components/auth-gate";
 import { useAuth } from "@/lib/auth-store";
 import { useField } from "@/lib/store";
 import { fmtClock } from "@/lib/utils";
+import {
+  SMS_SHORT_CODE as DEMO_SMS_CODE,
+  conflictAckLabel,
+  isHighPriorityConflict,
+} from "@/lib/domain/conflict-demo";
 
 export const Route = createFileRoute("/conflict")({
   component: () => (
@@ -58,7 +63,8 @@ export const Route = createFileRoute("/conflict")({
 
 const TYPES = ["Elephant Sighting", "Crop Raiding", "Other Conflict"];
 const DEFAULT_LOCATION = "Nagoda east field, near the canal";
-const SMS_SHORT_CODE = "7444";
+// SMS short code from conflict-demo
+const SMS_SHORT_CODE = DEMO_SMS_CODE;
 
 type Step =
   | "intro"
