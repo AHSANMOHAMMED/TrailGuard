@@ -58,7 +58,7 @@ export const ACTORS: ActorAccount[] = [
     persona: "Dr. Jayawardena",
     pin: "5260",
     tagline: "Conservation reports and exports",
-    access: ["reports"],
+    access: ["reports", "radio"],
   },
   {
     role: "COMMUNITY",
@@ -66,7 +66,7 @@ export const ACTORS: ActorAccount[] = [
     persona: "K. Bandara, Nagoda",
     pin: "1111",
     tagline: "Report wildlife conflict near the park",
-    access: ["conflict"],
+    access: ["conflict", "radio"],
   },
 ];
 
