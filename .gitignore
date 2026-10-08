@@ -18,7 +18,13 @@ artifacts/*.zip
 .vercel/
 
 # Platform/preview runtime: local docs, build output, pid/log state
-.grok/
+# Keep CI contract files tracked; ignore the rest of .grok/
+.grok/*
+!.grok/app-env.json
+!.grok/skills/
+.grok/skills/*
+!.grok/skills/og/
+!.grok/skills/og/**
 .vercel/
 .freebuff/
 
