@@ -173,5 +173,6 @@ Expo React Native screens from the A01 deliverable (kept for the design record).
 
 ## Contribution map
 
-See [docs/CONTRIBUTORS.md](docs/CONTRIBUTORS.md): UC01 Sureka · UC02/UC03 Ahsan · UC04 Kajana.
+Collaborators: **AHSAN MOHAMMED**, **Sureka**, **Kajana01** — see
+[docs/CONTRIBUTORS.md](docs/CONTRIBUTORS.md) for emails and UC ownership (UC01 Sureka · UC02/UC03 Ahsan · UC04 Kajana).
 
