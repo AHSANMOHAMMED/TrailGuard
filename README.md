@@ -72,6 +72,10 @@ that report):
   associated with on the A01 use case diagram; others see an explanatory
   access-restricted screen. The permission matrix (`src/lib/domain/roles.ts`)
   gates actions inside the ops desk from the signed-in session.
+- **PIN auth + Field Radio** are group demo extras for multi-actor viva
+  (inter-unit talk on OPS / EMG / CMN). Graded UC flows stay aligned to the A01
+  hi-fi wireframes (Figures 6 / 10 / 14 / 18) plus A02 improvements in
+  `artifacts/a02/REPORT.md`. Community radio is limited to CMN-3.
 
 #### Evaluator PINs
 
@@ -79,11 +83,11 @@ PINs are credentials, so they live here (and in the viva notes), not on screen:
 
 | Actor | Persona | PIN | Access |
 |---|---|---|---|
-| Ranger | RN-402 Mercer | `4021` | Patrol · Incidents · Alerts · Conflict · Radio |
-| Community Liaison Officer | Liaison Fernando | `7312` | Alerts · Conflict · Radio |
-| Park Manager | Mgr. Perera | `8450` | Alerts · Reports · Radio |
-| Researcher | Dr. Jayawardena | `5260` | Reports |
-| Community Member | K. Bandara, Nagoda | `1111` | Conflict |
+| Ranger | RN-402 Mercer | `4021` | Patrol · Incidents · Alerts · Conflict · Radio (all channels) |
+| Community Liaison Officer | Liaison Fernando | `7312` | Alerts · Conflict · Radio (all channels) |
+| Park Manager | Mgr. Perera | `8450` | Alerts · Reports · Radio (all channels) · assign desk |
+| Researcher | Dr. Jayawardena | `5260` | Reports · Radio (all channels) |
+| Community Member | K. Bandara, Nagoda | `1111` | Conflict · Radio (CMN-3 only) |
 
 #### Field Radio
 
@@ -158,3 +162,16 @@ Expo React Native screens from the A01 deliverable (kept for the design record).
 | Web implementation | `src/` (this app) |
 | Backend implementation + tests | `artifacts/TrailGuard/backend/` |
 | A01 originals (design record) | `artifacts/diagram_sources/`, `artifacts/TrailGuard/docs/` |
+
+## Demo script (viva)
+
+1. **UC01** Ranger `4021` — patrol → cover → complete → Synchronized ([docs/demo-uc01.md](docs/demo-uc01.md)).
+2. **UC02** same session — field incident offline then Sync ([docs/demo-uc02.md](docs/demo-uc02.md)).
+3. **UC03** risk alert acknowledge → resolve ([docs/demo-uc03.md](docs/demo-uc03.md)).
+4. **UC04** Community `1111` conflict → staff respond; Manager `8450` reports ([docs/demo-uc04.md](docs/demo-uc04.md)).
+5. **Radio** OPS/CMN ACL ([docs/demo-radio.md](docs/demo-radio.md)).
+
+## Contribution map
+
+See [docs/CONTRIBUTORS.md](docs/CONTRIBUTORS.md): UC01 Sureka · UC02/UC03 Ahsan · UC04 Kajana.
+
