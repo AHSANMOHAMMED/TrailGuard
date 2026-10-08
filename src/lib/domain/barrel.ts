@@ -13,3 +13,4 @@ export * from "./server-mirror";
 
 export * from "./patrol-sync-copy";
 export * from "./conflict-demo";
+export * from "./report-demo";
