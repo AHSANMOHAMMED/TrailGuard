@@ -6,6 +6,7 @@ import {
   BtnPrimary,
   Card,
   HintCard,
+  ModeChip,
   OfflineBanner,
   Phone,
   Pill,
@@ -18,8 +19,13 @@ import { ConnectivityToggle } from "@/components/connectivity-toggle";
 import { Guard } from "@/components/auth-gate";
 import { useAuth } from "@/lib/auth-store";
 import { RADIO_CHANNELS, useField, type RadioChannelId } from "@/lib/store";
+import {
+  canTransmitOn,
+  channelsFor,
+  defaultChannel,
+  radioFromRole,
+} from "@/lib/radio-acl";
 import { nextChatter } from "@/lib/radio-chatter";
-import type { RadioMessage } from "@/lib/types";
 import { cn, fmtClock } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -49,7 +55,8 @@ function RadioPage() {
   const session = useAuth((s) => s.session);
   const { online, radioMessages, transmitRadio, synchronize, feedOn, setFeedOn, receiveRadio, seedRadioLog } = useField();
 
-  const [channel, setChannel] = useState<RadioChannelId>("OPS-1");
+  const allowed = channelsFor(session?.role);
+  const [channel, setChannel] = useState<RadioChannelId>(() => defaultChannel(session?.role));
   const [text, setText] = useState("");
   const [recording, setRecording] = useState(false);
   const [recS, setRecS] = useState(0);
@@ -59,8 +66,17 @@ function RadioPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const tickRef = useRef(0);
 
+  // Keep channel inside the actor's ACL when the session changes.
+  useEffect(() => {
+    if (!canTransmitOn(session?.role, channel)) {
+      setChannel(defaultChannel(session?.role));
+    }
+  }, [session?.role, channel]);
+
   const channelMeta = RADIO_CHANNELS.find((c) => c.id === channel) ?? RADIO_CHANNELS[0];
   const log = radioMessages.filter((m) => m.channel === channel);
+  const fromTitle = session?.persona ?? session?.title ?? "Unit";
+  const fromRole = radioFromRole(session?.role);
 
   // A fresh device opens on a channel that already has traffic on the air.
   useEffect(() => {
@@ -124,10 +140,14 @@ function RadioPage() {
         rec.onstop = () => {
           stream.getTracks().forEach((tr) => tr.stop());
           const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
+          if (!canTransmitOn(session?.role, channel)) {
+            toast.error("This channel is not available for your role.");
+            return;
+          }
           const msg = transmitRadio({
             channel,
-            fromRole: session!.role as RadioMessage["fromRole"],
-            fromTitle: session!.title,
+            fromRole,
+            fromTitle,
             kind: "voice",
             durationS: Math.max(1, recSRef.current),
           });
@@ -156,14 +176,19 @@ function RadioPage() {
   function sendText() {
     const body = text.trim();
     if (!body || !session) return;
+    if (!canTransmitOn(session.role, channel)) {
+      toast.error("This channel is not available for your role.");
+      return;
+    }
     transmitRadio({
       channel,
-      fromRole: session.role as RadioMessage["fromRole"],
-      fromTitle: session.title,
+      fromRole,
+      fromTitle,
       kind: "text",
       text: body.slice(0, 120),
     });
     setText("");
+    if (!online) toast.message("Queued on device — forwards when coverage returns");
   }
 
   function playClip(id: string) {
@@ -180,19 +205,22 @@ function RadioPage() {
   return (
     <Phone>
       <ScreenHeader title="Field Radio" onBack="home">
-        <ConnectivityToggle />
+        <div className="flex items-center gap-2">
+          <ModeChip online={online} />
+          <ConnectivityToggle />
+        </div>
       </ScreenHeader>
       <Body>
         {!online ? <OfflineBanner text="Radio queueing locally" /> : null}
         <div>
           <h2 className="text-[18px] font-bold tracking-tight">Push to talk</h2>
           <p className="text-[12.5px] text-muted">
-            VHF channel plan · works in dead zones, forwards on coverage.
+            As {fromTitle} · works in dead zones, forwards on coverage.
           </p>
         </div>
 
         <div className="flex flex-col gap-2">
-          {RADIO_CHANNELS.map((c) => (
+          {RADIO_CHANNELS.filter((c) => allowed.includes(c.id)).map((c) => (
             <RadioRow
               key={c.id}
               label={`${c.name} · ${c.freq}`}
