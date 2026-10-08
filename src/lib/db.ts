@@ -138,44 +138,49 @@ async function createPgliteSql(): Promise<Sql> {
   // double-apply.
   const migrate = async (): Promise<void> => {
     let migrations: Record<string, string>;
-    const globFn = (
-      import.meta as ImportMeta & {
-        glob?: (
-          pattern: string,
-          opts: { query: string; import: string; eager: boolean },
-        ) => Record<string, string>;
-      }
-    ).glob;
-    if (typeof globFn === "function") {
-      migrations = globFn("/migrations/*.sql", {
+
+    // Vite only rewrites a *direct* `import.meta.glob(...)` call. Do not alias
+    // or typeof-check `import.meta.glob` — property access throws in the
+    // module runner. Under tsx (no Vite transform) the call fails and we
+    // fall back to reading migrations/ from disk like migrate.mjs.
+    try {
+      migrations = import.meta.glob("/migrations/*.sql", {
         query: "?raw",
         import: "default",
         eager: true,
-      });
-    } else {
-      // Node domain tests (tsx) have no Vite glob — read the same files as migrate.mjs.
+      }) as Record<string, string>;
+    } catch {
       const { readdir, readFile } = await import("node:fs/promises");
       const { fileURLToPath } = await import("node:url");
       const { dirname, join } = await import("node:path");
+
       const migrationsDir = join(
         dirname(fileURLToPath(import.meta.url)),
         "..",
         "..",
         "migrations",
       );
+
       const entries = await readdir(migrationsDir);
       migrations = {};
+
       for (const name of entries) {
         if (!name.endsWith(".sql")) continue;
+
         const key = `/migrations/${name}`;
         migrations[key] = await readFile(join(migrationsDir, name), "utf8");
       }
     }
+
     const doneRows = await pg.query<{ name: string }>(
       "select name from _migrations",
     );
-    const done = doneRows.rows.map((r) => r.name);
-    for (const { name, path } of pendingMigrations(Object.keys(migrations), done)) {
+    const done = doneRows.rows.map((row) => row.name);
+
+    for (const { name, path } of pendingMigrations(
+      Object.keys(migrations),
+      done,
+    )) {
       // Apply + record atomically (parity with scripts/migrate.mjs) so a failed
       // statement can't leave a file half-applied but untracked.
       await pg.transaction(async (tx) => {
