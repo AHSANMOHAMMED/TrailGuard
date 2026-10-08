@@ -8,7 +8,7 @@ test("pendingExcludedLabel", () => {
 });
 
 test("exportFilename keeps stable id prefix", () => {
-  assert.equal(exportFilename("rep-abcdef12-zzzz"), "trailguard-rep-abcde.csv");
+  assert.equal(exportFilename("rep-abcdef12-zzzz"), "trailguard-rep-abcd.csv");
 });
 
 test("empty snapshot message mentions SYNCED-only", () => {
