@@ -1,11 +1,22 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
-import { ChevronRight, FileBarChart, Footprints, Lock, Map, Radio, RadioTower, Siren } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import {
+  ChevronRight,
+  FileBarChart,
+  Footprints,
+  Lock,
+  Map,
+  Radio,
+  RadioTower,
+  RefreshCw,
+  Siren,
+} from "lucide-react";
 import { Body, Phone, Pill } from "@/components/field";
 import { ConnectivityToggle } from "@/components/connectivity-toggle";
 import { LoginScreen, SessionChip } from "@/components/auth-gate";
 import { useAuth, type Area } from "@/lib/auth-store";
 import { useField, ROUTE_META } from "@/lib/store";
+import { fmtTime } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({ component: Home });
 
@@ -17,14 +28,53 @@ export const Route = createFileRoute("/")({ component: Home });
  */
 function Home() {
   const { session, hydrated, canAccess } = useAuth();
-  const { patrols, incidents, alerts, conflicts, pendingCount, online } = useField();
+  const {
+    patrols,
+    incidents,
+    alerts,
+    conflicts,
+    pendingCount,
+    online,
+    syncing,
+    lastSyncAt,
+    synchronize,
+  } = useField();
+  const [syncNote, setSyncNote] = useState<string | null>(null);
 
-  if (!hydrated) return <Phone>{null}</Phone>;
+  if (!hydrated) {
+    return (
+      <Phone>
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6">
+          <p className="text-[17px] font-bold tracking-tight text-accent">TrailGuard</p>
+          <p className="text-[12px] text-muted">Loading field session…</p>
+        </div>
+      </Phone>
+    );
+  }
   if (!session) return <LoginScreen />;
 
   const pending = pendingCount();
   const active = patrols.find((p) => p.status === "ACTIVE");
   const openAlert = alerts.find((a) => a.status !== "CLOSED");
+
+  async function onSync() {
+    if (!online) {
+      setSyncNote("Offline — Sync waits until connectivity returns.");
+      return;
+    }
+    setSyncNote(null);
+    try {
+      const result = await synchronize();
+      const n = result.patrols + result.incidents + result.radio;
+      setSyncNote(
+        n === 0
+          ? "Nothing pending — queue already clear."
+          : `Upserted ${n} record${n === 1 ? "" : "s"} by stable id.`,
+      );
+    } catch {
+      setSyncNote("Offline — records stay PENDING on this phone.");
+    }
+  }
 
   return (
     <Phone>
@@ -39,13 +89,44 @@ function Home() {
         </div>
       </header>
       <Body className="pt-3">
-        {!online ? (
-          <p className="rounded-lg border border-warn/40 bg-warn-bg px-3 py-2 text-[12px] font-semibold text-warn">
-            Offline — new records are stored on this device and synchronize later.
+        <div className="flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2.5">
+          <button
+            type="button"
+            onClick={() => void onSync()}
+            disabled={syncing}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-accent-fg disabled:opacity-60"
+          >
+            <RefreshCw className={`size-3.5 ${syncing ? "animate-spin" : ""}`} strokeWidth={2} />
+            Sync{pending > 0 ? ` (${pending})` : ""}
+          </button>
+          <div className="min-w-0 flex-1 text-[11px] text-muted">
+            {lastSyncAt ? (
+              <p className="truncate">Last sync {fmtTime(lastSyncAt)}</p>
+            ) : (
+              <p>No sync yet</p>
+            )}
+            {pending > 0 ? (
+              <p className="font-semibold text-warn">
+                {pending} pending · same UUID on retry
+              </p>
+            ) : (
+              <p>Queue clear</p>
+            )}
+          </div>
+        </div>
+        {syncNote ? (
+          <p
+            className={`rounded-lg border px-3 py-2 text-[12px] font-semibold ${
+              online
+                ? "border-border bg-surface text-muted"
+                : "border-warn/40 bg-warn-bg text-warn"
+            }`}
+          >
+            {syncNote}
           </p>
-        ) : pending > 0 ? (
-          <p className="rounded-lg border border-border bg-surface px-3 py-2 text-[12px] text-muted">
-            {pending} record{pending === 1 ? "" : "s"} pending synchronisation.
+        ) : !online ? (
+          <p className="rounded-lg border border-warn/40 bg-warn-bg px-3 py-2 text-[12px] font-semibold text-warn">
+            Offline — new records stay PENDING until Sync acknowledges them.
           </p>
         ) : null}
 
