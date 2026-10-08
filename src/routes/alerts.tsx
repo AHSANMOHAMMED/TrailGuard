@@ -47,6 +47,7 @@ const OUTCOMES = [
 type Step =
   | "incoming"
   | "details"
+  | "desk"
   | "acknowledged"
   | "respond"
   | "coordination"
@@ -54,21 +55,38 @@ type Step =
   | "resolve"
   | "resolved";
 
+const OFFICERS = [
+  { id: "off-mercer", name: "RN-402 Mercer" },
+  { id: "off-fernando", name: "Liaison Fernando" },
+];
+
 function AlertsPage() {
   const router = useRouter();
   const session = useAuth((s) => s.session);
-  const { alerts, ackAlert, resolveAlert, resetAlert } = useField();
+  const {
+    alerts,
+    ackAlert,
+    resolveAlert,
+    resetAlert,
+    assignAlert,
+    failNotify,
+    escalateAlert,
+    holdForTriage,
+  } = useField();
 
-  // Role assignment: Ranger and Community Liaison Officer acknowledge and
-  // resolve risk alerts (UC03 actors); the Park Manager monitors read-only.
+  // Ranger + Liaison run the field response (Fig 14). Manager runs assign desk (A02).
   const canAct = session?.role === "RANGER" || session?.role === "LIAISON";
+  const isManager = session?.role === "MANAGER";
 
   const [step, setStep] = useState<Step>("incoming");
   const [outcome, setOutcome] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [resolvedAt, setResolvedAt] = useState<string | null>(null);
+  const [pickedOfficer, setPickedOfficer] = useState(OFFICERS[0].id);
+  const [deskMsg, setDeskMsg] = useState<string | null>(null);
 
-  const alert = alerts.find((a) => a.status !== "CLOSED") ?? alerts[0];
+  const alert =
+    alerts.find((a) => a.status !== "CLOSED") ?? alerts[0];
 
   // The demo collar feed raises a fresh alert if the previous one was closed.
   useEffect(() => {
@@ -78,6 +96,14 @@ function AlertsPage() {
   if (!alert) return null;
   const detected = fmtClock(alert.receivedAt);
   const title = `${alert.animal} Near ${alert.zone}`;
+  const statusLabel =
+    alert.status === "REVIEW"
+      ? "REVIEW"
+      : alert.status === "ESCALATED"
+        ? "ESCALATED"
+        : alert.status === "ASSIGNED"
+          ? "ASSIGNED"
+          : "NEW";
 
   /* ---------- Panel 1 · Incoming Wildlife Risk Alert ---------- */
   if (step === "incoming") {
@@ -90,7 +116,7 @@ function AlertsPage() {
             <div className="flex items-center justify-between">
               <Pill tone="danger">High Risk</Pill>
               <span className="rounded-full bg-danger px-2 py-0.5 text-[10px] font-bold uppercase text-white">
-                New
+                {statusLabel}
               </span>
             </div>
             <p className="mt-2 text-[17px] font-bold text-danger">{title}</p>
@@ -103,8 +129,9 @@ function AlertsPage() {
           <Card>
             <Row k="Animal / Collar" v={`${alert.animal} · ${alert.collar}`} strong />
             <Row k="Risk Zone" v={`${alert.zone} (HIGH)`} strong />
+            <Row k="Confidence" v={alert.confidence} strong />
             <Row k="Time" v={detected} strong />
-            <Row k="Status" v="NEW" strong />
+            <Row k="Status" v={statusLabel} strong />
           </Card>
           <HintCard>
             No high-risk zone detected → no alert is created (safe zone – conditional).
@@ -112,8 +139,95 @@ function AlertsPage() {
           <HintCard>
             Ranger offline → alert delivered when connectivity returns (conditional).
           </HintCard>
-          <div className="mt-auto pt-2">
+          <div className="mt-auto flex flex-col gap-2 pt-2">
             <BtnPrimary onClick={() => setStep("details")}>View Alert</BtnPrimary>
+            {isManager ? (
+              <BtnOutline onClick={() => setStep("desk")}>Open assign desk (A02)</BtnOutline>
+            ) : null}
+          </div>
+        </Body>
+      </Phone>
+    );
+  }
+
+  /* ---------- Manager desk · assign / notify-fail / escalate / triage ---------- */
+  if (step === "desk") {
+    const officer = OFFICERS.find((o) => o.id === pickedOfficer) ?? OFFICERS[0];
+    return (
+      <Phone>
+        <ScreenHeader title="Conflict Desk" onBack={() => setStep("incoming")} />
+        <Body>
+          <div>
+            <h2 className="text-[17px] font-bold">Assign response</h2>
+            <p className="text-[12.5px] text-muted">
+              Single active assignment · delivery ≠ acknowledgement (R-04 / R-06).
+            </p>
+          </div>
+          <Card>
+            <Row k="Alert" v={title} strong />
+            <Row k="Status" v={statusLabel} strong />
+            <Row k="Assignee" v={alert.assigneeName ?? "—"} strong />
+            <Row k="Delivery" v={alert.deliveryState ?? "—"} strong />
+            <Row k="Notify attempts" v={String(alert.notifyAttempts ?? 0)} strong />
+          </Card>
+          <p className="text-[13px] font-semibold">Available officer</p>
+          <div className="flex flex-col gap-2">
+            {OFFICERS.map((o) => (
+              <RadioRow
+                key={o.id}
+                label={o.name}
+                selected={pickedOfficer === o.id}
+                onSelect={() => setPickedOfficer(o.id)}
+              />
+            ))}
+          </div>
+          {deskMsg ? <HintCard>{deskMsg}</HintCard> : null}
+          <div className="mt-auto flex flex-col gap-2 pt-2">
+            <BtnPrimary
+              onClick={() => {
+                assignAlert(alert.alertId, officer);
+                setDeskMsg(`Assigned ${officer.name} · notification SENT (delivery only).`);
+              }}
+            >
+              Assign officer
+            </BtnPrimary>
+            <BtnOutline
+              onClick={() => {
+                const next = failNotify(alert.alertId);
+                setDeskMsg(
+                  next === "ESCALATED"
+                    ? "Second notify failure → ESCALATED · backup RN-511 notified (R-02b)."
+                    : "Notify FAILED · officer freed · alert back to OPEN (R-06).",
+                );
+              }}
+            >
+              Simulate notify failure
+            </BtnOutline>
+            <BtnOutline
+              onClick={() => {
+                escalateAlert(alert.alertId);
+                setDeskMsg("Escalated to backup officer list.");
+              }}
+            >
+              Escalate now
+            </BtnOutline>
+            <BtnOutline
+              onClick={() => {
+                holdForTriage(alert.alertId);
+                setDeskMsg("Low-confidence triage: held in REVIEW · no paging (R-08).");
+              }}
+            >
+              Hold as low-confidence
+            </BtnOutline>
+            <BtnOutline
+              onClick={() => {
+                resetAlert({ confidence: "Low" });
+                setDeskMsg("Seeded a LOW confidence alert in REVIEW.");
+                setStep("incoming");
+              }}
+            >
+              Seed low-confidence alert
+            </BtnOutline>
           </div>
         </Body>
       </Phone>
@@ -130,7 +244,7 @@ function AlertsPage() {
             text={`HIGH RISK - ${alert.animal.toUpperCase()} NEAR ${alert.zone.toUpperCase()}`}
           />
           <div className="flex items-center justify-between">
-            <Pill tone="danger">New</Pill>
+            <Pill tone="danger">{statusLabel}</Pill>
             <span className="text-[12px] text-muted">Detected {detected}</span>
           </div>
           <div>
@@ -145,8 +259,8 @@ function AlertsPage() {
             <Row k="Severity" v={<span className="text-danger">HIGH RISK</span>} strong />
           </Card>
           <HintCard>Recent camera-trap image may be attached if available (conditional).</HintCard>
-          <div className="mt-auto pt-2">
-            {canAct ? (
+          <div className="mt-auto flex flex-col gap-2 pt-2">
+            {canAct && alert.status !== "REVIEW" ? (
               <BtnPrimary
                 onClick={() => {
                   ackAlert(alert.alertId);
@@ -155,6 +269,13 @@ function AlertsPage() {
               >
                 Acknowledge Alert
               </BtnPrimary>
+            ) : isManager ? (
+              <BtnPrimary onClick={() => setStep("desk")}>Open assign desk</BtnPrimary>
+            ) : alert.status === "REVIEW" ? (
+              <HintCard>
+                Low-confidence triage — held for manager review; field officers are not paged
+                (R-08).
+              </HintCard>
             ) : (
               <HintCard>
                 Monitoring view — acknowledgement and field response are performed by the Ranger
