@@ -20,6 +20,7 @@ import {
   ConfirmNote,
   GpsActive,
   HintCard,
+  ModeChip,
   OfflineBanner,
   OnlineBanner,
   Phone,
@@ -41,6 +42,17 @@ import {
   patrolTrackKm,
   type QueueItem,
 } from "@/lib/domain/patrol-ops";
+import {
+  DEMO_COVER_POSITIONS,
+  DEMO_GPS_EVERY,
+  coverageChip,
+  formatPatrolDuration,
+  queueBadgeLabel,
+} from "@/lib/domain/patrol-demo";
+import {
+  patrolSyncHint,
+  patrolSyncStatusLabel,
+} from "@/lib/domain/patrol-sync-copy";
 import type { Waypoint } from "@/lib/types";
 
 export const Route = createFileRoute("/patrol")({
@@ -70,9 +82,9 @@ export const Route = createFileRoute("/patrol")({
  */
 
 /** Positions needed for full route coverage (demo GPS pace). */
-const COVER_AT = 110;
+const COVER_AT = DEMO_COVER_POSITIONS;
 /** A real GPS waypoint is committed to the store every N positions. */
-const GPS_EVERY = 10;
+const GPS_EVERY = DEMO_GPS_EVERY;
 
 type Phase = "assigned" | "progress" | "waypoint" | "queue" | "done";
 
@@ -104,6 +116,16 @@ function PatrolPage() {
     durationS: number;
   } | null>(null);
   const [nowTick, setNowTick] = useState(() => Date.now());
+
+  // Resume in-progress patrol after navigation away (device still holds ACTIVE).
+  useEffect(() => {
+    const current = useField.getState().activePatrol();
+    if (current && current.status === "ACTIVE") {
+      setPhase((p) => (p === "assigned" ? "progress" : p));
+      setPositions((n) => (n > 0 ? n : Math.max(1, current.waypoints.length * GPS_EVERY)));
+      setStartedAt((s) => s ?? current.startedAt);
+    }
+  }, []);
 
   const queue = useMemo(
     () => useField.getState().queueItems(),
@@ -525,7 +547,7 @@ function PatrolPage() {
           </Card>
           <div className="flex gap-2">
             <Tile k="Completion time" v={fmtClock(completed.at)} />
-            <Tile k="Duration" v={fmtDuration(completed.durationS)} />
+            <Tile k="Duration" v={formatPatrolDuration(completed.durationS)} />
           </div>
           <div className="flex gap-2">
             <Tile k="Positions Recorded" v={completed.positions} />
@@ -589,7 +611,7 @@ function PatrolPage() {
         <div className="flex gap-2">
           <Tile k="Positions Recorded" v={positions} />
           <Tile k="Track" v={`${trackKm.toFixed(1)} km`} />
-          <Tile k="Coverage" v={`${coverage}%`} />
+          <Tile k="Coverage" v={coverageChip(coverage)} />
         </div>
 
         {/* T1/H4 — queue depth visible at all times */}
@@ -603,9 +625,7 @@ function PatrolPage() {
         >
           <CloudUpload className={queue.length > 0 ? "size-4 text-warn" : "size-4 text-ok"} />
           <span className="flex-1">
-            {queue.length === 0
-              ? "Sync queue clear — all records acknowledged"
-              : `Sync queue · ${queue.length} record${queue.length === 1 ? "" : "s"} pending`}
+            {queueBadgeLabel(queue.length, failedCount)}
             {failedCount > 0 ? (
               <span className="block text-[11.5px] font-semibold text-danger">
                 {failedCount} failed — held for retry
@@ -689,7 +709,7 @@ function PatrolPage() {
             <Card className="mt-3">
               <p className="text-[14px] font-bold">Route {ROUTE_META.id}</p>
               <p className="text-[12px] text-muted">
-                {positions + 1} positions · {fmtDuration(elapsedS)} · in-flight waypoint will be
+                {positions + 1} positions · {formatPatrolDuration(elapsedS)} · in-flight waypoint will be
                 saved first
               </p>
             </Card>
@@ -711,21 +731,6 @@ function PatrolPage() {
 }
 
 // ---------------------------------------------------------------------------
-
-/** R-09 — ONLINE / OFFLINE — QUEUED LOCALLY mode chip. */
-function ModeChip({ online }: { online: boolean }) {
-  return online ? (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-ok/30 bg-ok-bg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-ok">
-      <span className="size-1.5 rounded-full bg-ok" aria-hidden />
-      Online
-    </span>
-  ) : (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-warn/40 bg-warn-bg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-warn">
-      <span className="size-1.5 rounded-full bg-warn" aria-hidden />
-      Offline — Queued Locally
-    </span>
-  );
-}
 
 /** T1/H4 — queue depth badge in the header. */
 function QueueBadge({
@@ -880,11 +885,9 @@ function SyncStateCard({
         <CloudUpload className="size-4" />
         {patrol.status === "COMPLETED" && !online
           ? "Pending — will sync when signal returns"
-          : "Pending — synchronizing shortly"}
+          : patrolSyncStatusLabel("PENDING")}
       </p>
-      <p className="mt-0.5 text-[11.5px] text-muted">
-        Saved on this phone · queued for the ConservationAPI upsert
-      </p>
+      <p className="mt-0.5 text-[11.5px] text-muted">{patrolSyncHint("PENDING")}</p>
       <button
         type="button"
         onClick={onOpenQueue}
@@ -894,15 +897,6 @@ function SyncStateCard({
       </button>
     </Card>
   );
-}
-
-function fmtDuration(totalS: number) {
-  const h = Math.floor(totalS / 3600);
-  const m = Math.floor((totalS % 3600) / 60);
-  const s = totalS % 60;
-  if (h > 0) return `${h} h ${String(m).padStart(2, "0")} m`;
-  if (m > 0) return `${m} m ${String(s).padStart(2, "0")} s`;
-  return `${s} s`;
 }
 
 function CoverageRing({ pct }: { pct: number }) {
