@@ -157,6 +157,36 @@ export function OnlineBanner({ text }: { text: string }) {
   );
 }
 
+/**
+ * R-09 mode chip — ONLINE vs OFFLINE — QUEUED LOCALLY at the point of action.
+ * Every save surface shows connectivity consequence, never colour alone.
+ */
+export function ModeChip({ online }: { online: boolean }) {
+  if (online) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-ok/30 bg-ok-bg px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-ok">
+        <Wifi className="size-3" strokeWidth={2.5} aria-hidden />
+        Online
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-warn/40 bg-warn-bg px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-warn">
+      <CloudOff className="size-3" strokeWidth={2.5} aria-hidden />
+      Offline — queued locally
+    </span>
+  );
+}
+
+/** H5/R-09 — consequence language for offline-first saves (not developer IDs). */
+export const CONSEQUENCE = {
+  savedOffline: "Saved on this phone — will send when signal returns.",
+  pendingSync: "Saved on this phone — pending sync acknowledgement.",
+  synced: "Submitted — server acknowledged this record.",
+  queuedRadio: "Queued on device — forwards when coverage returns.",
+  emptyReport: "No synced records in this window.",
+} as const;
+
 export function RiskBanner({ text }: { text: string }) {
   return (
     <div className="flex items-center gap-2 rounded-lg border border-danger/40 bg-danger-bg px-3 py-2.5 text-[13px] font-bold text-danger">
