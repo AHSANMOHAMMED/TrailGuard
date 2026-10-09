@@ -107,3 +107,25 @@ export const fieldDbHealthFn = createServerFn({ method: "GET" }).handler(async (
   const counts = await listFieldCounts();
   return { source: dbSource, counts };
 });
+
+type SharedFieldJsonRow = Record<
+  string,
+  string | number | boolean | null | undefined
+>;
+
+export type SharedFieldRecordsPayload = {
+  patrols: SharedFieldJsonRow[];
+  incidents: SharedFieldJsonRow[];
+  conflicts: SharedFieldJsonRow[];
+  radio: SharedFieldJsonRow[];
+  alerts: SharedFieldJsonRow[];
+};
+
+/** Pull shared field rows so the web desk shows phone-synced Neon data. */
+export const listSharedFieldFn = createServerFn({ method: "GET" }).handler(
+  async (): Promise<SharedFieldRecordsPayload> => {
+    const { listSharedFieldRecords } = await import("./conservation-api.server");
+    const raw = await listSharedFieldRecords();
+    return JSON.parse(JSON.stringify(raw)) as SharedFieldRecordsPayload;
+  },
+);

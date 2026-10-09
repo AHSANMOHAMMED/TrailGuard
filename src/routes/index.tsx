@@ -40,6 +40,7 @@ function Home() {
     syncing,
     lastSyncAt,
     synchronize,
+    pullSharedFromDb,
   } = useField();
   const [syncNote, setSyncNote] = useState<string | null>(null);
 
@@ -81,13 +82,41 @@ function Home() {
     try {
       const result = await synchronize();
       const n = result.patrols + result.incidents + result.radio;
+      let pullExtra = "";
+      try {
+        const pulled = await pullSharedFromDb();
+        const p =
+          pulled.patrols +
+          pulled.incidents +
+          pulled.conflicts +
+          pulled.alerts +
+          pulled.radio;
+        pullExtra = p > 0 ? ` Desk refreshed (${p} shared).` : "";
+      } catch {
+        /* upload still succeeded */
+      }
       setSyncNote(
         n === 0
-          ? "Nothing pending — queue already clear."
-          : `Upserted ${n} record${n === 1 ? "" : "s"} by stable id.`,
+          ? `Nothing pending — queue already clear.${pullExtra}`
+          : `Upserted ${n} record${n === 1 ? "" : "s"} by stable id.${pullExtra}`,
       );
     } catch {
       setSyncNote("Offline — records stay PENDING on this phone.");
+    }
+  }
+
+  async function onPullShared() {
+    if (!online) {
+      setSyncNote("Offline — cannot pull shared park DB.");
+      return;
+    }
+    try {
+      const pulled = await pullSharedFromDb();
+      setSyncNote(
+        `Pulled shared DB — P${pulled.patrols} I${pulled.incidents} C${pulled.conflicts}`,
+      );
+    } catch {
+      setSyncNote("Could not pull shared park DB.");
     }
   }
 
@@ -116,6 +145,13 @@ function Home() {
           >
             <RefreshCw className={`size-3.5 ${syncing ? "animate-spin" : ""}`} strokeWidth={2} />
             Sync{pending > 0 ? ` (${pending})` : ""}
+          </button>
+          <button
+            type="button"
+            onClick={() => void onPullShared()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-elevated px-3 py-1.5 text-[12px] font-semibold text-fg"
+          >
+            Pull DB
           </button>
           <div className="min-w-0 flex-1 text-[11px] text-muted">
             {lastSyncAt ? (

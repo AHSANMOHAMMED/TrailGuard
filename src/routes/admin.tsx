@@ -47,6 +47,22 @@ function AdminPage() {
   const [counts, setCounts] = useState<FieldCounts | null>(null);
   const [dbError, setDbError] = useState<string | null>(null);
   const loadDemoDataset = useField((s) => s.loadDemoDataset);
+  const pullSharedFromDb = useField((s) => s.pullSharedFromDb);
+  const [pullNote, setPullNote] = useState<string | null>(null);
+  const [pulling, setPulling] = useState(false);
+
+  async function refreshDbHealth() {
+    try {
+      const health = await fieldDbHealthFn();
+      setDbLabel(health.source === "neon" ? "Neon Postgres" : "PGLite WASM");
+      setCounts(health.counts);
+      setDbError(null);
+    } catch {
+      setDbLabel("PGLite local");
+      setCounts(null);
+      setDbError("Could not reach server — counts unavailable (PGLite local).");
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -68,6 +84,22 @@ function AdminPage() {
       cancelled = true;
     };
   }, []);
+
+  async function onPullShared() {
+    setPulling(true);
+    setPullNote(null);
+    try {
+      const r = await pullSharedFromDb();
+      await refreshDbHealth();
+      setPullNote(
+        `Pulled P${r.patrols} I${r.incidents} C${r.conflicts} R${r.radio} A${r.alerts} from shared DB`,
+      );
+    } catch (e) {
+      setPullNote(e instanceof Error ? e.message : "Pull failed");
+    } finally {
+      setPulling(false);
+    }
+  }
 
   function toggle(role: ActorRole, area: Area) {
     const current = accessFor(role, roleAccess);
@@ -125,6 +157,17 @@ function AdminPage() {
             next sign-in for each actor. PIN credentials are viva-only (not graded).
           </p>
         </div>
+        <button
+          type="button"
+          disabled={pulling}
+          onClick={() => void onPullShared()}
+          className="w-full rounded-xl border border-border bg-accent px-3 py-2.5 text-left text-[12px] font-semibold text-accent-fg hover:opacity-95 disabled:opacity-50"
+        >
+          {pulling ? "Pulling…" : "Refresh desk from shared DB"} — show phone-synced Neon rows
+        </button>
+        {pullNote ? (
+          <p className="text-[11px] text-muted">{pullNote}</p>
+        ) : null}
         <button
           type="button"
           onClick={() => loadDemoDataset()}

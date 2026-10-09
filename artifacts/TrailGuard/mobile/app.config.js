@@ -7,7 +7,8 @@
 const sharedApi =
   process.env.EXPO_PUBLIC_API_URL?.trim() ||
   process.env.TRAILGUARD_API_URL?.trim() ||
-  "";
+  // Production park host — override at build time or on Home → Save API URL.
+  "https://trailguard-sable.vercel.app/api/v1";
 
 export default {
   expo: {

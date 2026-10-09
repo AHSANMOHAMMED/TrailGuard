@@ -156,3 +156,45 @@ export async function listFieldCounts() {
   `;
   return rows[0] ?? { patrols: 0, incidents: 0, conflicts: 0, radio: 0, alerts: 0 };
 }
+
+/** Shared Neon/PGLite rows for hydrating the web desk after phone sync. */
+export async function listSharedFieldRecords() {
+  const sql = await getSql();
+  const [patrols, incidents, conflicts, radio, alerts] = await Promise.all([
+    sql<Record<string, unknown>>`
+      select patrol_id, route_id, route_name, officer_id, officer_name,
+             status, started_at, completed_at, waypoints
+      from field_patrols
+      order by updated_at desc
+      limit 200
+    `,
+    sql<Record<string, unknown>>`
+      select report_id, category, description, lat, lng, location_source,
+             observed_at, has_photo, photo_attach_id, photo_sync_state
+      from field_incidents
+      order by updated_at desc
+      limit 200
+    `,
+    sql<Record<string, unknown>>`
+      select report_id, type, location, channel, description, desk_status,
+             lat, lng, updated_at
+      from field_conflicts
+      order by updated_at desc
+      limit 200
+    `,
+    sql<Record<string, unknown>>`
+      select message_id, channel, body, sync_state, updated_at
+      from field_radio
+      order by updated_at desc
+      limit 200
+    `,
+    sql<Record<string, unknown>>`
+      select alert_id, animal, collar, zone, observed_at, received_at,
+             confidence, status, assignee_id, assignee_name, outcome, resolution_note
+      from field_alerts
+      order by updated_at desc
+      limit 200
+    `,
+  ]);
+  return { patrols, incidents, conflicts, radio, alerts };
+}

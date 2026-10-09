@@ -80,6 +80,10 @@ export default function HomeScreen({
   const items = AREA_ROUTES.filter((item) => session.access.includes(item.area));
 
   const sync = async () => {
+    // Persist draft URL first so Sync uses what the user typed.
+    if (apiDraft.trim() && apiDraft.trim().replace(/\/$/, '') !== getApiBaseOrEmpty()) {
+      setApiBase(apiDraft);
+    }
     if (!isApiConfigured()) {
       Alert.alert('Sync', 'Set the live API URL first (https://host/api/v1).');
       return;

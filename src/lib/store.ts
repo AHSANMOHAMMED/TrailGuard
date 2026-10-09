@@ -2,11 +2,15 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type {
   Alert,
+  AlertStatus,
   ConflictReport,
   Incident,
+  LocationSource,
   Patrol,
+  PatrolStatus,
   RadioMessage,
   ReportSnapshot,
+  SyncState,
   Waypoint,
 } from "@/lib/types";
 import { uid } from "@/lib/utils";
@@ -35,7 +39,10 @@ import {
   upsertConflictLive,
   upsertRadioLive,
 } from "@/lib/domain/conservation-client";
-import type { AlertUpsertInput } from "@/lib/domain/conservation-api";
+import {
+  listSharedFieldFn,
+  type AlertUpsertInput,
+} from "@/lib/domain/conservation-api";
 import { mirrorUpsertConflict } from "@/lib/domain/server-mirror";
 import { YALA_ROUTE, routePointAt as routePointAtYala } from "@/lib/domain/yala-route";
 import { buildDemoDataset } from "@/lib/domain/demo-dataset";
@@ -166,6 +173,17 @@ interface FieldState {
   setOnline: (v: boolean) => void;
   /** Viva-only — load sample SYNCED rows; graded path starts empty. */
   loadDemoDataset: () => void;
+  /**
+   * Merge shared Neon/PGLite rows into the desk (phone uploads become visible).
+   * Keeps local PENDING/FAILED rows; replaces SYNCED by id from the park DB.
+   */
+  pullSharedFromDb: () => Promise<{
+    patrols: number;
+    incidents: number;
+    conflicts: number;
+    radio: number;
+    alerts: number;
+  }>;
   startPatrol: () => Patrol;
   addWaypoint: (source: "GPS" | "MANUAL", geo?: { lat: number; lng: number }) => Waypoint | null;
   /** UC01 3b (R-10) — remove a mark made in error (defaults to the last). */
@@ -277,6 +295,168 @@ export const useField = create<FieldState>()(
           lastSyncAt: new Date().toISOString(),
         });
         pushAllAlertUpserts();
+      },
+      pullSharedFromDb: async () => {
+        const shared = await listSharedFieldFn();
+        const asIso = (v: unknown) =>
+          v instanceof Date ? v.toISOString() : typeof v === "string" ? v : new Date().toISOString();
+        const num = (v: unknown, fallback = 0) =>
+          typeof v === "number" && Number.isFinite(v) ? v : fallback;
+        const str = (v: unknown, fallback = "") => (typeof v === "string" ? v : fallback);
+
+        const mapWaypoints = (raw: unknown): Waypoint[] => {
+          if (!Array.isArray(raw)) return [];
+          return raw.map((w, i) => {
+            const row = (w && typeof w === "object" ? w : {}) as Record<string, unknown>;
+            const geo =
+              row.geo && typeof row.geo === "object"
+                ? (row.geo as Record<string, unknown>)
+                : row;
+            return {
+              pointId: str(row.pointId ?? row.point_id, `wp-${i}`),
+              lat: num(geo.lat ?? row.lat),
+              lng: num(geo.lng ?? row.lng),
+              source: (str(row.source, "GPS") === "MANUAL" ? "MANUAL" : "GPS") as LocationSource,
+              recordedAt: asIso(row.recordedAt ?? row.recorded_at),
+              label: str(row.label) || undefined,
+            };
+          });
+        };
+
+        const remotePatrols: Patrol[] = shared.patrols.map((r) => ({
+          patrolId: str(r.patrol_id),
+          routeId: str(r.route_id),
+          routeName: str(r.route_name, str(r.route_id)),
+          officerId: str(r.officer_id),
+          officerName: str(r.officer_name, str(r.officer_id)),
+          status: (str(r.status, "COMPLETED") === "ACTIVE" ? "ACTIVE" : "COMPLETED") as PatrolStatus,
+          startedAt: asIso(r.started_at),
+          completedAt: r.completed_at ? asIso(r.completed_at) : undefined,
+          syncState: "SYNCED",
+          waypoints: mapWaypoints(r.waypoints),
+        }));
+
+        const CATEGORY_TO_TYPE: Record<string, string> = {
+          SNARE: "Snare",
+          CROP_RAID: "Crop-raid",
+          POACHING_SIGN: "Poaching sign",
+          INJURED_ANIMAL: "Injured animal",
+        };
+        const remoteIncidents: Incident[] = shared.incidents.map((r) => {
+          const cat = str(r.category, "OTHER");
+          return {
+            reportId: str(r.report_id),
+            type: CATEGORY_TO_TYPE[cat] ?? cat,
+            description: str(r.description),
+            lat: num(r.lat),
+            lng: num(r.lng),
+            locationSource: (str(r.location_source, "GPS") === "MANUAL"
+              ? "MANUAL"
+              : "GPS") as LocationSource,
+            observedAt: asIso(r.observed_at),
+            syncState: "SYNCED",
+            hasPhoto: Boolean(r.has_photo),
+            photoAttachId: str(r.photo_attach_id) || undefined,
+            photoSyncState: (str(r.photo_sync_state) as SyncState) || undefined,
+          };
+        });
+
+        const remoteConflicts: ConflictReport[] = shared.conflicts.map((r) => {
+          const desk = str(r.desk_status);
+          return {
+            reportId: str(r.report_id),
+            type: str(r.type, "conflict"),
+            location: str(r.location, "field"),
+            channel: str(r.channel).toUpperCase().includes("SMS")
+              ? ("SMS" as const)
+              : ("Mobile App" as const),
+            description: str(r.description),
+            status: desk === "RESPONDED" ? ("RESPONDED" as const) : ("SUBMITTED" as const),
+            highPriority: /HIGH/i.test(str(r.type)),
+            receivedAt: asIso(r.updated_at ?? Date.now()),
+            respondedAt: desk === "RESPONDED" ? asIso(r.updated_at) : undefined,
+            syncState: "SYNCED",
+          };
+        });
+
+        const remoteAlerts: Alert[] = shared.alerts.map((r) => {
+          const conf = str(r.confidence, "High");
+          const status = str(r.status, "OPEN");
+          return {
+            alertId: str(r.alert_id),
+            animal: str(r.animal),
+            collar: str(r.collar) || undefined,
+            zone: str(r.zone),
+            observedAt: asIso(r.observed_at),
+            receivedAt: asIso(r.received_at),
+            confidence: (["High", "Medium", "Low"].includes(conf)
+              ? conf
+              : "High") as Alert["confidence"],
+            status: (["OPEN", "ASSIGNED", "ESCALATED", "CLOSED", "REVIEW"].includes(status)
+              ? status
+              : "OPEN") as AlertStatus,
+            assigneeId: str(r.assignee_id) || undefined,
+            assigneeName: str(r.assignee_name) || undefined,
+            outcome: str(r.outcome) || undefined,
+            resolutionNote: str(r.resolution_note) || undefined,
+          };
+        });
+
+        const remoteRadio: RadioMessage[] = shared.radio.map((r) => ({
+          messageId: str(r.message_id),
+          channel: str(r.channel, "OPS-1"),
+          fromRole: "RANGER",
+          fromTitle: "Field unit",
+          kind: "text" as const,
+          text: str(r.body) || undefined,
+          transmittedAt: asIso(r.updated_at),
+          syncState: "SYNCED" as const,
+        }));
+
+        const s = get();
+        const keepLocal = <T extends { syncState: SyncState }>(
+          local: T[],
+          idOf: (row: T) => string,
+          remoteIds: Set<string>,
+        ) => local.filter((row) => row.syncState !== "SYNCED" || !remoteIds.has(idOf(row)));
+
+        const patrolIds = new Set(remotePatrols.map((p) => p.patrolId));
+        const incidentIds = new Set(remoteIncidents.map((i) => i.reportId));
+        const conflictIds = new Set(remoteConflicts.map((c) => c.reportId));
+        const alertIds = new Set(remoteAlerts.map((a) => a.alertId));
+        const radioIds = new Set(remoteRadio.map((m) => m.messageId));
+
+        set({
+          patrols: [
+            ...keepLocal(s.patrols, (p) => p.patrolId, patrolIds),
+            ...remotePatrols,
+          ],
+          incidents: [
+            ...keepLocal(s.incidents, (i) => i.reportId, incidentIds),
+            ...remoteIncidents,
+          ],
+          conflicts: [
+            ...keepLocal(s.conflicts, (c) => c.reportId, conflictIds),
+            ...remoteConflicts,
+          ],
+          alerts: [
+            ...s.alerts.filter((a) => !alertIds.has(a.alertId)),
+            ...remoteAlerts,
+          ],
+          radioMessages: [
+            ...keepLocal(s.radioMessages, (m) => m.messageId, radioIds),
+            ...remoteRadio,
+          ],
+          lastSyncAt: new Date().toISOString(),
+        });
+
+        return {
+          patrols: remotePatrols.length,
+          incidents: remoteIncidents.length,
+          conflicts: remoteConflicts.length,
+          radio: remoteRadio.length,
+          alerts: remoteAlerts.length,
+        };
       },
       setOnline: (v) => set({ online: v }),
       activePatrol: () => get().patrols.find((p) => p.status === "ACTIVE"),
@@ -852,6 +1032,11 @@ export const useField = create<FieldState>()(
             }
           }
           pushAllAlertUpserts();
+          try {
+            await get().pullSharedFromDb();
+          } catch {
+            /* pull is best-effort after upload */
+          }
           set({
             lastSyncAt: new Date().toISOString(),
             syncing: false,
