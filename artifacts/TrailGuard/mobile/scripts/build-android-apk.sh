@@ -1,13 +1,28 @@
 #!/usr/bin/env bash
-# Build a real installable TrailGuard debug APK (DEX + native libs via Gradle).
-# Requires: Android SDK, JDK 17 (preferred for RN 0.74 / AGP).
+# Build an installable TrailGuard APK (DEX + native libs via Gradle).
+# Requires: Android SDK, JDK 17 or 21 (not 25+).
 #
+# Usage:
+#   EXPO_PUBLIC_API_URL=https://host/api/v1 npm run apk:debug
+#   EXPO_PUBLIC_API_URL=https://host/api/v1 npm run apk:release
+#
+# BUILD_TYPE=debug|release (default: debug)
 # Output:
 #   build/apk/trailguard-debug.apk
+#   build/apk/trailguard-release.apk
 set -euo pipefail
 
 MOBILE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$MOBILE_DIR"
+
+BUILD_TYPE="${BUILD_TYPE:-debug}"
+case "$BUILD_TYPE" in
+  debug|release) ;;
+  *)
+    echo "ERROR: BUILD_TYPE must be debug or release (got: $BUILD_TYPE)"
+    exit 1
+    ;;
+esac
 
 export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/Library/Android/sdk}}"
 export ANDROID_HOME="$ANDROID_SDK_ROOT"
@@ -32,17 +47,13 @@ fi
 
 echo "JAVA_HOME=${JAVA_HOME:-unset}"
 echo "ANDROID_HOME=$ANDROID_HOME"
+echo "BUILD_TYPE=$BUILD_TYPE"
 
 # Live shared backend — required so the APK can sync without a post-install edit.
-# Example: EXPO_PUBLIC_API_URL=https://your-host/api/v1
-#          EXPO_PUBLIC_API_URL=http://192.168.1.10:8080/api/v1
 API_URL="${EXPO_PUBLIC_API_URL:-${TRAILGUARD_API_URL:-}}"
 if [[ -z "$API_URL" ]]; then
-  echo "ERROR: Set EXPO_PUBLIC_API_URL (or TRAILGUARD_API_URL) to the live TrailGuard /api/v1 base."
-  echo "  Deployed:  EXPO_PUBLIC_API_URL=https://YOUR_HOST/api/v1"
-  echo "  Same Wi-Fi: EXPO_PUBLIC_API_URL=http://YOUR_LAN_IP:8080/api/v1"
-  echo "Home Settings can still override the URL after install."
-  exit 1
+  # Fall back to production park host when unset (matches app.config.js default).
+  API_URL="https://trailguard-sable.vercel.app/api/v1"
 fi
 export EXPO_PUBLIC_API_URL="${API_URL%/}"
 echo "EXPO_PUBLIC_API_URL=$EXPO_PUBLIC_API_URL"
@@ -61,17 +72,14 @@ if [[ ! -d android ]]; then
 fi
 
 # Patches that must survive / re-apply after every prebuild:
-# 1) splash color — Expo sometimes omits splashscreen_background
-# 2) embed JS in debug APK — default skips bundling and expects Metro
 COLORS="android/app/src/main/res/values/colors.xml"
 if [[ -f "$COLORS" ]] && ! grep -q 'splashscreen_background' "$COLORS"; then
   echo "=== patch colors.xml (splashscreen_background) ==="
-  perl -0pi -e 's|</resources>|  <color name="splashscreen_background">#0A100C</color>\n</resources>|' "$COLORS"
+  perl -0pi -e 's|</resources>|  <color name="splashscreen_background">#F6F8F5</color>\n</resources>|' "$COLORS"
 fi
 SPLASH="android/app/src/main/res/drawable/splashscreen.xml"
 if [[ -f "$SPLASH" ]]; then
   perl -pi -e 's|@color/splashscreen_background|@color/colorPrimary|g' "$SPLASH" 2>/dev/null || true
-  # Prefer dedicated splash color when present
   if grep -q 'splashscreen_background' "$COLORS" 2>/dev/null; then
     perl -pi -e 's|@color/colorPrimary|@color/splashscreen_background|g' "$SPLASH"
   fi
@@ -82,14 +90,31 @@ if [[ -f "$APP_GRADLE" ]] && ! grep -q 'debuggableVariants = \[\]' "$APP_GRADLE"
   perl -0pi -e 's|(react \{)|$1\n    // TrailGuard: ship JS inside debug APK (no Metro required on device)\n    debuggableVariants = []\n|' "$APP_GRADLE"
 fi
 
+# Ensure cleartext allowed for LAN demo (HTTPS production still preferred).
+MANIFEST="android/app/src/main/AndroidManifest.xml"
+if [[ -f "$MANIFEST" ]] && ! grep -q 'usesCleartextTraffic' "$MANIFEST"; then
+  echo "=== patch AndroidManifest (cleartext for LAN) ==="
+  perl -pi -e 's|<application |<application android:usesCleartextTraffic="true" |' "$MANIFEST"
+fi
+
 echo "sdk.dir=$ANDROID_HOME" > android/local.properties
 
-echo "=== gradlew assembleDebug ==="
+if [[ "$BUILD_TYPE" == "release" ]]; then
+  echo "=== gradlew assembleRelease ==="
+  GRADLE_TASK="assembleRelease"
+  APK_SRC="app/build/outputs/apk/release/app-release.apk"
+  OUT_NAME="trailguard-release.apk"
+else
+  echo "=== gradlew assembleDebug ==="
+  GRADLE_TASK="assembleDebug"
+  APK_SRC="app/build/outputs/apk/debug/app-debug.apk"
+  OUT_NAME="trailguard-debug.apk"
+fi
+
 cd android
 chmod +x gradlew
-./gradlew assembleDebug --no-daemon
+./gradlew "$GRADLE_TASK" --no-daemon
 
-APK_SRC="app/build/outputs/apk/debug/app-debug.apk"
 if [[ ! -f "$APK_SRC" ]]; then
   echo "ERROR: expected $APK_SRC"
   find app/build/outputs -name '*.apk' 2>/dev/null || true
@@ -98,22 +123,25 @@ fi
 
 OUT_DIR="$MOBILE_DIR/build/apk"
 mkdir -p "$OUT_DIR"
-cp "$APK_SRC" "$OUT_DIR/trailguard-debug.apk"
-
-# Also keep a copy next to gradle output name for convenience
-cp "$APK_SRC" "$OUT_DIR/app-debug.apk"
+cp "$APK_SRC" "$OUT_DIR/$OUT_NAME"
+cp "$APK_SRC" "$OUT_DIR/$(basename "$APK_SRC")"
 
 echo "DONE"
-echo "APK: $OUT_DIR/trailguard-debug.apk ($(wc -c < "$OUT_DIR/trailguard-debug.apk" | tr -d ' ') bytes)"
+echo "APK: $OUT_DIR/$OUT_NAME ($(wc -c < "$OUT_DIR/$OUT_NAME" | tr -d ' ') bytes)"
+echo "Note: release is signed with the local debug keystore (installable; not Play Store upload)."
 
-# Quick sanity: must contain classes.dex (grep -q + pipefail → SIGPIPE 141)
 if command -v unzip >/dev/null 2>&1; then
   set +o pipefail
-  if ! unzip -l "$OUT_DIR/trailguard-debug.apk" | grep -Fq 'classes.dex'; then
+  if ! unzip -l "$OUT_DIR/$OUT_NAME" | grep -Fq 'classes.dex'; then
     set -o pipefail
     echo "WARNING: APK missing classes.dex — not a runnable app"
     exit 1
   fi
   set -o pipefail
   echo "OK: classes.dex present"
+  if unzip -p "$OUT_DIR/$OUT_NAME" assets/index.android.bundle 2>/dev/null | grep -Fq 'trailguard-sable.vercel.app'; then
+    echo "OK: live API host embedded in JS bundle"
+  elif unzip -l "$OUT_DIR/$OUT_NAME" | grep -Fq 'index.android.bundle'; then
+    echo "NOTE: bundle present; confirm EXPO_PUBLIC_API_URL if health fails on device"
+  fi
 fi

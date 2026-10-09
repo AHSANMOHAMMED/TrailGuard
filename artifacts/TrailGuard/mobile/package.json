@@ -7,7 +7,8 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "prebuild:android": "expo prebuild --platform android --no-install",
-    "apk:debug": "bash scripts/build-android-apk.sh"
+    "apk:debug": "BUILD_TYPE=debug bash scripts/build-android-apk.sh",
+    "apk:release": "BUILD_TYPE=release bash scripts/build-android-apk.sh"
   },
   "dependencies": {
     "@react-navigation/native": "^6.1.0",
