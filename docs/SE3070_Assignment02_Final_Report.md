@@ -29,12 +29,11 @@
 ### Team Identification and Use Case Allocation:
 **Group ID:** `CSSE_NU_WE_01`
 
-| Member Name | Student Registration No. | System Use-Case Area (Part A) | Individual Use Case Implementation (Part B) |
+| Member Name | Student Role / ID | System Use-Case Area (Part A) | Individual Use Case Implementation (Part B) |
 | :--- | :--- | :--- | :--- |
-| **Joel Nithushan A.T** | **IT23556652** | UC01 – Manage Ranger Patrol | **UC01-S01: Conduct Assigned Ranger Patrol** |
-| **Thushalini U** | **IT23794870** | UC02 – Report & Manage Field Incident | **UC02-S01: Report Field Incident** |
-| **Vaishnavi L** | **IT23717336** | UC03 – Monitor Tracked Wildlife & Risk Alerts | **UC03-S01: Monitor Tracked Wildlife & Manage Risk Alerts** |
-| **Kanistan T** | **IT23748644** | UC04 – Manage Human-Wildlife Conflict Reports | **UC04-S01: Manage Human-Wildlife Conflict Reports** |
+| **Shureka** | **Group Member** | UC01 – Manage Ranger Patrol | **UC01-S01: Conduct Assigned Ranger Patrol** |
+| **Ahsan Mohammed** | **Group Leader** | UC02 & UC03 – Incidents & Wildlife Risk | **UC02-S01: Report Field Incident** & **UC03-S01: Monitor Tracked Wildlife & Risk Alerts** |
+| **Kajana** | **Group Member** | UC04 – Manage Human-Wildlife Conflict Reports | **UC04-S01: Manage Human-Wildlife Conflict Reports** |
 
 ---
 
@@ -46,10 +45,10 @@
    - 2.3 [Proposed & Justified Design Improvements](#23-proposed--justified-design-improvements)
    - 2.4 [Refined UML Architecture Models](#24-refined-uml-architecture-models)
 3. [[Individual Deliverable] Implementation of Selected Use Cases](#3-individual-deliverable-implementation-of-selected-use-cases)
-   - 3.1 [UC01-S01: Conduct Assigned Ranger Patrol (Joel Nithushan A.T - IT23556652)](#31-uc01-s01-conduct-assigned-ranger-patrol-joel-nithushan-at---it23556652)
-   - 3.2 [UC02-S01: Report Field Incident (Thushalini U - IT23794870)](#32-uc02-s01-report-field-incident-thushalini-u---it23794870)
-   - 3.3 [UC03-S01: Monitor Tracked Wildlife & Manage Risk Alerts (Vaishnavi L - IT23717336)](#33-uc03-s01-monitor-tracked-wildlife--manage-risk-alerts-vaishnavi-l---it23717336)
-   - 3.4 [UC04-S01: Manage Human-Wildlife Conflict Reports (Kanistan T - IT23748644)](#34-uc04-s01-manage-human-wildlife-conflict-reports-kanistan-t---it23748644)
+   - 3.1 [UC01-S01: Conduct Assigned Ranger Patrol (Shureka)](#31-uc01-s01-conduct-assigned-ranger-patrol-shureka)
+   - 3.2 [UC02-S01: Report Field Incident (Ahsan Mohammed)](#32-uc02-s01-report-field-incident-ahsan-mohammed)
+   - 3.3 [UC03-S01: Monitor Tracked Wildlife & Manage Risk Alerts (Ahsan Mohammed)](#33-uc03-s01-monitor-tracked-wildlife--manage-risk-alerts-ahsan-mohammed)
+   - 3.4 [UC04-S01: Manage Human-Wildlife Conflict Reports (Kajana)](#34-uc04-s01-manage-human-wildlife-conflict-reports-kajana)
 4. [Software Engineering Quality, SOLID Principles & Design Patterns](#4-software-engineering-quality-solid-principles--design-patterns)
 5. [[Individual Deliverable] Comprehensive Unit Testing & Verification](#5-individual-deliverable-comprehensive-unit-testing--verification)
    - 5.1 [Testing Strategy & Test Architecture](#51-testing-strategy--test-architecture)
@@ -345,7 +344,7 @@ Each member implemented their assigned use case in its entirety, delivering a fu
 ---
 
 ### 3.1 UC01-S01: Conduct Assigned Ranger Patrol
-**Assigned Student:** Joel Nithushan A.T (`IT23556652`)  
+**Assigned Student:** Shureka  
 **Parent Use Case:** UC01 – Manage Ranger Patrol  
 **Key Source Modules:**
 - Mobile Screen: `mobile/src/screens/PatrolScreen.tsx`
@@ -355,7 +354,7 @@ Each member implemented their assigned use case in its entirety, delivering a fu
 - Backend Endpoints: `backend/app/api/patrols.py`
 
 #### 3.1.1 Implementation Scope & Workflow Alignment
-Joel implemented the 8 distinct lifecycle panels conforming to Figure 6 of the report:
+Shureka implemented the 8 distinct lifecycle panels conforming to Figure 6 of the report:
 1. **Assigned Route Overview:** Displays pre-assigned DWC Beat Route `NB-03 Northern Boundary Track` (14.2 km target distance, 06:00–12:00 window, Patrol ID `PT-2026-0812`).
 2. **Active GPS Tracking:** Utilizes `expo-location` to monitor live geographic coordinates (Lat `6.4124° N`, Lng `81.1452° E`), tracking elapsed duration and accumulated distance in real time.
 3. **Manual Waypoint Marking (Alternative Flow A1):** Provides one-tap manual waypoint stamping with custom notes (e.g., `WP-03 North Gate Outpost - Footprints sighted`) when satellite signals fluctuate under dense canopies.
@@ -385,7 +384,7 @@ Joel implemented the 8 distinct lifecycle panels conforming to Figure 6 of the r
 ---
 
 ### 3.2 UC02-S01: Report Field Incident
-**Assigned Student:** Thushalini U (`IT23794870`)  
+**Assigned Student:** Ahsan Mohammed (Group Leader)  
 **Parent Use Case:** UC02 – Report & Manage Field Incident  
 **Key Source Modules:**
 - Mobile Screen: `mobile/src/screens/IncidentScreen.tsx`
@@ -394,7 +393,7 @@ Joel implemented the 8 distinct lifecycle panels conforming to Figure 6 of the r
 - Complete-Receipt Handler: `backend/app/api/incidents.py`
 
 #### 3.2.1 Implementation Scope & Complete-Receipt Semantics
-Thushalini implemented the 8 panels of Figure 10, addressing media upload edge cases:
+Ahsan implemented the 8 panels of Figure 10, addressing media upload edge cases:
 1. **Incident Dashboard:** Real-time log of recent park infractions and status badges (`Dispatched`, `Investigating`, `Pending Sync`).
 2. **Structured Category Grid:** Quick-tap category selection (`Wire Snare / Poaching Trap`, `Injured Wildlife`, `Fence Tampering`, `Illegal Timber Extraction`).
 3. **Simulated Media Capture:** Geotagged camera interface capturing local image URIs with simulated SHA-256 digest creation and image preview.
@@ -407,7 +406,7 @@ Thushalini implemented the 8 panels of Figure 10, addressing media upload edge c
 ---
 
 ### 3.3 UC03-S01: Monitor Tracked Wildlife & Manage Risk Alerts
-**Assigned Student:** Vaishnavi L (`IT23717336`)  
+**Assigned Student:** Ahsan Mohammed (Group Leader)  
 **Parent Use Case:** UC03 – Monitor Tracked Wildlife & Manage Risk Alerts  
 **Key Source Modules:**
 - Mobile Screen: `mobile/src/screens/AlertScreen.tsx`
@@ -416,7 +415,7 @@ Thushalini implemented the 8 panels of Figure 10, addressing media upload edge c
 - Telemetry Routes: `backend/app/api/alerts.py`
 
 #### 3.3.1 Implementation Scope & IoT/ML Geofencing Simulation
-Vaishnavi implemented Figure 14's complete alert and dispatch lifecycle:
+Ahsan implemented Figure 14's complete alert and dispatch lifecycle:
 1. **High-Priority Incoming Alert Banner:** Urgent red banner alert triggered by elephant `EL-04 "Raja"` entering an agricultural boundary buffer zone.
 2. **Risk Assessment Card:** Visualizes telemetry confidence (`94% GPS fix accuracy`), movement speed (`4.8 km/h heading North-East`), and proximity to `Kattankudi Paddy Lands`.
 3. **Triage & Acknowledgment:** Ranger/Manager taps `Acknowledge Alert`, updating the record to `IN_PROGRESS` and assigning tactical call sign `Ranger Unit RN-402`.
@@ -429,7 +428,7 @@ Vaishnavi implemented Figure 14's complete alert and dispatch lifecycle:
 ---
 
 ### 3.4 UC04-S01: Manage Human-Wildlife Conflict Reports
-**Assigned Student:** Kanistan T (`IT23748644`)  
+**Assigned Student:** Kajana  
 **Parent Use Case:** UC04 – Manage Human-Wildlife Conflict Reports  
 **Key Source Modules:**
 - Mobile Screen: `mobile/src/screens/ConflictScreen.tsx`
@@ -439,10 +438,10 @@ Vaishnavi implemented Figure 14's complete alert and dispatch lifecycle:
 - REST Endpoints: `backend/app/api/conflicts.py`
 
 #### 3.4.1 Implementation Scope & Dual-Channel Ingestion
-Kanistan implemented Figure 18's multi-stakeholder conflict resolution workflow:
+Kanjana implemented Figure 18's multi-stakeholder conflict resolution workflow:
 1. **Conflict Operations Dashboard:** Categorized feed of community incident reports across `Open`, `Investigating`, and `Resolved` states.
 2. **Dual-Channel Selection:** Toggle between **Mobile App Direct Submission** and **SMS Gateway Parser Simulation** to reflect rural communication realities.
-3. **Structured Conflict Details:** Form capturing village sector (`Thissamaharama Block 3`), estimated elephant herd size (`4 Adult Bulls`), affected crops (`Banana / Paddy Cultivation`), and urgent safety status.
+3. **Structured Conflict Details:** Form capturing village details, herd sizes, crop damage types, and urgent safety ratings.
 4. **Verification & Contact Stamping:** Validates farmer contact details (`+94 77 123 4567`) and timestamps before dispatch.
 5. **Offline Queuing with SMS Fallback (Alternative Flow A1):** When data networks fail, the report is formatted into an encrypted SMS packet structure and queued in SQLite.
 6. **Submission Acknowledgment:** Generates ticket tracking ID `HWC-2026-042` with automated reassurance messaging sent to the complainant.
@@ -501,7 +500,7 @@ tests/test_conflict_service.py ....                                      [100%]
 ```
 
 #### Detailed Test Case Audit:
-1. **`test_patrol_service.py` (Joel Nithushan - UC01):**
+1. **`test_patrol_service.py` (Shureka - UC01):**
    - `test_start_patrol_creates_active_pending`: Verifies initial `ACTIVE` status and `PENDING` sync flag.
    - `test_start_patrol_never_creates_second_active`: Validates idempotency when starting an already active patrol.
    - `test_record_point_gps_and_manual`: Confirms both `GPS` and `MANUAL` waypoint inputs are correctly classified.
@@ -509,14 +508,14 @@ tests/test_conflict_service.py ....                                      [100%]
    - `test_complete_patrol_flushes_in_flight_tail`: Ensures buffered in-flight coordinates are flushed before patrol closure.
    - `test_complete_patrol_twice_rejected`: Validates that completed patrols cannot be closed a second time.
    - `test_upsert_patrol_creates_then_idempotent`: Tests UUID-based upsert to prevent duplicate waypoint insertion on sync retries.
-2. **`test_incident_and_report.py` (Thushalini U - UC02):**
+2. **`test_incident_and_report.py` (Ahsan Mohammed - UC02):**
    - `test_full_receipt_when_attachment_stored`: Tests complete-receipt validation when image URIs are present.
    - `test_incomplete_receipt_when_uri_missing`: Validates that missing media payloads return `complete=False`, keeping local files in the queue.
    - `test_retry_with_same_attach_id_never_duplicates`: Tests sync resumption without duplicate attachment creation.
    - `test_duplicate_report_id_updates_not_creates`: Tests update semantics for existing incident IDs.
    - `test_validate_window_rejects_inverted_range`: Validates date range integrity in reporting queries.
    - `test_validate_window_rejects_over_92_days`: Confirms query bounds enforcement for large timeframes.
-3. **`test_conflict_service.py` (Vaishnavi L & Kanistan T - UC03 & UC04):**
+3. **`test_conflict_service.py` (Ahsan Mohammed & Kajana - UC03 & UC04):**
    - `test_ingest_fresh_in_zone_creates_open_alert`: Verifies telemetry ingestion generates an `OPEN` alert with `PAGE` triage.
    - `test_ingest_stale_or_outside_stores_nothing`: Confirms stale telemetry or out-of-zone data is discarded cleanly.
    - `test_low_confidence_triaged_to_review_not_paged`: Tests routing of low-confidence fixes to review queues, preventing false alarm pages.
@@ -576,7 +575,7 @@ To enable rapid evaluation of all operational personas, the mobile application i
 ### 6.2 Detailed Use Case Wireframe & Implementation Walkthrough
 
 #### 6.2.1 UC01-S01: Conduct Assigned Ranger Patrol Walkthrough
-*Wireframe Reference: Assignment 01 Report, Figure 6 (High-Fidelity Wireframe, Joel Nithushan)*  
+*Wireframe Reference: Assignment 01 Report, Figure 6 (High-Fidelity Wireframe, Shureka)*  
 *Implemented Component: [PatrolScreen.tsx](file:///Users/ahsan/Documents/TrailGuard-main/artifacts/TrailGuard/mobile/src/screens/PatrolScreen.tsx)*
 
 ```
@@ -613,7 +612,7 @@ To enable rapid evaluation of all operational personas, the mobile application i
 ---
 
 #### 6.2.2 UC02-S01: Report Field Incident Walkthrough
-*Wireframe Reference: Assignment 01 Report, Figure 10 (High-Fidelity Wireframe, Thushalini U)*  
+*Wireframe Reference: Assignment 01 Report, Figure 10 (High-Fidelity Wireframe, Ahsan Mohammed)*  
 *Implemented Component: [IncidentScreen.tsx](file:///Users/ahsan/Documents/TrailGuard-main/artifacts/TrailGuard/mobile/src/screens/IncidentScreen.tsx)*
 
 ```
@@ -650,7 +649,7 @@ To enable rapid evaluation of all operational personas, the mobile application i
 ---
 
 #### 6.2.3 UC03-S01: Monitor Tracked Wildlife & Risk Alerts Walkthrough
-*Wireframe Reference: Assignment 01 Report, Figure 14 (High-Fidelity Wireframe, Vaishnavi L)*  
+*Wireframe Reference: Assignment 01 Report, Figure 14 (High-Fidelity Wireframe, Ahsan Mohammed)*  
 *Implemented Component: [AlertScreen.tsx](file:///Users/ahsan/Documents/TrailGuard-main/artifacts/TrailGuard/mobile/src/screens/AlertScreen.tsx)*
 
 ```
@@ -687,7 +686,7 @@ To enable rapid evaluation of all operational personas, the mobile application i
 ---
 
 #### 6.2.4 UC04-S01: Manage Human-Wildlife Conflict Reports Walkthrough
-*Wireframe Reference: Assignment 01 Report, Figure 18 (High-Fidelity Wireframe, Kanistan T)*  
+*Wireframe Reference: Assignment 01 Report, Figure 18 (High-Fidelity Wireframe, Kajana)*  
 *Implemented Component: [ConflictScreen.tsx](file:///Users/ahsan/Documents/TrailGuard-main/artifacts/TrailGuard/mobile/src/screens/ConflictScreen.tsx)*
 
 ```
@@ -728,7 +727,7 @@ To enable rapid evaluation of all operational personas, the mobile application i
 ### 7.1 GitHub Repository
 - **Remote URL:** [https://github.com/AHSANMOHAMMED/TrailGuard](https://github.com/AHSANMOHAMMED/TrailGuard)
 - **Primary Branch:** `main`
-- **Head Commit:** `b6827c0` (*"feat(mobile): complete assignment report UI/UX, all 4 use cases, 6-actor demo logins & build APKs"*)
+- **Head Commit:** `5959f76` (*"docs: add SE3070 Assignment 02 final report, critique, UI flows & wireframe assets"*)
 
 ### 7.2 Android Package (APK) Generation
 The application was built into standalone Android installable packages using the custom build automation toolchain `scripts/build-android-apk.sh`:
@@ -757,7 +756,7 @@ In compliance with the assignment regulations regarding Generative AI transparen
 
 ### Phase 1: Case Study Design Analysis & Critique Prompts
 - **Prompt 1.1:**
-  > *"Analyze the SE3070 Assignment 01 document (369b96a3-b430-4bb4-8ef3-a3c9f14aa93b.pdf). Extract all diagrams, use case scenarios, sequence models, and wireframes for UC01 (Joel), UC02 (Thushalini), UC03 (Vaishnavi), and UC04 (Kanistan). Produce a detailed critique identifying functional gaps, offline edge cases, UML standard violations, and HCI usability shortcomings."*
+  > *"Analyze the SE3070 Assignment 01 document (369b96a3-b430-4bb4-8ef3-a3c9f14aa93b.pdf). Extract all diagrams, use case scenarios, sequence models, and wireframes for UC01 (Shureka), UC02 (Ahsan Mohammed), UC03 (Ahsan Mohammed), and UC04 (Kajana). Produce a detailed critique identifying functional gaps, offline edge cases, UML standard violations, and HCI usability shortcomings."*
 - **Prompt 1.2:**
   > *"Review the original Class Diagram and High-Level Use Case Diagram against UML 2.5 standards. Identify misuses of include/extend relationships, anemic entity anti-patterns, and improper multiplicity. Propose corrected PlantUML architecture models."*
 
@@ -767,7 +766,7 @@ In compliance with the assignment regulations regarding Generative AI transparen
 - **Prompt 2.2:**
   > *"Implement a high-contrast DWC design system with primary #1F5A43, secondary #3B7A57, day #F6F8F5, and night #0A100C modes. Standardize 52px touch targets with icon-label pairing. Build an interactive multi-step OnboardingScreen and a LoginScreen featuring 1-tap quick login chips for all 6 operational roles."*
 - **Prompt 2.3:**
-  > *"Implement AlertScreen.tsx to realize UC03-S01 (Vaishnavi L) matching Figure 14. Support the complete 8-panel lifecycle: incoming elephant alert, farmland geofence analysis, ranger triage, tactical tracking, multi-team coordination, intervention timer, and resolution modal."*
+  > *"Implement AlertScreen.tsx to realize UC03-S01 (Ahsan Mohammed) matching Figure 14. Support the complete 8-panel lifecycle: incoming elephant alert, farmland geofence analysis, ranger triage, tactical tracking, multi-team coordination, intervention timer, and resolution modal."*
 
 ### Phase 3: Backend Services & Unit Testing Prompts
 - **Prompt 3.1:**
@@ -785,7 +784,6 @@ In compliance with the assignment regulations regarding Generative AI transparen
 We certify that this report and the accompanying software codebase represent the original engineering work of group `CSSE_NU_WE_01`. All members contributed to the group design critique, architectural refinement, and completed their designated individual use case implementation and testing. All AI-assisted research and development activities have been fully documented in the appendix in accordance with academic integrity guidelines.
 
 **Signed:**
-- **Joel Nithushan A.T (IT23556652)** — Lead Ranger Operations (UC01)
-- **Thushalini U (IT23794870)** — Lead Incident Management (UC02)
-- **Vaishnavi L (IT23717336)** — Lead Wildlife Telemetry & Risk Alerts (UC03)
-- **Kanistan T (IT23748644)** — Lead Human-Wildlife Conflict Systems (UC04)
+- **Shureka** — Lead Ranger Operations (UC01)
+- **Ahsan Mohammed (Group Leader)** — Lead Incident Management & Wildlife Telemetry Alerts (UC02 & UC03)
+- **Kajana** — Lead Human-Wildlife Conflict Systems (UC04)
