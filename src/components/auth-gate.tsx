@@ -97,37 +97,51 @@ export function LoginScreen() {
 
   return (
     <Phone>
-      <div className="tg-wave-hero relative overflow-hidden px-0 pb-12 pt-0 text-center">
-        <div className="absolute right-3 top-3 z-10">
+      <div className="relative overflow-hidden bg-[#163c2c] text-center text-white">
+        <div className="absolute right-3 top-3 z-20">
           <ThemeToggle tone="dark" />
         </div>
-        <div className="relative mx-auto aspect-[16/9] w-full overflow-hidden">
+        <div className="relative aspect-[16/10] w-full overflow-hidden">
           <img
             src="/brand/trailguard-logo.jpg"
-            alt="TrailGuard"
-            className="size-full object-cover object-center"
+            alt="TrailGuard Forest"
+            className="size-full object-cover object-center brightness-90"
             width={780}
             height={440}
           />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#1f5a43]/90 via-[#1f5a43]/35 to-transparent" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/40 via-[#163c2c]/40 to-[#163c2c]" />
+          <div className="absolute inset-0 flex flex-col items-center justify-center px-4 pt-2">
+            <span className="font-mono text-[10px] font-bold tracking-[0.25em] text-[#a0dfb8] uppercase drop-shadow-sm">
+              FIELD OPS FOR THE WILD
+            </span>
+            <h1 className="mt-1 text-[26px] font-extrabold tracking-tight text-white drop-shadow-md">
+              TRAILGUARD
+            </h1>
+          </div>
         </div>
-        <div className="relative -mt-10 px-5">
-          <h1 className="text-[24px] font-bold tracking-tight text-white drop-shadow">TrailGuard</h1>
-          <p className="mt-1 text-[13px] text-white/85">Yala National Park · Field sign-in</p>
+        <div className="relative -mt-6 pb-6 px-4">
+          <h2 className="text-[22px] font-bold tracking-tight text-white drop-shadow">
+            TrailGuard
+          </h2>
+          <p className="mt-0.5 text-[12.5px] text-white/85">
+            Yala National Park · Field sign-in
+          </p>
         </div>
+        {/* Wave separator */}
+        <div className="h-4 w-full bg-surface [clip-path:ellipse(60%_100%_at_50%_100%)]" />
       </div>
 
-      <Body className="tg-fade-up -mt-2 pt-2">
-        <form className="flex flex-col gap-3" onSubmit={submit}>
+      <Body className="tg-fade-up pt-3">
+        <form className="flex flex-col gap-3.5" onSubmit={submit}>
           <div>
-            <p className="text-[15px] font-bold">Login</p>
-            <p className="mt-0.5 text-[12.5px] text-muted">
+            <h3 className="text-[17px] font-bold">Login</h3>
+            <p className="mt-0.5 text-[13px] text-muted">
               Enter your user ID and 4-digit field PIN.
             </p>
           </div>
 
           <label className="flex flex-col gap-1.5">
-            <span className="text-[12px] font-semibold text-muted">User ID</span>
+            <span className="text-[12.5px] font-semibold text-muted">User ID</span>
             <input
               type="text"
               name="userId"
@@ -139,12 +153,12 @@ export function LoginScreen() {
                 setError(false);
               }}
               placeholder="e.g. RN-402"
-              className="h-[52px] w-full rounded-xl border border-border bg-surface px-3 text-[15px] text-fg shadow-sm outline-none ring-accent/40 placeholder:text-subtle focus:ring-2 disabled:opacity-50"
+              className="h-[52px] w-full rounded-2xl border border-border bg-surface px-4 text-[15px] text-fg shadow-sm outline-none ring-accent/40 placeholder:text-subtle focus:ring-2 disabled:opacity-50"
             />
           </label>
 
           <label className="flex flex-col gap-1.5">
-            <span className="text-[12px] font-semibold text-muted">Field PIN</span>
+            <span className="text-[12.5px] font-semibold text-muted">Field PIN</span>
             <input
               type="password"
               name="pin"
@@ -158,18 +172,18 @@ export function LoginScreen() {
                 setError(false);
               }}
               placeholder="••••"
-              className="h-[52px] w-full rounded-xl border border-border bg-surface px-3 text-[15px] tracking-[0.35em] text-fg shadow-sm outline-none ring-accent/40 placeholder:tracking-normal placeholder:text-subtle focus:ring-2 disabled:opacity-50"
+              className="h-[52px] w-full rounded-2xl border border-border bg-surface px-4 text-[16px] tracking-[0.4em] text-fg shadow-sm outline-none ring-accent/40 placeholder:tracking-normal placeholder:text-subtle focus:ring-2 disabled:opacity-50"
             />
           </label>
 
           {error || lockLeftS > 0 ? (
             <p
               className={cn(
-                "flex items-center gap-1.5 text-[12.5px] font-semibold",
+                "flex items-center gap-1.5 rounded-xl border border-danger/30 bg-danger-bg/50 px-3 py-2 text-[12.5px] font-semibold",
                 lockLeftS > 0 ? "text-warn" : "text-danger",
               )}
             >
-              <LockKeyhole className="size-3.5" />
+              <LockKeyhole className="size-4 shrink-0" />
               {lockLeftS > 0
                 ? `Too many attempts · locked for ${lockLeftS}s`
                 : "Wrong user ID or PIN — try again"}
@@ -184,34 +198,8 @@ export function LoginScreen() {
           </BtnPrimary>
         </form>
 
-        <div className="mt-1 flex flex-col gap-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-subtle">
-            Quick demo fill · pick an actor
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            {ACTORS.map((a) => (
-              <button
-                key={a.role}
-                type="button"
-                onClick={() => {
-                  setUserId(a.userId);
-                  setPin(a.pin);
-                  setError(false);
-                }}
-                className="rounded-xl border border-border bg-surface px-3 py-2.5 text-left text-[12px] shadow-sm hover:bg-elevated"
-              >
-                <span className="block font-semibold text-fg">{a.title}</span>
-                <span className="block truncate text-[10.5px] text-muted">{a.tagline}</span>
-                <span className="mt-0.5 block font-mono text-[10.5px] text-subtle">
-                  {a.userId} · {a.pin}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <p className="mt-auto pt-3 text-center text-[11px] text-subtle">
-          On-device credentials · works offline
+        <p className="mt-auto pt-4 text-center text-[11px] text-subtle">
+          Protected field authentication · offline verified
         </p>
       </Body>
     </Phone>
