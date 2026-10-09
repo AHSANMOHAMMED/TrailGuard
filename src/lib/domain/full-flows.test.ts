@@ -8,6 +8,12 @@ import { mirrorCounts, mirrorReset } from "./server-mirror";
 import { useField } from "../store";
 import { validateCriteria } from "./reporting";
 
+function isoDateFromNow(offsetDays = 0): string {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + offsetDays);
+  return date.toISOString().slice(0, 10);
+}
+
 function reset(): void {
   mirrorReset();
   useField.setState({
@@ -151,7 +157,7 @@ test("full flow: reports include only SYNCED records", async () => {
   const criteria = validateCriteria({
     park: "Yala National Park",
     from: "2026-09-01",
-    to: "2026-10-08",
+    to: isoDateFromNow(1),
   });
   assert.equal(criteria.ok, true);
   if (!criteria.ok) return;
