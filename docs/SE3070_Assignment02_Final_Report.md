@@ -291,7 +291,7 @@ Figure 6: Manage Human-Wildlife Conflict Reports Sequence Diagram
 
 Below are high-fidelity screenshots of the implemented TrailGuard mobile application, demonstrating the complete end-to-end user experience, offline vector map engine, daylight/night visual themes, multi-actor authentication, and all 4 business use cases.
 
-![Figure 7 Screen Shots of System - Onboarding, Login & Role Selection](file:///Users/ahsan/Documents/TrailGuard-main/docs/report_assets/page-13.png)
+![Figure 7 Screen Shots of System - Onboarding, Login & Role Selection](file:///Users/ahsan/Documents/TrailGuard-main/docs/screenshots/ui_onboarding_login_1791546776357.jpg)
 
 Figure 7: Screen Shots of System — Interactive Onboarding, 6-Actor Quick Login & Day/Night Mode
 
@@ -301,7 +301,7 @@ Figure 7: Screen Shots of System — Interactive Onboarding, 6-Actor Quick Login
 
 ---
 
-![Figure 8 Screen Shots of System - UC01 Conduct Assigned Ranger Patrol](file:///Users/ahsan/Documents/TrailGuard-main/docs/report_assets/page-12.png)
+![Figure 8 Screen Shots of System - UC01 Conduct Assigned Ranger Patrol](file:///Users/ahsan/Documents/TrailGuard-main/docs/screenshots/ui_patrol_screen_1791546825205.jpg)
 
 Figure 8: Screen Shots of System — UC01 Conduct Assigned Ranger Patrol (Shureka)
 
@@ -313,7 +313,7 @@ Figure 8: Screen Shots of System — UC01 Conduct Assigned Ranger Patrol (Shurek
 
 ---
 
-![Figure 9 Screen Shots of System - UC02 Report Field Incident](file:///Users/ahsan/Documents/TrailGuard-main/docs/report_assets/page-22.png)
+![Figure 9 Screen Shots of System - UC02 Report Field Incident](file:///Users/ahsan/Documents/TrailGuard-main/docs/screenshots/ui_incident_screen_1791546852785.jpg)
 
 Figure 9: Screen Shots of System — UC02 Report Field Incident (Ahsan Mohammed)
 
@@ -325,7 +325,7 @@ Figure 9: Screen Shots of System — UC02 Report Field Incident (Ahsan Mohammed)
 
 ---
 
-![Figure 10 Screen Shots of System - UC03 Wildlife Risk Alerts](file:///Users/ahsan/Documents/TrailGuard-main/docs/report_assets/page-23.png)
+![Figure 10 Screen Shots of System - UC03 Wildlife Risk Alerts](file:///Users/ahsan/Documents/TrailGuard-main/docs/screenshots/ui_alert_screen_1791546883936.jpg)
 
 Figure 10: Screen Shots of System — UC03 Monitor Tracked Wildlife & Risk Alerts (Ahsan Mohammed)
 
@@ -337,7 +337,7 @@ Figure 10: Screen Shots of System — UC03 Monitor Tracked Wildlife & Risk Alert
 
 ---
 
-![Figure 11 Screen Shots of System - UC04 Human-Wildlife Conflict](file:///Users/ahsan/Documents/TrailGuard-main/docs/report_assets/page-29.png)
+![Figure 11 Screen Shots of System - UC04 Human-Wildlife Conflict](file:///Users/ahsan/Documents/TrailGuard-main/docs/screenshots/ui_conflict_screen_1791546913914.jpg)
 
 Figure 11: Screen Shots of System — UC04 Manage Human-Wildlife Conflict Reports (Kajana)
 
@@ -349,7 +349,7 @@ Figure 11: Screen Shots of System — UC04 Manage Human-Wildlife Conflict Report
 
 ---
 
-![Figure 12 Screen Shots of System - Offline Vector Canvas Map Engine](file:///Users/ahsan/Documents/TrailGuard-main/docs/report_assets/page-30.png)
+![Figure 12 Screen Shots of System - Offline Vector Canvas Map Engine](file:///Users/ahsan/Documents/TrailGuard-main/docs/screenshots/ui_offline_map_1791546943032.jpg)
 
 Figure 12: Screen Shots of System — Offline Vector Canvas Map Engine (`OfflineMap.tsx`)
 
