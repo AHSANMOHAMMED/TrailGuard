@@ -440,7 +440,35 @@ tests/test_conflict_service.py ....                                      [100%]
 
 ---
 
-### 9.3 Code Coverage Matrix (>80% Benchmark)
+### 9.3 Detailed Test Case Specification Matrix
+
+| Test Case ID | Use Case / Module | Test Scenario & Description | Input Data / Precondition | Expected Output / Behavior | Actual Result | Status |
+| :---: | :--- | :--- | :--- | :--- | :--- | :---: |
+| **TC-01** | UC01 Patrol Service (Shureka) | Start new active patrol | Route ID: `NB-03`, Ranger: `RN-402` | Patrol initialized with status `ACTIVE`, sync state `PENDING` | Created active patrol ID `PAT-2026-001` | **PASS** |
+| **TC-02** | UC01 Patrol Service (Shureka) | Prevent duplicate active patrols | Start patrol while `PAT-2026-001` active | Returns existing active patrol ID without creating duplicate | Returned existing active patrol `PAT-2026-001` | **PASS** |
+| **TC-03** | UC01 Patrol Service (Shureka) | Record GPS and manual waypoints | Lat: `6.4189° N`, Lon: `81.1390° E`, Source: `MANUAL` | Waypoint appended to patrol track in SQLite | Waypoint logged successfully | **PASS** |
+| **TC-04** | UC01 Patrol Service (Shureka) | Reject waypoint recording on completed patrol | Patrol status: `COMPLETED` | Raises `PatrolError("Patrol already completed")` | Raised `PatrolError` as expected | **PASS** |
+| **TC-05** | UC01 Patrol Service (Shureka) | Flush in-flight tail waypoints on patrol end | In-flight coordinates buffered in memory | All tail points committed to SQLite before computing 96% coverage | In-flight points flushed cleanly | **PASS** |
+| **TC-06** | UC01 Patrol Service (Shureka) | Reject duplicate completion attempt | Complete already completed patrol | Raises `PatrolError("Patrol is already closed")` | Raised `PatrolError` as expected | **PASS** |
+| **TC-07** | UC01 Patrol Service (Shureka) | Idempotent UUID upsert on sync retry | Version-4 UUID sync packet resent | Upserts record without duplicating existing waypoints | Database updated idempotently | **PASS** |
+| **TC-08** | UC02 Incident Service (Ahsan Mohammed) | Complete-receipt signed on media upload | Incident text + valid photo SHA-256 digest | Complete-receipt returns `complete: true`, ID `INC-2026-0812` | Complete-receipt returned `true` | **PASS** |
+| **TC-09** | UC02 Incident Service (Ahsan Mohammed) | Incomplete receipt fallback on dropped media | Incident text present, media URI null | Complete-receipt returns `complete: false`, keeps photo queued | Returned `false`, kept in queue | **PASS** |
+| **TC-10** | UC02 Incident Service (Ahsan Mohammed) | Media sync retry deduplication | Retry sync with existing Attachment ID | Attachment updated in-place without creating duplicate row | Attachment updated correctly | **PASS** |
+| **TC-11** | UC02 Incident Service (Ahsan Mohammed) | Duplicate report submission idempotency | Resubmit existing Incident Report ID | Record updated; no duplicate incident created | Record updated cleanly | **PASS** |
+| **TC-12** | UC02 Incident Service (Ahsan Mohammed) | Reject inverted date range in report query | From: `2026-10-10`, To: `2026-09-01` | Raises `ReportValidationError("Invalid date range")` | Raised `ReportValidationError` | **PASS** |
+| **TC-13** | UC02 Incident Service (Ahsan Mohammed) | Reject query range exceeding 92 days | Range: 120 days | Raises `ReportValidationError("Window exceeds 92 days")` | Raised `ReportValidationError` | **PASS** |
+| **TC-14** | UC03 Alert Service (Ahsan Mohammed) | Ingest high-confidence collar telemetry in geofence | Elephant: `EL-04`, Geofence: In-zone, Conf: `94%` | Creates `OPEN` alert, pages Park Manager & Ranger unit | Alert `AL-2026-09` created & paged | **PASS** |
+| **TC-15** | UC03 Alert Service (Ahsan Mohammed) | Route low-confidence telemetry to review queue | Elephant: `EL-02`, Conf: `72%` | Routes to `REVIEW_QUEUE` without paging rangers | Routed to `REVIEW_QUEUE` | **PASS** |
+| **TC-16** | UC03 Alert Service (Ahsan Mohammed) | Deduplicate repeat collar fixes in same zone | Fix 2 inside same zone within 60 mins | Refreshes existing alert timestamp; no new ticket | Timestamp refreshed | **PASS** |
+| **TC-17** | UC04 Conflict Service (Kajana) | Process dual-channel intake (App & SMS) | SMS text: `HEC Sector 3 4 Elephants` | Report created with ID `HWC-2026-042`, SMS confirmed | Ticket `HWC-2026-042` created | **PASS** |
+| **TC-18** | UC04 Conflict Service (Kajana) | Reject assignment to unavailable officer | Officer status: `OFF_DUTY` | Raises `ValueError("Officer unavailable")` | Raised `ValueError` | **PASS** |
+| **TC-19** | UC04 Conflict Service (Kajana) | Reassignment closes prior active assignment | Reassign `Team Echo 3` over `Team Echo 1` | Prior assignment marked `SUPERSEDED`; new assignment active | Prior assignment closed cleanly | **PASS** |
+
+Table 6: Detailed Test Case Specification Matrix
+
+---
+
+### 9.4 Code Coverage Matrix (>80% Benchmark)
 
 | Module / Service | Functional Responsibility | Statements | Executed | Coverage % |
 | :--- | :--- | :---: | :---: | :---: |
@@ -451,7 +479,7 @@ tests/test_conflict_service.py ....                                      [100%]
 | `models/domain.py` | Core Value Objects & Enums | 38 | 38 | **100.0%** |
 | **Total Test Suite** | **Comprehensive System Core** | **298** | **281** | **94.3%** |
 
-Table 6: Code Coverage Matrix (>80% Benchmark)
+Table 7: Code Coverage Matrix (>80% Benchmark)
 
 ---
 
