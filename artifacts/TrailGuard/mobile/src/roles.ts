@@ -19,19 +19,56 @@ export type Area =
 
 export const DEFAULT_ACCESS: Record<Role, Area[]> = {
   SUPER_ADMIN: ['patrol', 'incidents', 'alerts', 'conflict', 'reports', 'radio', 'admin'],
-  RANGER: ['patrol', 'incidents', 'alerts', 'conflict', 'radio'],
-  LIAISON: ['alerts', 'conflict', 'radio'],
-  MANAGER: ['alerts', 'conflict', 'reports', 'radio'],
-  RESEARCHER: ['reports', 'radio'],
+  RANGER: ['patrol', 'incidents', 'alerts', 'conflict', 'reports', 'radio'],
+  LIAISON: ['alerts', 'conflict', 'reports', 'radio'],
+  MANAGER: ['patrol', 'incidents', 'alerts', 'conflict', 'reports', 'radio', 'admin'],
+  RESEARCHER: ['reports', 'alerts', 'radio'],
   COMMUNITY: ['conflict', 'radio'],
 };
 
-export const AREA_ROUTES: { area: Area; title: string; route: string }[] = [
-  { area: 'patrol', title: 'UC01 · Patrol', route: 'Patrol' },
-  { area: 'incidents', title: 'UC02 · Incident', route: 'Incident' },
-  { area: 'conflict', title: 'UC03 · Conflict', route: 'Conflict' },
-  { area: 'reports', title: 'UC04 · Reports', route: 'Reports' },
-  { area: 'admin', title: 'Role admin', route: 'Admin' },
+export const AREA_ROUTES: { area: Area; title: string; subtitle: string; route: string; badge: string }[] = [
+  {
+    area: 'patrol',
+    title: 'UC01 · Conduct Assigned Patrol',
+    subtitle: 'GPS tracking, manual waypoints & coverage',
+    route: 'Patrol',
+    badge: 'Ranger',
+  },
+  {
+    area: 'incidents',
+    title: 'UC02 · Report Field Incident',
+    subtitle: 'Snare, carcass, camp, footprints & photo log',
+    route: 'Incident',
+    badge: 'Ranger',
+  },
+  {
+    area: 'alerts',
+    title: 'UC03 · Wildlife Risk Alerts',
+    subtitle: 'Collar GPS tracking, geofence & field response',
+    route: 'Alerts',
+    badge: 'Ranger / Liaison',
+  },
+  {
+    area: 'conflict',
+    title: 'UC04 · Human-Wildlife Conflict',
+    subtitle: 'App & SMS reporting, rapid triage & response',
+    route: 'Conflict',
+    badge: 'Community / Staff',
+  },
+  {
+    area: 'reports',
+    title: 'Conservation Analysis & Reports',
+    subtitle: 'Cross-park conflict trends & patrol analytics',
+    route: 'Reports',
+    badge: 'Manager / Researcher',
+  },
+  {
+    area: 'admin',
+    title: 'Role Admin & Access Matrix',
+    subtitle: 'Configure operational permissions across actors',
+    route: 'Admin',
+    badge: 'Admin',
+  },
 ];
 
 export function areasFor(role: Role): Area[] {

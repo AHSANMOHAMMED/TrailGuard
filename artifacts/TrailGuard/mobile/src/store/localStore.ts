@@ -339,3 +339,12 @@ export function countPendingSync(): number {
   };
   return row?.c ?? 0;
 }
+
+export function getLocalStats(): { patrols: number; incidents: number; conflicts: number } {
+  initLocalStore();
+  const p = (db.getFirstSync(`SELECT COUNT(*) AS c FROM patrols`) as { c: number } | null)?.c ?? 0;
+  const i = (db.getFirstSync(`SELECT COUNT(*) AS c FROM incidents`) as { c: number } | null)?.c ?? 0;
+  const cf = (db.getFirstSync(`SELECT COUNT(*) AS c FROM conflicts`) as { c: number } | null)?.c ?? 0;
+  return { patrols: p, incidents: i, conflicts: cf };
+}
+

@@ -10,6 +10,7 @@ import PatrolScreen from './src/screens/PatrolScreen';
 import IncidentScreen from './src/screens/IncidentScreen';
 import ConflictScreen from './src/screens/ConflictScreen';
 import ReportScreen from './src/screens/ReportScreen';
+import AlertScreen from './src/screens/AlertScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import { getColors, getTheme, subscribeTheme } from './src/theme';
 
@@ -52,6 +53,7 @@ export default function App() {
         <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'TrailGuard' }} />
         <Stack.Screen name="Patrol" component={PatrolScreen} options={{ title: 'Patrol' }} />
         <Stack.Screen name="Incident" component={IncidentScreen} options={{ title: 'Incident' }} />
+        <Stack.Screen name="Alerts" component={AlertScreen} options={{ title: 'Wildlife Risk Alerts' }} />
         <Stack.Screen name="Conflict" component={ConflictScreen} options={{ title: 'Conflict' }} />
         <Stack.Screen name="Reports" component={ReportScreen} options={{ title: 'Reports' }} />
       </Stack.Navigator>
