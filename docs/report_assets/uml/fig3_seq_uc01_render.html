@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"/>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true, theme: 'neutral', securityLevel: 'loose',
+    flowchart: { htmlLabels: true, curve: 'basis', nodeSpacing: 40, rankSpacing: 50 },
+    sequence: { actorMargin: 36, messageMargin: 40, mirrorActors: false } });
+</script>
+<style>
+  body { margin: 24px; background: #fff; font-family: system-ui, sans-serif; }
+  .mermaid { background: #fff; }
+</style>
+</head><body>
+<pre class="mermaid">
+sequenceDiagram
+  autonumber
+  actor Ranger
+  participant UI as PatrolView
+  participant S as PatrolService
+  participant LS as LocalStore SQLite
+  participant SY as SyncService
+  participant API as ConservationAPI Neon
+
+  Note over Ranger,API: UC01-S01 Conduct Assigned Ranger Patrol
+
+  Ranger->>UI: Open assigned route NB-03
+  UI-->>Ranger: Route map + status + last sync
+  Ranger->>UI: Start patrol
+  UI->>S: startPatrol(routeId)
+  S->>LS: save(ACTIVE, PENDING)
+  LS-->>S: ok
+  S-->>UI: patrolId
+  UI-->>Ranger: Patrol started on this phone
+
+  loop While ACTIVE
+    Ranger->>UI: GPS fix or Manual waypoint
+    UI->>S: recordPosition(source)
+    S->>LS: append waypoint PENDING
+  end
+
+  alt Offline A2
+    UI-->>Ranger: Offline indicator + pending count
+    Note over LS: Positions kept locally — no data loss
+  else Connectivity restored A3
+    SY->>LS: pendingQueue()
+    SY->>API: POST /api/v1/sync/upsert kind=patrol
+    API-->>SY: ack complete
+    SY->>LS: markSynced
+  end
+
+  Ranger->>UI: Complete patrol
+  UI->>S: completePatrol + flushTail
+  S->>LS: COMPLETED + coveragePct
+  S-->>UI: duration, positions, coverage
+  UI-->>Ranger: Completion confirmed
+</pre>
+</body></html>

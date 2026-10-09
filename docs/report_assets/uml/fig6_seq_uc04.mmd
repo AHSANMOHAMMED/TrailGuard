@@ -1,0 +1,40 @@
+sequenceDiagram
+  autonumber
+  actor Community as Community Member
+  participant App as Conflict App / SMS
+  participant S as ConflictIntakeService
+  participant LS as LocalStore
+  participant SY as SyncService
+  participant API as ConservationAPI
+  participant Desk as Liaison / Manager Desk
+
+  Note over Community,Desk: UC04-S01 Manage Human-Wildlife Conflict Reports
+
+  alt Mobile App channel
+    Community->>App: Open conflict report form
+    App-->>Community: type / location / herdSize / damage / phone
+    Community->>App: Submit Elephant Sighting / Crop Raiding
+  else SMS channel extend
+    Community->>App: SMS short-code HEC packet
+    App->>S: parseSmsPacket()
+  end
+
+  App->>S: validate required fields
+  S->>LS: save ConflictReport PENDING channel=APP|SMS
+  LS-->>S: reportId
+
+  alt Offline
+    App-->>Community: Stored locally — pending sync
+  else Online
+    App->>SY: synchronize kind=conflict
+    SY->>API: POST /api/v1/sync/upsert
+    API-->>SY: ack
+    SY->>LS: markSynced SUBMITTED
+    App-->>Community: Ticket registered
+  end
+
+  Desk->>API: GET /api/v1/field/list
+  API-->>Desk: Shared conflict rows
+  Desk->>Desk: Review priority + assign unit
+  Desk->>API: upsert deskStatus RESPONDED
+  Desk-->>Community: Status updated on ops dashboard

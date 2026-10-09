@@ -69,6 +69,7 @@ function AlertsPage() {
     ackAlert,
     resolveAlert,
     resetAlert,
+    ingestCollarReading,
     assignAlert,
     failNotify,
     escalateAlert,
@@ -85,6 +86,9 @@ function AlertsPage() {
   const [resolvedAt, setResolvedAt] = useState<string | null>(null);
   const [pickedOfficer, setPickedOfficer] = useState(OFFICERS[0].id);
   const [deskMsg, setDeskMsg] = useState<string | null>(null);
+  /** Demo-scaled ack window (A01 AF-2: no ack → escalate). 90s ≈ 15 min field window. */
+  const [ackDeadlineMs, setAckDeadlineMs] = useState<number | null>(null);
+  const [ackSecondsLeft, setAckSecondsLeft] = useState<number | null>(null);
 
   const alert =
     alerts.find((a) => a.status !== "CLOSED") ?? alerts[0];
@@ -93,6 +97,28 @@ function AlertsPage() {
   useEffect(() => {
     if (!alert || alert.status === "CLOSED") resetAlert();
   }, [alert, resetAlert]);
+
+  // AF-2: if assigned and not acknowledged before deadline → escalate.
+  useEffect(() => {
+    if (!alert || !ackDeadlineMs) return;
+    if (alert.acknowledgedAt || alert.status === "CLOSED" || alert.status === "ESCALATED") {
+      setAckDeadlineMs(null);
+      setAckSecondsLeft(null);
+      return;
+    }
+    const tick = () => {
+      const left = Math.max(0, Math.ceil((ackDeadlineMs - Date.now()) / 1000));
+      setAckSecondsLeft(left);
+      if (left <= 0) {
+        escalateAlert(alert.alertId);
+        setDeskMsg("No ack within window → escalated to backup (AF-2).");
+        setAckDeadlineMs(null);
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [alert, ackDeadlineMs, escalateAlert]);
 
   if (!alert) return null;
   const detected = fmtClock(alert.receivedAt);
@@ -189,11 +215,32 @@ function AlertsPage() {
             <BtnPrimary
               onClick={() => {
                 assignAlert(alert.alertId, officer);
-                setDeskMsg(`Assigned ${officer.name} · notification SENT (delivery only).`);
+                setAckDeadlineMs(Date.now() + 90_000);
+                setDeskMsg(
+                  `Assigned ${officer.name} · notification SENT. Ack within 90s or AF-2 escalates.`,
+                );
               }}
             >
               Assign officer
             </BtnPrimary>
+            {ackSecondsLeft != null ? (
+              <HintCard>
+                Ack countdown: {ackSecondsLeft}s remaining (demo-scaled 15‑min window).
+              </HintCard>
+            ) : null}
+            <BtnOutline
+              onClick={() => {
+                const r = ingestCollarReading({ confidence: "High" });
+                setDeskMsg(
+                  r
+                    ? `Collar EL-07 ingest → ${r.triage} (alert ${r.alertId}).`
+                    : "Collar fix ignored (outside zone / stale).",
+                );
+                setStep("incoming");
+              }}
+            >
+              Simulate collar fix (EL-07 farmland)
+            </BtnOutline>
             <BtnOutline
               onClick={() => {
                 const next = failNotify(alert.alertId);

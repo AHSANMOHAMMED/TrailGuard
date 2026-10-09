@@ -1,0 +1,50 @@
+sequenceDiagram
+  autonumber
+  actor Ranger
+  participant UI as IncidentView
+  participant S as IncidentOpsService
+  participant Cam as Camera
+  participant LS as LocalStore
+  participant SY as SyncService
+  participant API as ConservationAPI
+
+  Note over Ranger,API: UC02-S01 Report Field Incident
+
+  Ranger->>UI: Open Report Field Incident
+  UI-->>Ranger: Type / severity / photo / location / description
+  Ranger->>UI: Select category + severity HIGH MEDIUM LOW
+  Ranger->>UI: Capture photo evidence
+  UI->>Cam: openCamera()
+  Cam-->>UI: localUri + mimeType
+  UI->>UI: compute sha256Digest
+
+  alt GPS available
+    UI->>UI: Capture GPS GeoPoint
+  else E1 GPS unavailable
+    UI-->>Ranger: GPS failed — enter MANUAL lat/lng
+    Ranger->>UI: Manual coordinates + landmark
+  end
+
+  Ranger->>UI: Enter description + Review
+  Ranger->>UI: Submit Incident
+  UI->>S: validate required fields
+  S->>LS: save IncidentReport PENDING complete=false
+  S->>LS: save PhotoAttachment PENDING
+  LS-->>S: reportId
+  UI-->>Ranger: Saved on device — pending sync
+
+  alt Online complete-receipt
+    S->>SY: synchronize kind=incident
+    SY->>API: POST /api/v1/sync/upsert
+    API->>API: verify sha256 + store
+    API-->>SY: SyncAck complete=true refId
+    SY->>LS: markSynced Incident + Photo
+    UI-->>Ranger: SYNCED complete-receipt INC-ref
+  else Offline A1
+    UI-->>Ranger: Pending synchronisation
+    Note over LS: Photo + text preserved locally
+  else Partial media failure E2
+    API-->>SY: complete=false text kept
+    SY->>LS: keep photo PENDING retry
+    UI-->>Ranger: Text synced — photo retrying
+  end

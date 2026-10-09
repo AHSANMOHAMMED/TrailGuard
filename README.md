@@ -2,10 +2,12 @@
 
 Offline-first wildlife conservation & anti-poaching field system — **Yala National Park**.
 
-> **SE3070 Assignment 02** · Group CSSE_2025_Y3_NU_WE2
+> **SE3070 Assignment 02** · Group CSSE_NU_WE_01
 > Critique & justified improvements of the A01 design, with implementations of all four
-> use cases (UC01 Patrol · UC02 Incidents · UC03 Conflict · UC04 Reports) in two targets:
+> use cases (UC01 Patrol · UC02 Incidents · UC03 Risk Alerts · UC04 Conflict) in two targets:
 > this **web app** (TanStack Start) and the reference **FastAPI backend**.
+>
+> **Live:** https://trailguard-sable.vercel.app · API `…/api/v1` · APK `EXPO_PUBLIC_API_URL=https://trailguard-sable.vercel.app/api/v1`
 
 ---
 

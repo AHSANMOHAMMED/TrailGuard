@@ -1,0 +1,46 @@
+sequenceDiagram
+  autonumber
+  actor Ranger
+  participant UI as PatrolView
+  participant S as PatrolOpsService
+  participant LS as LocalStore SQLite
+  participant SY as SyncService
+  participant API as ConservationAPI Neon
+
+  Note over Ranger,API: UC01-S01 Conduct Assigned Ranger Patrol
+
+  Ranger->>UI: Open assigned route NB-03
+  UI-->>Ranger: Route map + status + last sync
+  Ranger->>UI: Start patrol
+  UI->>S: startPatrol(routeId, officerId)
+  S->>LS: save Patrol ACTIVE PENDING
+  LS-->>S: ok + patrolId
+  S-->>UI: patrolId
+  UI-->>Ranger: Patrol started on this phone
+
+  loop While ACTIVE
+    Ranger->>UI: GPS fix or Manual waypoint
+    UI->>S: recordPosition(source, geo, label?)
+    S->>LS: append Waypoint PENDING
+    S-->>UI: distanceKm + coveragePct preview
+  end
+
+  alt Offline A2
+    UI-->>Ranger: Offline indicator + pending count
+    Note over LS: Positions kept locally — no data loss
+  else Connectivity restored A3 / UC01b
+    SY->>LS: pendingQueue kind=patrol
+    SY->>API: POST /api/v1/sync/upsert
+    API-->>SY: SyncAck complete=true
+    SY->>LS: markSynced patrolId
+    UI-->>Ranger: SYNCED badge
+  else Sync failed UC01b extend
+    SY->>LS: mark FAILED + retryAfter
+    UI-->>Ranger: Retry sync when coverage returns
+  end
+
+  Ranger->>UI: Complete patrol
+  UI->>S: completePatrol + flushTail
+  S->>LS: COMPLETED + coveragePct
+  S-->>UI: duration, positions, coverage
+  UI-->>Ranger: Completion confirmed 96% gauge

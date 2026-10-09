@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"/>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true, theme: 'neutral', securityLevel: 'loose',
+    flowchart: { htmlLabels: true, curve: 'basis', nodeSpacing: 40, rankSpacing: 50 },
+    sequence: { actorMargin: 36, messageMargin: 40, mirrorActors: false } });
+</script>
+<style>
+  body { margin: 24px; background: #fff; font-family: system-ui, sans-serif; }
+  .mermaid { background: #fff; }
+</style>
+</head><body>
+<pre class="mermaid">
+sequenceDiagram
+  autonumber
+  participant Collar as GPS Collar
+  participant Ing as AlertIngest Domain
+  participant Desk as Ops Desk / Alerts UI
+  participant Mgr as Park Manager
+  participant Ranger as Ranger / Liaison
+  participant API as ConservationAPI
+
+  Note over Collar,API: UC03-S01 Monitor Tracked Wildlife & Risk Alerts
+
+  Collar->>Ing: location fix collarId, lat, lng, confidence
+  Ing->>Ing: inZone AND fresh?
+  alt Outside zone / stale
+    Ing-->>Collar: ignore — history only
+  else Low confidence
+    Ing->>Desk: create REVIEW alert EL-07 Farmland
+    Note over Desk: R-08 no paging
+  else High confidence PAGE
+    Ing->>Desk: create OPEN alert
+    Desk->>API: upsert alert
+    Mgr->>Desk: Assign officer
+    Desk-->>Ranger: Notify SENT
+    alt Ack within window
+      Ranger->>Desk: Acknowledge
+      Desk->>Desk: status ASSIGNED
+      Ranger->>Desk: Resolve + outcome
+      Desk->>API: upsert CLOSED
+    else AF-2 No ack in time
+      Desk->>Desk: Escalate to backup
+      Desk-->>Ranger: Escalated notification
+    end
+  end
+</pre>
+</body></html>

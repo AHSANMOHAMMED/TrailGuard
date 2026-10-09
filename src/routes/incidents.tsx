@@ -73,6 +73,11 @@ function IncidentPage() {
   const [photoAt, setPhotoAt] = useState<string | null>(null);
   const [gpsAt, setGpsAt] = useState<string | null>(null);
   const [description, setDescription] = useState("");
+  const [severity, setSeverity] = useState<"LOW" | "MEDIUM" | "HIGH">("MEDIUM");
+  const [locationSource, setLocationSource] = useState<"GPS" | "MANUAL">("GPS");
+  const [manualLat, setManualLat] = useState("6.4123");
+  const [manualLng, setManualLng] = useState("81.1201");
+  const [gpsFailed, setGpsFailed] = useState(false);
   const [checks, setChecks] = useState(0);
   const [wasOffline, setWasOffline] = useState(false);
   const [syncingNow, setSyncingNow] = useState(false);
@@ -89,10 +94,15 @@ function IncidentPage() {
     const done = setTimeout(() => {
       clearInterval(t);
       void (async () => {
+        const latN = Number(manualLat);
+        const lngN = Number(manualLng);
         const ir = createIncident({
           type: type ?? "Other",
           description,
-          locationSource: "GPS",
+          locationSource,
+          severity,
+          lat: locationSource === "MANUAL" && Number.isFinite(latN) ? latN : undefined,
+          lng: locationSource === "MANUAL" && Number.isFinite(lngN) ? lngN : undefined,
           hasPhoto: true,
           partialPhoto: online && partialPhoto,
         });
@@ -112,7 +122,19 @@ function IncidentPage() {
       clearInterval(t);
       clearTimeout(done);
     };
-  }, [step, online, type, description, createIncident, partialPhoto, synchronize]);
+  }, [
+    step,
+    online,
+    type,
+    description,
+    severity,
+    locationSource,
+    manualLat,
+    manualLng,
+    createIncident,
+    partialPhoto,
+    synchronize,
+  ]);
 
   // Panel 7 → 8 — connectivity returns while the incident is stored locally.
   useEffect(() => {
@@ -260,20 +282,103 @@ function IncidentPage() {
 
   /* ---------- Panel 4 · Incident Details ---------- */
   if (step === "details") {
+    const locLabel =
+      locationSource === "MANUAL"
+        ? `${manualLat}° N, ${manualLng}° E (manual)`
+        : gpsFailed
+          ? "GPS unavailable — switch to manual"
+          : `${manualLat}° N, ${manualLng}° E (GPS)`;
     return (
       <Phone>
         <ScreenHeader title="Incident Details" onBack={() => setStep("photo")} />
         <Body>
           <div className="flex items-center justify-between">
-            <p className="text-[13px] font-semibold">GPS Location</p>
-            <Pill tone="progress">CAPTURED</Pill>
+            <p className="text-[13px] font-semibold">Location</p>
+            <Pill tone={gpsFailed && locationSource === "GPS" ? "warn" : "progress"}>
+              {locationSource === "MANUAL" ? "MANUAL" : gpsFailed ? "GPS FAIL" : "GPS"}
+            </Pill>
           </div>
           <PinMap height={120} />
           <Card>
-            <Row k="Latitude" v="8.4123° N" strong />
-            <Row k="Longitude" v="80.4021° E" strong />
-            <Row k="Capture time" v={gpsTime} strong />
+            <Row k="Source" v={locationSource} strong />
+            <Row k="Coordinates" v={locLabel} strong />
+            <Row k="Capture time" v={gpsTime || "—"} strong />
           </Card>
+          {gpsFailed && locationSource === "GPS" ? (
+            <HintCard>
+              Automatic GPS could not be obtained (dense canopy). Retry GPS or mark a manual
+              coordinate (A01 E1).
+            </HintCard>
+          ) : null}
+          <div className="flex flex-col gap-2">
+            <BtnOutline
+              onClick={() => {
+                setGpsFailed(false);
+                setLocationSource("GPS");
+                setManualLat("6.4123");
+                setManualLng("81.1201");
+                setGpsAt(new Date().toISOString());
+              }}
+            >
+              Use GPS location
+            </BtnOutline>
+            <BtnOutline
+              onClick={() => {
+                setGpsFailed(true);
+                setLocationSource("GPS");
+              }}
+            >
+              Simulate GPS failure
+            </BtnOutline>
+            <BtnOutline
+              onClick={() => {
+                setLocationSource("MANUAL");
+                setGpsFailed(false);
+                setGpsAt(new Date().toISOString());
+              }}
+            >
+              Enter manual lat / lng
+            </BtnOutline>
+          </div>
+          {locationSource === "MANUAL" ? (
+            <div className="grid grid-cols-2 gap-2">
+              <label className="text-[12px]">
+                Lat
+                <input
+                  value={manualLat}
+                  onChange={(e) => setManualLat(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-border bg-surface px-2 py-2 text-[13px]"
+                />
+              </label>
+              <label className="text-[12px]">
+                Lng
+                <input
+                  value={manualLng}
+                  onChange={(e) => setManualLng(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-border bg-surface px-2 py-2 text-[13px]"
+                />
+              </label>
+            </div>
+          ) : null}
+          <div>
+            <p className="mb-1 text-[13px] font-semibold">Severity</p>
+            <div className="flex flex-wrap gap-2">
+              {(["LOW", "MEDIUM", "HIGH"] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setSeverity(s)}
+                  className={
+                    severity === s
+                      ? "rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-accent-fg"
+                      : "rounded-lg border border-border bg-surface px-3 py-1.5 text-[12px] font-semibold text-muted"
+                  }
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
           <div>
             <p className="mb-1 text-[13px] font-semibold">Short Description</p>
             <textarea
@@ -287,7 +392,12 @@ function IncidentPage() {
           </div>
           <div className="mt-auto flex flex-col gap-2 pt-2">
             <BtnPrimary
-              disabled={description.trim().length === 0}
+              disabled={
+                description.trim().length === 0 ||
+                (locationSource === "GPS" && gpsFailed) ||
+                (locationSource === "MANUAL" &&
+                  (!Number.isFinite(Number(manualLat)) || !Number.isFinite(Number(manualLng))))
+              }
               onClick={() => setStep("review")}
             >
               Continue
@@ -321,7 +431,12 @@ function IncidentPage() {
           </Card>
           <Card>
             <Row k="Incident Type" v={type} strong />
-            <Row k="GPS Location" v="8.4123° N, 80.4021° E" strong />
+            <Row k="Severity" v={severity} strong />
+            <Row
+              k="Location"
+              v={`${manualLat}° N, ${manualLng}° E (${locationSource})`}
+              strong
+            />
             <Row k="Captured" v={gpsTime} strong />
           </Card>
           <div>

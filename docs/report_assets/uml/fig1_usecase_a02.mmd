@@ -1,0 +1,61 @@
+flowchart TB
+  Ranger([Ranger])
+  Manager([Park Manager])
+  Liaison([Liaison Officer])
+  Community([Community Member])
+  Researcher([Researcher])
+  Sensor([Sensor Gateway / Collar])
+  SMS([SMS Gateway])
+
+  subgraph SYS["TrailGuard — Smart Wildlife Conservation System"]
+    direction TB
+    UC01["UC01 Conduct Assigned Ranger Patrol"]
+    UC01a["Include: Record GPS / Manual Waypoints"]
+    UC01b["UC01b Retry Failed Sync"]
+    UC01c["Include: Calculate Route Coverage %"]
+    UC02["UC02 Report Field Incident"]
+    UC02a["Extend: Attach Geotagged Photo"]
+    UC02b["Include: Complete-Receipt Sync"]
+    UC03["UC03 Monitor Tracked Wildlife & Risk Alerts"]
+    UC03a["Include: Ingest Collar + Geofence"]
+    UC03b["UC03b Escalate Unassigned Alert"]
+    UC03c["UC03c Close Alert with Outcome"]
+    UC04["UC04 Manage Human-Wildlife Conflict Reports"]
+    UC04a["Extend: SMS Gateway Intake"]
+    UC04r["Generate Conservation Report Snapshot"]
+  end
+
+  Ranger --- UC01
+  Ranger --- UC01b
+  Ranger --- UC02
+  Ranger --- UC03c
+  Manager --- UC01
+  Manager --- UC03
+  Manager --- UC03b
+  Manager --- UC04r
+  Liaison --- UC03
+  Liaison --- UC03b
+  Liaison --- UC03c
+  Liaison --- UC04
+  Liaison --- UC04r
+  Community --- UC04
+  Researcher --- UC04r
+  Sensor --- UC03
+  SMS --- UC04
+
+  UC01 -.->|«include»| UC01a
+  UC01 -.->|«include»| UC01c
+  UC01b -.->|«extend» when sync fails| UC01
+  UC02 -.->|«include»| UC02b
+  UC02a -.->|«extend» optional photo| UC02
+  UC03 -.->|«include»| UC03a
+  UC03b -.->|«extend» after ack timeout| UC03
+  UC03c -.->|«extend» when resolved| UC03
+  UC04a -.->|«extend» SMS channel| UC04
+
+  classDef uc fill:#F0F5F2,stroke:#1F5A43,color:#16281E,stroke-width:1.5px
+  classDef act fill:#1F5A43,stroke:#0A100C,color:#fff,stroke-width:2px
+  classDef support fill:#E8F0EC,stroke:#3B7A57,color:#16281E,stroke-width:1px
+  class Ranger,Manager,Liaison,Community,Researcher,Sensor,SMS act
+  class UC01,UC02,UC03,UC04 uc
+  class UC01a,UC01b,UC01c,UC02a,UC02b,UC03a,UC03b,UC03c,UC04a,UC04r support

@@ -1,0 +1,254 @@
+classDiagram
+  direction TB
+
+  class SyncState {
+    <<enumeration>>
+    PENDING
+    IN_FLIGHT
+    SYNCED
+    FAILED
+  }
+  class DeliveryState {
+    <<enumeration>>
+    PENDING
+    SENT
+    FAILED
+  }
+  class PatrolStatus {
+    <<enumeration>>
+    ACTIVE
+    COMPLETED
+    CANCELLED
+  }
+  class AlertStatus {
+    <<enumeration>>
+    OPEN
+    ASSIGNED
+    ESCALATED
+    CLOSED
+    REVIEW
+  }
+  class LocationSource {
+    <<enumeration>>
+    GPS
+    MANUAL
+  }
+  class Confidence {
+    <<enumeration>>
+    HIGH
+    MEDIUM
+    LOW
+  }
+  class Severity {
+    <<enumeration>>
+    LOW
+    MEDIUM
+    HIGH
+  }
+  class OfficerRole {
+    <<enumeration>>
+    RANGER
+    LIAISON
+    MANAGER
+    RESEARCHER
+    COMMUNITY
+    ADMIN
+  }
+
+  class GeoPoint {
+    +double lat
+    +double lng
+    +double altitude
+  }
+
+  class DomainEntity {
+    <<abstract>>
+    +UUID id
+    +DateTime createdAt
+    +DateTime updatedAt
+    +SyncState syncState
+  }
+
+  class Officer {
+    +String officerId
+    +String name
+    +OfficerRole role
+    +Boolean available
+  }
+
+  class Patrol {
+    +UUID patrolId
+    +String routeId
+    +String routeName
+    +String officerId
+    +PatrolStatus status
+    +double distanceKm
+    +double coveragePct
+    +start()
+    +complete()
+    +calculateCoverage() double
+    +flushTail()
+  }
+
+  class Waypoint {
+    +UUID pointId
+    +GeoPoint geo
+    +LocationSource source
+    +DateTime recordedAt
+    +String label
+  }
+
+  class IncidentReport {
+    +UUID reportId
+    +String category
+    +Severity severity
+    +String description
+    +GeoPoint geo
+    +LocationSource locationSource
+    +Boolean completeReceipt
+  }
+
+  class PhotoAttachment {
+    +UUID attachId
+    +String uri
+    +String mimeType
+    +String sha256Digest
+    +SyncState syncState
+  }
+
+  class RiskZone {
+    +String zoneId
+    +String name
+    +int freshnessMinutes
+  }
+
+  class WildlifeAlert {
+    +UUID alertId
+    +String animal
+    +String collar
+    +String zoneId
+    +Confidence confidence
+    +AlertStatus status
+    +acknowledge()
+    +resolve(outcome)
+  }
+
+  class ResponseAssignment {
+    +UUID raId
+    +String assigneeId
+    +String assigneeName
+    +DeliveryState deliveryState
+    +int notifyAttempts
+    +DateTime acknowledgedAt
+  }
+
+  class ConflictReport {
+    +UUID reportId
+    +String type
+    +String location
+    +String channel
+    +String status
+    +int herdSize
+    +String damageCategory
+  }
+
+  class ConservationReport {
+    +UUID reportId
+    +String park
+    +DateTime generatedAt
+    +int patrolCount
+    +int incidentCount
+    +int conflictCount
+    +double coveragePercent
+  }
+
+  class LocalStore {
+    <<SQLite / zustand>>
+    +savePending()
+    +markSynced()
+    +pendingQueue() List
+  }
+
+  class SyncService {
+    <<service>>
+    +synchronize()
+    +upsertByUUID()
+  }
+
+  class ConservationAPI {
+    <<Neon /api/v1>>
+    +POST sync/upsert()
+    +GET field/list()
+    +GET health()
+    +POST reports/generate()
+  }
+
+  class PatrolOpsService {
+    <<service>>
+    +startPatrol() Patrol
+    +recordWaypoint() Waypoint
+    +completePatrol() Patrol
+  }
+
+  class IncidentOpsService {
+    <<service>>
+    +submitIncident() IncidentReport
+    +attachPhoto() PhotoAttachment
+  }
+
+  class AlertTriageService {
+    <<service>>
+    +ingestCollar() WildlifeAlert
+    +assignOfficer() ResponseAssignment
+    +escalate() WildlifeAlert
+  }
+
+  class ConflictIntakeService {
+    <<service>>
+    +submitApp() ConflictReport
+    +ingestSms() ConflictReport
+    +respond() ConflictReport
+  }
+
+  DomainEntity <|-- Patrol
+  DomainEntity <|-- Waypoint
+  DomainEntity <|-- IncidentReport
+  DomainEntity <|-- PhotoAttachment
+  DomainEntity <|-- WildlifeAlert
+  DomainEntity <|-- ResponseAssignment
+  DomainEntity <|-- ConflictReport
+  DomainEntity <|-- ConservationReport
+
+  Patrol "1" *-- "0..*" Waypoint : contains
+  IncidentReport "1" *-- "0..*" PhotoAttachment : attaches
+  WildlifeAlert "1" o-- "0..1" ResponseAssignment : assigns
+  WildlifeAlert --> RiskZone : in zone
+  Patrol --> Officer : led by
+  ResponseAssignment --> Officer : assignee
+
+  Patrol --> SyncState
+  IncidentReport --> SyncState
+  ConflictReport --> SyncState
+  PhotoAttachment --> SyncState
+  Waypoint --> LocationSource
+  IncidentReport --> LocationSource
+  IncidentReport --> Severity
+  WildlifeAlert --> Confidence
+  WildlifeAlert --> AlertStatus
+  Patrol --> PatrolStatus
+  ResponseAssignment --> DeliveryState
+  Officer --> OfficerRole
+  Waypoint --> GeoPoint
+  IncidentReport --> GeoPoint
+
+  Patrol ..> LocalStore : offline write
+  IncidentReport ..> LocalStore : offline write
+  ConflictReport ..> LocalStore : offline write
+  WildlifeAlert ..> LocalStore : offline write
+  LocalStore ..> SyncService : drain PENDING
+  SyncService ..> ConservationAPI : idempotent upsert
+
+  PatrolOpsService ..> Patrol : manages
+  IncidentOpsService ..> IncidentReport : manages
+  AlertTriageService ..> WildlifeAlert : triages
+  ConflictIntakeService ..> ConflictReport : ingests

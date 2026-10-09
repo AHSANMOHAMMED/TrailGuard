@@ -46,6 +46,11 @@ import {
 import { mirrorUpsertConflict } from "@/lib/domain/server-mirror";
 import { YALA_ROUTE, routePointAt as routePointAtYala } from "@/lib/domain/yala-route";
 import { buildDemoDataset } from "@/lib/domain/demo-dataset";
+import {
+  YALA_FARMLAND,
+  demoCollarReading,
+  ingestAndAssess,
+} from "@/lib/domain/alert-ingest";
 import { applyFailed, applySynced, syncAttemptsOf } from "@/lib/field-sync";
 
 export { buildDemoDataset };
@@ -199,9 +204,18 @@ interface FieldState {
     description: string;
     locationSource: "GPS" | "MANUAL";
     hasPhoto: boolean;
+    severity?: Incident["severity"];
+    lat?: number;
+    lng?: number;
     /** UC02 S3/R-05: ack the report now; keep photo PENDING with the same id. */
     partialPhoto?: boolean;
   }) => Incident;
+  /** UC03 — collar fix through geofence (PAGE or REVIEW). */
+  ingestCollarReading: (opts?: {
+    confidence?: Alert["confidence"];
+    lat?: number;
+    lng?: number;
+  }) => { alertId: string; triage: string } | null;
   /** UC03 — ranger acknowledges a risk alert (NEW → ACKNOWLEDGED). */
   ackAlert: (alertId: string) => void;
   /** UC03 — close the alert with an outcome (ACKNOWLEDGED → RESOLVED). */
@@ -575,9 +589,10 @@ export const useField = create<FieldState>()(
         const ir: Incident = {
           reportId,
           type: input.type,
+          severity: input.severity,
           description: input.description,
-          lat: 6.405 + Math.random() * 0.01,
-          lng: 81.12 + Math.random() * 0.01,
+          lat: input.lat ?? 6.405 + Math.random() * 0.01,
+          lng: input.lng ?? 81.12 + Math.random() * 0.01,
           locationSource: input.locationSource,
           observedAt: new Date().toISOString(),
           syncState: "PENDING",
@@ -588,6 +603,56 @@ export const useField = create<FieldState>()(
         };
         set({ incidents: [ir, ...get().incidents] });
         return ir;
+      },
+      ingestCollarReading: (opts) => {
+        const reading = {
+          ...demoCollarReading(opts?.confidence ?? "High"),
+          lat: opts?.lat ?? 6.41,
+          lng: opts?.lng ?? 81.12,
+        };
+        const existing = get().alerts.map((a) => ({
+          alertId: a.alertId,
+          animal: a.animal,
+          zone: a.zone,
+          status: a.status,
+        }));
+        const decision = ingestAndAssess(reading, YALA_FARMLAND, existing);
+        if (decision.kind === "ignore") return null;
+        const next: Alert = {
+          alertId: decision.alertId,
+          animal: decision.animal,
+          collar: decision.collar,
+          zone: decision.zone,
+          observedAt: decision.observedAt,
+          receivedAt: decision.receivedAt,
+          confidence: decision.confidence,
+          status: decision.status,
+          notifyAttempts: 0,
+        };
+        if (decision.kind === "refresh") {
+          set({
+            alerts: get().alerts.map((a) =>
+              a.alertId === decision.alertId
+                ? {
+                    ...a,
+                    ...next,
+                    status: decision.status,
+                    assigneeId: a.assigneeId,
+                    assigneeName: a.assigneeName,
+                  }
+                : a,
+            ),
+          });
+        } else {
+          set({
+            alerts: [
+              next,
+              ...get().alerts.filter((a) => a.status === "CLOSED"),
+            ],
+          });
+        }
+        pushAlertUpsert(decision.alertId);
+        return { alertId: decision.alertId, triage: decision.triage };
       },
       ackAlert: (alertId) => {
         set({
@@ -621,6 +686,11 @@ export const useField = create<FieldState>()(
         pushAlertUpsert(alertId);
       },
       resetAlert: (opts) => {
+        // Prefer real collar→geofence ingest so UC03 matches A01 sequence.
+        const result = get().ingestCollarReading({
+          confidence: opts?.confidence ?? "High",
+        });
+        if (result) return;
         const now = new Date().toISOString();
         const confidence = opts?.confidence ?? "High";
         const status = opts?.status ?? (confidence === "Low" ? "REVIEW" : "OPEN");

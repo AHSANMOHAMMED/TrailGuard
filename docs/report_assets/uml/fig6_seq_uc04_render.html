@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"/>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true, theme: 'neutral', securityLevel: 'loose',
+    flowchart: { htmlLabels: true, curve: 'basis', nodeSpacing: 40, rankSpacing: 50 },
+    sequence: { actorMargin: 36, messageMargin: 40, mirrorActors: false } });
+</script>
+<style>
+  body { margin: 24px; background: #fff; font-family: system-ui, sans-serif; }
+  .mermaid { background: #fff; }
+</style>
+</head><body>
+<pre class="mermaid">
+sequenceDiagram
+  autonumber
+  actor Community as Community Member
+  participant App as Conflict App / SMS
+  participant LS as LocalStore
+  participant SY as SyncService
+  participant API as ConservationAPI
+  participant Desk as Liaison / Manager Desk
+
+  Note over Community,Desk: UC04-S01 Manage Human-Wildlife Conflict Reports
+
+  Community->>App: Open report OR SMS short code
+  App-->>Community: Prompt type / location / description
+  Community->>App: Submit Elephant Sighting / Crop Raiding
+  App->>App: Validate required fields
+  App->>LS: save ConflictReport PENDING
+  alt Offline
+    App-->>Community: Stored locally — pending sync
+  else Online
+    App->>SY: synchronize()
+    SY->>API: POST upsert kind=conflict
+    API-->>SY: ack
+    SY->>LS: markSynced SUBMITTED
+  end
+  Desk->>API: GET field/list / Pull DB
+  API-->>Desk: Shared conflict rows
+  Desk->>Desk: Review + respond
+  Desk->>API: upsert deskStatus RESPONDED
+  Desk-->>Community: Status updated on ops dashboard
+</pre>
+</body></html>

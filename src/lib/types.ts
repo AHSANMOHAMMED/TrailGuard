@@ -36,9 +36,13 @@ export interface Patrol {
   failureReason?: string;
 }
 
+export type IncidentSeverity = "LOW" | "MEDIUM" | "HIGH";
+
 export interface Incident {
   reportId: string;
   type: string;
+  /** A01 field severity for triage (LOW / MEDIUM / HIGH). */
+  severity?: IncidentSeverity;
   description: string;
   lat: number;
   lng: number;

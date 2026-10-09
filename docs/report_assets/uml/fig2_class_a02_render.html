@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"/>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true, theme: 'neutral', securityLevel: 'loose',
+    flowchart: { htmlLabels: true, curve: 'basis', nodeSpacing: 40, rankSpacing: 50 },
+    sequence: { actorMargin: 36, messageMargin: 40, mirrorActors: false } });
+</script>
+<style>
+  body { margin: 24px; background: #fff; font-family: system-ui, sans-serif; }
+  .mermaid { background: #fff; }
+</style>
+</head><body>
+<pre class="mermaid">
+classDiagram
+  direction TB
+
+  class SyncState {
+    <<enumeration>>
+    PENDING
+    SYNCED
+    FAILED
+  }
+
+  class LocationSource {
+    <<enumeration>>
+    GPS
+    MANUAL
+  }
+
+  class GeoPoint {
+    +lat double
+    +lng double
+  }
+
+  class Patrol {
+    +patrolId UUID
+    +routeId String
+    +officerId String
+    +status ACTIVE|COMPLETED
+    +syncState SyncState
+    +coveragePct double
+    +start()
+    +complete()
+    +calculateCoverage() double
+  }
+
+  class Waypoint {
+    +pointId UUID
+    +geo GeoPoint
+    +source LocationSource
+    +recordedAt DateTime
+  }
+
+  class IncidentReport {
+    +reportId UUID
+    +type String
+    +severity LOW|MEDIUM|HIGH
+    +description String
+    +geo GeoPoint
+    +locationSource LocationSource
+    +syncState SyncState
+    +hasPhoto boolean
+  }
+
+  class PhotoAttachment {
+    +attachId UUID
+    +uri String
+    +mimeType String
+    +syncState SyncState
+  }
+
+  class WildlifeAlert {
+    +alertId UUID
+    +animal String
+    +collar String
+    +zone String
+    +confidence High|Medium|Low
+    +status OPEN|ASSIGNED|ESCALATED|CLOSED|REVIEW
+    +acknowledge()
+    +resolve(outcome)
+  }
+
+  class ResponseAssignment {
+    +assigneeId String
+    +assigneeName String
+    +deliveryState PENDING|SENT|FAILED
+    +notifyAttempts int
+  }
+
+  class ConflictReport {
+    +reportId UUID
+    +type String
+    +location String
+    +channel MobileApp|SMS
+    +status SUBMITTED|RESPONDED
+    +syncState SyncState
+  }
+
+  class LocalStore {
+    <<SQLite / zustand>>
+    +savePending()
+    +markSynced()
+  }
+
+  class SyncService {
+    +synchronize()
+    +upsertByUUID()
+  }
+
+  class ConservationAPI {
+    <<Neon /api/v1>>
+    +POST sync/upsert
+    +GET field/list
+    +GET health
+  }
+
+  Patrol "1" *-- "0..*" Waypoint : contains
+  IncidentReport "1" *-- "0..*" PhotoAttachment : attaches
+  WildlifeAlert "1" o-- "0..1" ResponseAssignment : assigns
+  Patrol --> SyncState
+  IncidentReport --> SyncState
+  ConflictReport --> SyncState
+  Waypoint --> LocationSource
+  IncidentReport --> LocationSource
+  Waypoint --> GeoPoint
+  IncidentReport --> GeoPoint
+
+  Patrol ..> LocalStore : offline write
+  IncidentReport ..> LocalStore : offline write
+  ConflictReport ..> LocalStore : offline write
+  LocalStore ..> SyncService : drain PENDING
+  SyncService ..> ConservationAPI : idempotent upsert
+</pre>
+</body></html>

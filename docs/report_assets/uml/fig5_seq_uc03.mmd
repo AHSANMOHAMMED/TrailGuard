@@ -1,0 +1,44 @@
+sequenceDiagram
+  autonumber
+  participant Collar as GPS Collar
+  participant Ing as AlertTriageService
+  participant Desk as Ops Desk Alerts UI
+  participant Mgr as Park Manager
+  participant Ranger as Ranger / Liaison
+  participant LS as LocalStore
+  participant API as ConservationAPI
+
+  Note over Collar,API: UC03-S01 Monitor Tracked Wildlife and Risk Alerts
+
+  Collar->>Ing: location fix collarId lat lng confidence
+  Ing->>Ing: inZone AND fresh?
+
+  alt Outside zone / stale
+    Ing-->>Collar: ignore — history only
+  else Low confidence REVIEW R-08
+    Ing->>Desk: create REVIEW alert
+    Desk->>LS: save WildlifeAlert REVIEW
+    Note over Desk: No paging to field units
+  else High confidence PAGE
+    Ing->>Desk: create OPEN alert
+    Desk->>LS: save WildlifeAlert OPEN PENDING
+    Desk->>API: upsert alert
+    Mgr->>Desk: Assign officer
+    Desk->>LS: ResponseAssignment delivery PENDING
+    Desk-->>Ranger: Notify SENT
+    Desk->>LS: deliveryState SENT notifyAttempts++
+
+    alt Ack within window
+      Ranger->>Desk: Acknowledge
+      Desk->>Desk: status ASSIGNED
+      Ranger->>Desk: Resolve + outcome
+      Desk->>API: upsert CLOSED
+      Desk->>LS: mark CLOSED SYNCED
+    else AF-2 No ack — UC03b escalate
+      Desk->>Desk: Escalate to backup
+      Desk->>LS: status ESCALATED
+      Desk-->>Ranger: Escalated notification
+      Ranger->>Desk: Close with outcome UC03c
+      Desk->>API: upsert CLOSED
+    end
+  end

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"/>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true, theme: 'neutral', securityLevel: 'loose',
+    flowchart: { htmlLabels: true, curve: 'basis', nodeSpacing: 40, rankSpacing: 50 },
+    sequence: { actorMargin: 36, messageMargin: 40, mirrorActors: false } });
+</script>
+<style>
+  body { margin: 24px; background: #fff; font-family: system-ui, sans-serif; }
+  .mermaid { background: #fff; }
+</style>
+</head><body>
+<pre class="mermaid">
+sequenceDiagram
+  autonumber
+  actor Ranger
+  participant UI as IncidentView
+  participant S as IncidentService
+  participant LS as LocalStore
+  participant SY as SyncService
+  participant API as ConservationAPI
+
+  Note over Ranger,API: UC02-S01 Report Field Incident
+
+  Ranger->>UI: Open Report Incident
+  UI-->>Ranger: Type / photo / location / description
+  Ranger->>UI: Select type + severity
+  Ranger->>UI: Capture photo
+  alt GPS available
+    UI->>UI: Capture GPS
+  else E1 GPS unavailable
+    UI-->>Ranger: GPS failed — enter MANUAL lat/lng
+    Ranger->>UI: Manual coordinates
+  end
+  Ranger->>UI: Enter description + Review
+  Ranger->>UI: Submit Incident
+  UI->>S: validate required fields
+  S->>LS: save IncidentReport PENDING
+  LS-->>S: reportId
+
+  alt Online
+    S->>SY: synchronize()
+    SY->>API: POST upsert kind=incident
+    API-->>SY: complete receipt
+    SY->>LS: markSynced
+    UI-->>Ranger: Submitted + reference id
+  else Offline A1
+    UI-->>Ranger: Pending synchronisation
+    Note over LS: Photo + text preserved locally
+  end
+</pre>
+</body></html>

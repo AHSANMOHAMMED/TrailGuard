@@ -79,7 +79,7 @@ All figures below are rendered UML images (not placeholders). **Deep Mermaid UML
 
 ### 1.2 A02 Updated Use Case Diagram (implemented)
 
-![Figure 1 — Updated Use Case Diagram (A02)](./report_assets/trailguard_uc_diagram.png)
+![Figure 1 — Updated Use Case Diagram (A02)](./report_assets/fig1_updated_usecase.png)
 
 **Figure 1.** Complete updated UML use case diagram for TrailGuard (A02). Decomposes the system into 6 core subsystems: (1) Ranger Patrol Operations, (2) Wildlife Sensors & Risk Alerts, (3) Camera Trap Observations, (4) Offline Field Data, (5) Field & Community Incident Reports, and (6) Conservation Analysis & Reporting. Actors: Field Ranger, Park Manager, Conservation Researcher, Incident Manager, GPS Collar System, Camera Trap System, Wildlife Staff, Community Liaison Officer, and SMS Gateway.
 
