@@ -204,6 +204,9 @@ interface FieldState {
     description: string;
     locationSource: "GPS" | "MANUAL";
     hasPhoto: boolean;
+    photoUrl?: string;
+    photoHash?: string;
+    photoName?: string;
     severity?: Incident["severity"];
     lat?: number;
     lng?: number;
@@ -597,6 +600,9 @@ export const useField = create<FieldState>()(
           observedAt: new Date().toISOString(),
           syncState: "PENDING",
           hasPhoto: input.hasPhoto,
+          photoUrl: input.photoUrl,
+          photoHash: input.photoHash,
+          photoName: input.photoName,
           photoAttachId,
           photoSyncState: input.hasPhoto ? "PENDING" : undefined,
           demoPartial: Boolean(input.partialPhoto && input.hasPhoto),

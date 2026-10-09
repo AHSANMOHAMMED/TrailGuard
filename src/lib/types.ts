@@ -50,6 +50,9 @@ export interface Incident {
   observedAt: string;
   syncState: SyncState;
   hasPhoto: boolean;
+  photoUrl?: string;
+  photoHash?: string;
+  photoName?: string;
   /** Photo attachment sync — enables partial-upload branch (S3/R-05). */
   photoSyncState?: SyncState;
   photoAttachId?: string;

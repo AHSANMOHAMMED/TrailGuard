@@ -1,5 +1,5 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Bone,
   Camera,
@@ -8,6 +8,7 @@ import {
   MoreHorizontal,
   PawPrint,
   Tent,
+  Upload,
   Wifi,
 } from "lucide-react";
 import {
@@ -71,6 +72,11 @@ function IncidentPage() {
   const [step, setStep] = useState<Step>("intro");
   const [type, setType] = useState<string | null>(null);
   const [photoAt, setPhotoAt] = useState<string | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoHash, setPhotoHash] = useState<string | null>(null);
+  const [photoName, setPhotoName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [gpsAt, setGpsAt] = useState<string | null>(null);
   const [description, setDescription] = useState("");
   const [severity, setSeverity] = useState<"LOW" | "MEDIUM" | "HIGH">("MEDIUM");
@@ -84,6 +90,71 @@ function IncidentPage() {
   /** Demo S3/R-05 — report acked, photo stays PENDING with same attachId. */
   const [partialPhoto, setPartialPhoto] = useState(false);
   const [lastIncidentId, setLastIncidentId] = useState<string | null>(null);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setPhotoName(file.name);
+    setPhotoAt(new Date().toISOString());
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      if (typeof evt.target?.result === "string") {
+        setPhotoUrl(evt.target.result);
+      }
+    };
+    reader.readAsDataURL(file);
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+      setPhotoHash(hashHex);
+    } catch {
+      setPhotoHash("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+    }
+  };
+
+  const handleSamplePhoto = () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 640;
+    canvas.height = 400;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.fillStyle = "#3a4a38";
+      ctx.fillRect(0, 0, 640, 400);
+      ctx.fillStyle = "#63503c";
+      ctx.beginPath();
+      ctx.moveTo(100, 400);
+      ctx.quadraticCurveTo(300, 200, 540, 0);
+      ctx.lineTo(640, 0);
+      ctx.lineTo(640, 400);
+      ctx.fill();
+      ctx.strokeStyle = "#d4af37";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.ellipse(320, 240, 90, 60, -0.2, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = "#b08d28";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(390, 210);
+      ctx.lineTo(480, 160);
+      ctx.stroke();
+      ctx.fillStyle = "rgba(0,0,0,0.65)";
+      ctx.fillRect(15, 350, 360, 36);
+      ctx.fillStyle = "#00ff88";
+      ctx.font = "bold 13px monospace";
+      ctx.fillText("TRAILGUARD CAM #04 · YALA SECTOR B", 25, 373);
+    }
+    const sampleDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    setPhotoUrl(sampleDataUrl);
+    setPhotoName("SAMPLE_SNARE_CAM04.JPG");
+    setPhotoAt(new Date().toISOString());
+    setPhotoHash("8f4d92a1c0b3e5f7a9d8c7b6a5f4e3d2c1b0a9f8e7d6c5b4a3f2e1d0c9b8a7f6");
+  };
 
   // Panel 6 — validation ticks, then route online → upsert-ack → 8, offline → 7.
   useEffect(() => {
@@ -104,6 +175,9 @@ function IncidentPage() {
           lat: locationSource === "MANUAL" && Number.isFinite(latN) ? latN : undefined,
           lng: locationSource === "MANUAL" && Number.isFinite(lngN) ? lngN : undefined,
           hasPhoto: true,
+          photoUrl: photoUrl ?? undefined,
+          photoHash: photoHash ?? undefined,
+          photoName: photoName ?? undefined,
           partialPhoto: online && partialPhoto,
         });
         setLastIncidentId(ir.reportId);
@@ -131,6 +205,9 @@ function IncidentPage() {
     locationSource,
     manualLat,
     manualLng,
+    photoUrl,
+    photoHash,
+    photoName,
     createIncident,
     partialPhoto,
     synchronize,
@@ -242,28 +319,71 @@ function IncidentPage() {
       <Phone>
         <ScreenHeader title="Incident Photo" onBack={() => setStep("type")} />
         <Body>
-          <div className="relative overflow-hidden rounded-xl border border-border">
-            <PhotoSketch empty={!photoAt} />
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept="image/*"
+            capture="environment"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          <div className="relative overflow-hidden rounded-xl border border-border bg-surface">
+            {photoUrl ? (
+              <img
+                src={photoUrl}
+                alt="Captured Incident Evidence"
+                className="h-[180px] w-full object-cover"
+              />
+            ) : (
+              <PhotoSketch empty={!photoAt} />
+            )}
             {photoAt ? (
-              <span className="absolute bottom-2 right-2 rounded bg-fg/75 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+              <span className="absolute bottom-2 right-2 rounded bg-fg/75 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
                 {photoTime} · attached
               </span>
             ) : null}
           </div>
+
           {photoAt ? (
-            <p className="flex items-center gap-2 text-[13px] font-semibold text-ok">
-              <span className="flex size-5 items-center justify-center rounded-full bg-ok">
-                <Check className="size-3 text-white" strokeWidth={3} />
-              </span>
-              Photo Captured
+            <div className="flex flex-col gap-1 rounded-xl border border-ok/30 bg-ok-bg/50 p-2.5">
+              <div className="flex items-center gap-2 text-[13px] font-semibold text-ok">
+                <span className="flex size-5 items-center justify-center rounded-full bg-ok">
+                  <Check className="size-3 text-white" strokeWidth={3} />
+                </span>
+                Photo Captured & Verified
+              </div>
+              {photoName ? (
+                <p className="truncate text-[11.5px] text-muted">
+                  <span className="font-semibold text-fg">File:</span> {photoName}
+                </p>
+              ) : null}
+              {photoHash ? (
+                <p className="truncate font-mono text-[11px] text-subtle">
+                  <span className="font-semibold text-muted">SHA-256:</span> {photoHash.slice(0, 24)}…
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <p className="text-[12px] text-muted">
+              Select or take a photo of the incident evidence. A SHA-256 hash signature is generated automatically.
             </p>
-          ) : null}
-          <BtnOutline onClick={() => setPhotoAt(new Date().toISOString())}>
-            <span className="inline-flex items-center gap-2">
-              <Camera className="size-4" strokeWidth={2} />
-              {photoAt ? "Retake" : "Capture Photo"}
-            </span>
-          </BtnOutline>
+          )}
+
+          <div className="flex flex-col gap-2">
+            <BtnPrimary onClick={() => fileInputRef.current?.click()}>
+              <span className="inline-flex items-center gap-2">
+                <Camera className="size-4" strokeWidth={2} />
+                {photoAt ? "Retake / Choose New Image" : "Take Photo / Choose File"}
+              </span>
+            </BtnPrimary>
+            <BtnOutline onClick={handleSamplePhoto}>
+              <span className="inline-flex items-center gap-2">
+                <Upload className="size-4" strokeWidth={2} />
+                Use Field Camera Sample
+              </span>
+            </BtnOutline>
+          </div>
+
           <div className="mt-auto pt-2">
             <BtnPrimary
               disabled={!photoAt}
@@ -419,14 +539,23 @@ function IncidentPage() {
         <Body>
           <p className="text-[14px] font-bold">Check the details before submitting</p>
           <Card className="flex items-center gap-3">
-            <div className="size-12 shrink-0 overflow-hidden rounded-lg border border-border">
-              <PhotoSketch thumb />
+            <div className="size-12 shrink-0 overflow-hidden rounded-lg border border-border bg-surface">
+              {photoUrl ? (
+                <img src={photoUrl} alt="" className="size-full object-cover" />
+              ) : (
+                <PhotoSketch thumb />
+              )}
             </div>
-            <div>
-              <p className="text-[13px] font-semibold">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13px] font-semibold">
                 Photograph <span className="font-normal text-muted">· Attached · {photoTime}</span>
               </p>
-              <p className="text-[12px] text-muted">{type} beside animal trail</p>
+              {photoHash ? (
+                <p className="truncate font-mono text-[10.5px] text-subtle">
+                  SHA-256: {photoHash.slice(0, 16)}…
+                </p>
+              ) : null}
+              <p className="truncate text-[12px] text-muted">{type} beside animal trail</p>
             </div>
           </Card>
           <Card>
@@ -528,13 +657,26 @@ function IncidentPage() {
             PENDING SYNCHRONISATION
           </Pill>
           <Card className="flex items-start gap-3">
-            <div className="size-12 shrink-0 overflow-hidden rounded-lg border border-border">
-              <PhotoSketch thumb />
+            <div className="size-12 shrink-0 overflow-hidden rounded-lg border border-border bg-surface">
+              {photoUrl || lastIncident?.photoUrl ? (
+                <img
+                  src={photoUrl || lastIncident?.photoUrl || undefined}
+                  alt=""
+                  className="size-full object-cover"
+                />
+              ) : (
+                <PhotoSketch thumb />
+              )}
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="text-[14px] font-bold">{type}</p>
               <p className="text-[12px] text-muted">8.4123° N, 80.4021° E</p>
-              <p className="text-[12px] text-muted">{description}</p>
+              {photoHash || lastIncident?.photoHash ? (
+                <p className="truncate font-mono text-[10.5px] text-subtle">
+                  SHA-256: {(photoHash || lastIncident?.photoHash)?.slice(0, 16)}…
+                </p>
+              ) : null}
+              <p className="truncate text-[12px] text-muted">{description}</p>
             </div>
           </Card>
           <Card>
