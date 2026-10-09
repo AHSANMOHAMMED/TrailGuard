@@ -1,4 +1,9 @@
-# Sri Lanka Institute of Information Technology
+const fs = require('fs');
+const path = require('path');
+
+const mdPath = path.join(__dirname, '../docs/SE3070_Assignment02_Final_Report.md');
+
+const newReportContent = `# Sri Lanka Institute of Information Technology
 ### Faculty of Computing — Department of Software Engineering
 **B.Sc. (Hons) in Information Technology — Software Engineering**  
 **Year 3, Semester 2 — Academic Year 2026**
@@ -70,16 +75,16 @@ Table 1: Group Members & Use Case Allocation
 
 | Fig. | Diagram Type | What It Shows | Asset File |
 | :---: | :--- | :--- | :--- |
-| **0a** | Use Case (A01 baseline) | Original Assignment 01 use-case design | `fig0_a01_usecase_baseline.png` |
-| **0b** | Class (A01 baseline) | Original Assignment 01 class design | `fig0_a01_class_baseline.png` |
-| **1** | Use Case (A02 updated) | UC01–UC04 + «extend» UC01b / UC03b / UC03c + actors | `fig1_updated_usecase.png` |
-| **2** | Class (A02 updated) | Domain entities + SyncState + LocalStore → SyncService → API | `fig2_updated_class.png` |
-| **3** | Sequence UC01 | Patrol start → waypoints → offline queue → sync → complete | `fig3_seq_uc01.png` |
-| **4** | Sequence UC02 | Incident + photo + GPS/MANUAL → PENDING → complete receipt | `fig4_seq_uc02.png` |
-| **5** | Sequence UC03 | Collar ingest → PAGE/REVIEW → assign → ack / escalate → close | `fig5_seq_uc03.png` |
-| **6** | Sequence UC04 | App/SMS conflict → PENDING sync → desk respond | `fig6_seq_uc04.png` |
+| **0a** | Use Case (A01 baseline) | Original Assignment 01 use-case design | \`fig0_a01_usecase_baseline.png\` |
+| **0b** | Class (A01 baseline) | Original Assignment 01 class design | \`fig0_a01_class_baseline.png\` |
+| **1** | Use Case (A02 updated) | UC01–UC04 + «extend» UC01b / UC03b / UC03c + actors | \`fig1_updated_usecase.png\` |
+| **2** | Class (A02 updated) | Domain entities + SyncState + LocalStore → SyncService → API | \`fig2_updated_class.png\` |
+| **3** | Sequence UC01 | Patrol start → waypoints → offline queue → sync → complete | \`fig3_seq_uc01.png\` |
+| **4** | Sequence UC02 | Incident + photo + GPS/MANUAL → PENDING → complete receipt | \`fig4_seq_uc02.png\` |
+| **5** | Sequence UC03 | Collar ingest → PAGE/REVIEW → assign → ack / escalate → close | \`fig5_seq_uc03.png\` |
+| **6** | Sequence UC04 | App/SMS conflict → PENDING sync → desk respond | \`fig6_seq_uc04.png\` |
 
-All figures below are high-resolution rendered UML diagrams. **Deep Mermaid UML source** (use case, class, UC01–UC04 sequence) lives under `docs/report_assets/uml/` (`fig1_usecase_a02.mmd`, `fig2_class_a02.mmd`, `fig3_seq_uc01.mmd` … `fig6_seq_uc04.mmd`) and is also embedded inline in §§1–6 for viva and PDF generation.
+All figures below are high-resolution rendered UML diagrams. **Deep Mermaid UML source** (use case, class, UC01–UC04 sequence) lives under \`docs/report_assets/uml/\` (\`fig1_usecase_a02.mmd\`, \`fig2_class_a02.mmd\`, \`fig3_seq_uc01.mmd\` … \`fig6_seq_uc04.mmd\`) and is also embedded inline in §§1–6 for viva and PDF generation.
 
 ---
 
@@ -160,7 +165,7 @@ Table 1b: Master Defect & Weakness Identification Matrix
 
 #### Deep UML Source (Use Case)
 
-```mermaid
+\`\`\`mermaid
 graph TD
     classDef actorStyle fill:#1F5A43,color:#FFF,stroke:#0A100C,stroke-width:2px;
     classDef goalStyle fill:#3182CE,color:#FFF,stroke:#1A365D,stroke-width:2px;
@@ -313,7 +318,7 @@ graph TD
     AnalysisGoal --> AnalHotspots
     AnalysisGoal --> AnalCoverage
     AnalysisGoal --> GenReport
-```
+\`\`\`
 
 | Actor | Primary Functional Associations |
 | :--- | :--- |
@@ -371,7 +376,7 @@ graph TD
 
 **Figure 2.** Updated UML class diagram for TrailGuard (A02). Domain entities (`Patrol`, `Waypoint`, `IncidentReport`, `PhotoAttachment`, `WildlifeAlert`, `ResponseAssignment`, `ConflictReport`, `ConservationReport`) plus enums (`SyncState`, `DeliveryState`, `PatrolStatus`, `AlertStatus`, `LocationSource`, `Confidence`, `IncidentCategory`, `OfficerRole`), service interfaces (`PatrolOpsService`, `IncidentOpsService`, `AlertTriageService`, `ConflictIntakeService`, `SyncService`), repository ports (`FieldStore`, `ConservationApi`), and controller (`TrailGuardAppStore`).
 
-```mermaid
+\`\`\`mermaid
 classDiagram
     class SyncState {
         <<enumeration>>
@@ -656,7 +661,7 @@ classDiagram
     TrailGuardAppStore ..> IncidentOpsService : delegates
     TrailGuardAppStore ..> AlertTriageService : delegates
     TrailGuardAppStore ..> ConflictIntakeService : delegates
-```
+\`\`\`
 
 ---
 
@@ -697,7 +702,7 @@ classDiagram
 
 **Figure 3.** Sequence diagram for UC01 (Shureka). Demonstrates local SQLite queuing, 30s GPS polling, manual waypoint marking, in-flight tail flushing, 96% coverage calculation, and asynchronous background sync upon network restoration.
 
-```mermaid
+\`\`\`mermaid
 sequenceDiagram
     autonumber
     actor Shureka as Field Ranger (Shureka)
@@ -731,7 +736,7 @@ sequenceDiagram
     Sync->>Server: POST /api/v1/patrols/sync
     Server-->>Sync: HTTP 200 OK (Sync Receipt)
     Sync->>DB: updateSyncState(PAT-2026-001, SYNCED)
-```
+\`\`\`
 
 ---
 
@@ -770,7 +775,7 @@ sequenceDiagram
 
 **Figure 4.** Sequence diagram for UC02 (Ahsan Mohammed). Demonstrates photo capture, SHA-256 digest computation, offline PENDING storage, complete-receipt upload, and green receipt token verification.
 
-```mermaid
+\`\`\`mermaid
 sequenceDiagram
     autonumber
     actor Ahsan as Field Ranger (Ahsan)
@@ -798,7 +803,7 @@ sequenceDiagram
     Sync->>DB: updateIncident(SYNCED, complete: true, ref: INC-2026-0812)
     Sync-->>UI: Complete-Receipt Event Triggered
     UI-->>Ahsan: Render Green SYNCED Receipt (INC-2026-0812)
-```
+\`\`\`
 
 ---
 
@@ -837,7 +842,7 @@ sequenceDiagram
 
 **Figure 5.** Sequence diagram for UC03 (Ahsan Mohammed). Models satellite collar telemetry ingestion, farmland geofence breach evaluation, automated emergency unit paging, ranger acknowledgement, tactical tracking, and deterrent resolution logging.
 
-```mermaid
+\`\`\`mermaid
 sequenceDiagram
     autonumber
     participant Collar as IoT Elephant Collar (EL-04)
@@ -861,7 +866,7 @@ sequenceDiagram
     UI->>Alert: closeAlert(RESOLVED, action: Acoustic Thumper)
     Alert-->>UI: Return Resolution Confirmation
     UI-->>Ahsan: Update Dashboard & Regional Risk Heatmap
-```
+\`\`\`
 
 ---
 
@@ -898,7 +903,7 @@ sequenceDiagram
 
 **Figure 6.** Sequence diagram for UC04 (Kajana). Demonstrates dual-channel intake (Rural SMS Gateway & App), conflict ticket registration, Liaison review, field team dispatch, damage valuation, and relief approval.
 
-```mermaid
+\`\`\`mermaid
 sequenceDiagram
     autonumber
     actor Farmer as Community Member / Farmer
@@ -922,7 +927,7 @@ sequenceDiagram
     Field->>Intake: Log Damage Assessment & Valuation (LKR 150,000)
     Kajana->>Intake: Approve Relief Valuation & Tap "Close Case"
     Intake-->>Kajana: Ticket HWC-2026-042 Marked CLOSED
-```
+\`\`\`
 
 ---
 
@@ -1099,7 +1104,7 @@ Below are the high-fidelity screenshots of the running TrailGuard application, d
 
 The backend test suite is located in `artifacts/TrailGuard/backend/tests` and executes using `pytest` with isolated in-memory SQLite fixtures (`sqlite:///:memory:`).
 
-```
+\`\`\`
 ============================= test session starts ==============================
 platform darwin -- Python 3.11+, pytest-8.x.x
 rootdir: /Users/ahsan/Documents/TrailGuard-main/artifacts/TrailGuard/backend
@@ -1110,7 +1115,7 @@ tests/test_incident_and_report.py .......                                [ 78%]
 tests/test_conflict_service.py ....                                      [100%]
 
 ============================== 19 passed in 0.42s ==============================
-```
+\`\`\`
 
 ---
 
@@ -1225,3 +1230,7 @@ We certify that this report and the accompanying software codebase represent the
 - **Kajana** — Lead Human-Wildlife Conflict Systems (UC04)
 
 Thank you.
+`;
+
+fs.writeFileSync(mdPath, newReportContent, 'utf8');
+console.log('Successfully updated SE3070_Assignment02_Final_Report.md with comprehensive critique and HCI UI evaluation!');

@@ -1,4 +1,8 @@
-# Sri Lanka Institute of Information Technology
+import os
+
+md_path = os.path.join(os.path.dirname(__file__), '../docs/SE3070_Assignment02_Final_Report.md')
+
+content = r'''# Sri Lanka Institute of Information Technology
 ### Faculty of Computing — Department of Software Engineering
 **B.Sc. (Hons) in Information Technology — Software Engineering**  
 **Year 3, Semester 2 — Academic Year 2026**
@@ -1225,3 +1229,9 @@ We certify that this report and the accompanying software codebase represent the
 - **Kajana** — Lead Human-Wildlife Conflict Systems (UC04)
 
 Thank you.
+'''
+
+with open(md_path, 'w', encoding='utf-8') as f:
+    f.write(content)
+
+print(f"Successfully wrote updated report to {md_path}")
