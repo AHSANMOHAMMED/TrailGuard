@@ -7,65 +7,156 @@ const diagrams = [
     filename: 'trailguard_uc_diagram.png',
     code: `graph TD
     classDef actorStyle fill:#1F5A43,color:#FFF,stroke:#0A100C,stroke-width:2px;
+    classDef goalStyle fill:#3182CE,color:#FFF,stroke:#1A365D,stroke-width:2px;
+    classDef offlineStyle fill:#D69E2E,color:#FFF,stroke:#744210,stroke-width:2px;
     classDef ucStyle fill:#F0F5F2,color:#1F5A43,stroke:#3B7A57,stroke-width:1.5px;
     classDef sysStyle fill:#2A4365,color:#FFF,stroke:#1A202C,stroke-width:2px;
 
+    %% Left Actors
+    Manager["Park Manager"]:::actorStyle
     Ranger["Field Ranger (Shureka / Ahsan)"]:::actorStyle
-    Manager["Park Manager (Ahsan)"]:::actorStyle
-    Liaison["Liaison Officer (Kajana)"]:::actorStyle
-    Farmer["Community Member"]:::actorStyle
-    
-    IoT["<<System>> IoT Collar Gateway"]:::sysStyle
-    SMS["<<System>> SMS Gateway"]:::sysStyle
-    Backend["<<System>> DWC Central Server"]:::sysStyle
+    Researcher["Conservation Researcher"]:::actorStyle
+    IncManager["Incident Manager"]:::actorStyle
 
-    subgraph TrailGuard System Boundary
-        UC01["UC01: Conduct Assigned Ranger Patrol"]:::ucStyle
-        UC01_Sync["Synchronize Patrol Route"]:::ucStyle
-        UC01_Buffer["Buffer Offline Patrol Data"]:::ucStyle
-        UC01_Gauge["Calculate 96% Route Coverage"]:::ucStyle
+    %% Right Actors
+    CollarSys["GPS Collar System"]:::sysStyle
+    CameraSys["Camera Trap System"]:::sysStyle
+    WildlifeStaff["Wildlife Staff"]:::actorStyle
+    Liaison["Community Liaison Officer (Kajana)"]:::actorStyle
+    SMS["SMS Gateway (A02)"]:::sysStyle
 
-        UC02["UC02: Report Field Incident"]:::ucStyle
-        UC02_Photo["Attach Geotagged Photo"]:::ucStyle
-        UC02_Receipt["Verify Complete-Receipt (SHA-256)"]:::ucStyle
-        UC02_Queue["Queue Offline SQLite Packet"]:::ucStyle
+    subgraph Boundary["Smart Wildlife Conservation & Anti-Poaching System"]
+        
+        %% Subsystem 1: Ranger Patrol Operations
+        subgraph Sub1["1. Ranger Patrol Operations"]
+            PatrolGoal["Manage Ranger Patrol Operations"]:::goalStyle
+            AssignRoute["Assign Patrol Route"]:::ucStyle
+            ViewRoute["View Assigned Patrol Route"]:::ucStyle
+            ViewCoverage["View Recent Patrol Coverage"]:::ucStyle
+            CompletePatrol["Complete Patrol"]:::ucStyle
+            RecPosition["Record Patrol Position"]:::ucStyle
+            TrackGPS["Track Position via GPS"]:::ucStyle
+            MarkWaypoint["Mark Manual Waypoint"]:::ucStyle
+            GaugeCoverage["Calculate 96% Route Coverage (A02)"]:::ucStyle
+        end
 
-        UC03["UC03: Monitor Wildlife & Risk Alerts"]:::ucStyle
-        UC03_Ingest["Ingest Collar Telemetry"]:::ucStyle
-        UC03_Geofence["Evaluate Farmland Geofences"]:::ucStyle
-        UC03_Page["Page Emergency Intervention Unit"]:::ucStyle
+        %% Subsystem 2: Wildlife Sensors & Risk Alerts
+        subgraph Sub2["2. Wildlife Sensors & Risk Alerts"]
+            SensorGoal["Monitor Wildlife Sensors & Risk Alerts"]:::goalStyle
+            MonCollar["Monitor GPS-Collared Wildlife"]:::ucStyle
+            CheckZone["Check Location Against Risk Zone"]:::ucStyle
+            GenAlert["Generate Wildlife Risk Alert"]:::ucStyle
+            RecCollar["Receive Collar Location"]:::ucStyle
+            ViewAlert["View Risk Alert"]:::ucStyle
+            RespondAlert["Respond to Risk Alert"]:::ucStyle
+            GeofenceEval["Evaluate Farmland Geofences (A02)"]:::ucStyle
+            PageUnit["Page Emergency Intervention Unit (A02)"]:::ucStyle
+        end
 
-        UC04["UC04: Manage Human-Wildlife Conflict"]:::ucStyle
-        UC04_SMS["Ingest via Rural SMS Gateway"]:::ucStyle
-        UC04_Dispatch["Audit Damage & Dispatch Team"]:::ucStyle
+        %% Subsystem 3: Camera Trap Observations
+        subgraph Sub3["3. Camera Trap Observations"]
+            CamGoal["Process Camera Trap Observations"]:::goalStyle
+            RecCamImg["Receive Camera Trap Image"]:::ucStyle
+            RevCamImg["Review Camera Trap Image"]:::ucStyle
+            FlagPoacher["Flag Suspected Poacher"]:::ucStyle
+            IdSpecies["Identify Species"]:::ucStyle
+        end
+
+        %% Subsystem 4: Offline Field Data
+        subgraph Sub4["4. Offline Field Data"]
+            OfflineGoal["Handle Offline Field Data"]:::offlineStyle
+            StoreLocal["Store Data Locally"]:::ucStyle
+            SyncData["Synchronize Offline Data"]:::ucStyle
+            BufferPatrol["Buffer Offline Patrol Data (A02)"]:::ucStyle
+        end
+
+        %% Subsystem 5: Incident & Community Reports
+        subgraph Sub5["5. Field & Community Incident Reports"]
+            IncidentGoal["Manage Field & Community Reports"]:::goalStyle
+            SubCommunity["Submit Community Conflict Report"]:::ucStyle
+            ReportIncident["Report Field Incident"]:::ucStyle
+            RecType["Record Incident Type"]:::ucStyle
+            RecGPS["Record Incident GPS Location"]:::ucStyle
+            EnterDesc["Enter Incident Description"]:::ucStyle
+            CapPhoto["Capture Incident Photo"]:::ucStyle
+            VerifyReceipt["Verify Complete-Receipt SHA-256 (A02)"]:::ucStyle
+            RevCommunity["Review Community Report"]:::ucStyle
+            RespConflict["Respond to Conflict Report"]:::ucStyle
+            SmsBridge["Ingest via Rural SMS Gateway (A02)"]:::ucStyle
+        end
+
+        %% Subsystem 6: Analysis & Reporting
+        subgraph Sub6["6. Conservation Analysis & Reporting"]
+            AnalysisGoal["Perform Conservation Analysis & Reporting"]:::goalStyle
+            AllocResources["Allocate Ranger Resources"]:::ucStyle
+            PlanRoutes["Plan Patrol Routes"]:::ucStyle
+            AnalConflict["Analyze Conflict Trends"]:::ucStyle
+            AnalHotspots["Analyze Poaching Hotspots"]:::ucStyle
+            AnalCoverage["Analyze Patrol Coverage"]:::ucStyle
+            GenReport["Generate Statistical Report"]:::ucStyle
+        end
     end
 
-    Ranger --> UC01
-    UC01 ..->|<<include>>| UC01_Sync
-    UC01 ..->|<<extend>>| UC01_Buffer
-    UC01 ..->|<<include>>| UC01_Gauge
+    %% Patrol Connections
+    Manager --> AssignRoute
+    Manager --> ViewCoverage
+    Manager --> PatrolGoal
+    Ranger --> ViewRoute
+    Ranger --> CompletePatrol
+    Ranger --> RecPosition
+    RecPosition --> TrackGPS
+    RecPosition --> MarkWaypoint
+    CompletePatrol ..->|<<include>>| GaugeCoverage
 
-    Ranger --> UC02
-    UC02 ..->|<<extend>>| UC02_Photo
-    UC02 ..->|<<include>>| UC02_Receipt
-    UC02 ..->|<<extend>>| UC02_Queue
+    %% Sensor Connections
+    CollarSys --> RecCollar
+    RecCollar --> MonCollar
+    MonCollar --> CheckZone
+    CheckZone ..->|<<extend>>| GenAlert
+    GenAlert --> ViewAlert
+    Ranger --> RespondAlert
+    CheckZone ..->|<<include>>| GeofenceEval
+    GeofenceEval ..->|<<extend>>| PageUnit
+    PageUnit --> Ranger
 
-    IoT --> UC03_Ingest
-    UC03_Ingest ..->|<<include>>| UC03
-    UC03 ..->|<<include>>| UC03_Geofence
-    UC03 ..->|<<extend>>| UC03_Page
-    Manager --> UC03
-    UC03_Page --> Ranger
+    %% Camera Connections
+    CameraSys --> RecCamImg
+    RecCamImg --> RevCamImg
+    RevCamImg ..->|<<extend>>| FlagPoacher
+    RevCamImg ..->|<<extend>>| IdSpecies
+    WildlifeStaff --> RevCamImg
+    WildlifeStaff --> FlagPoacher
 
-    Farmer --> UC04
-    SMS --> UC04_SMS
-    UC04_SMS ..->|<<extend>>| UC04
-    Liaison --> UC04
-    UC04 ..->|<<include>>| UC04_Dispatch
+    %% Offline Connections
+    Ranger --> OfflineGoal
+    OfflineGoal ..->|<<include>>| StoreLocal
+    OfflineGoal ..->|<<extend>>| SyncData
+    OfflineGoal ..->|<<extend>>| BufferPatrol
 
-    UC01_Sync --> Backend
-    UC02_Receipt --> Backend
-    UC04_Dispatch --> Backend`
+    %% Incident Connections
+    Ranger --> ReportIncident
+    ReportIncident ..->|<<include>>| RecType
+    ReportIncident ..->|<<include>>| RecGPS
+    ReportIncident ..->|<<include>>| EnterDesc
+    ReportIncident ..->|<<include>>| CapPhoto
+    ReportIncident ..->|<<include>>| VerifyReceipt
+    Farmer --> SubCommunity
+    SMS --> SmsBridge
+    SmsBridge ..->|<<extend>>| SubCommunity
+    Liaison --> RevCommunity
+    Liaison --> RespConflict
+    RevCommunity --> RespConflict
+
+    %% Analysis Connections
+    Manager --> AnalysisGoal
+    Researcher --> AnalysisGoal
+    IncManager --> IncidentGoal
+    AnalysisGoal --> AllocResources
+    AnalysisGoal --> PlanRoutes
+    AnalysisGoal --> AnalConflict
+    AnalysisGoal --> AnalHotspots
+    AnalysisGoal --> AnalCoverage
+    AnalysisGoal --> GenReport`
   },
   {
     filename: 'trailguard_class_diagram.png',

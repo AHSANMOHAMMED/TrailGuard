@@ -65,7 +65,7 @@ Table 1: Group Members & Use Case Allocation
 | **5** | Sequence UC03 | Collar ingest → PAGE/REVIEW → assign → ack / escalate → close | `fig5_seq_uc03.png` |
 | **6** | Sequence UC04 | App/SMS conflict → PENDING sync → desk respond | `fig6_seq_uc04.png` |
 
-All figures below are rendered UML images (not placeholders). Source Mermaid is kept under `docs/report_assets/uml/` for regeneration.
+All figures below are rendered UML images (not placeholders). **Deep Mermaid UML source** (use case, class, UC01–UC04 sequence) lives under `docs/report_assets/uml/` (`fig1_usecase_a02.mmd`, `fig2_class_a02.mmd`, `fig3_seq_uc01.mmd` … `fig6_seq_uc04.mmd`) and is also embedded inline in §§1–6 for viva / PDF export.
 
 ---
 
@@ -79,19 +79,178 @@ All figures below are rendered UML images (not placeholders). Source Mermaid is 
 
 ### 1.2 A02 Updated Use Case Diagram (implemented)
 
-![Figure 1 — Updated Use Case Diagram (A02)](./report_assets/fig1_updated_usecase.png)
+![Figure 1 — Updated Use Case Diagram (A02)](./report_assets/trailguard_uc_diagram.png)
 
-**Figure 1.** Updated UML use case diagram for TrailGuard (A02). Actors: Ranger, Park Manager, Liaison Officer, Community Member, Researcher, Sensor Gateway / Collar, SMS Gateway. Primary use cases UC01–UC04 with «extend» improvements UC01b (retry failed sync), UC03b (escalate after ack timeout), UC03c (close with outcome). Supporting report snapshot is available to Manager / Researcher / Liaison.
+**Figure 1.** Complete updated UML use case diagram for TrailGuard (A02). Decomposes the system into 6 core subsystems: (1) Ranger Patrol Operations, (2) Wildlife Sensors & Risk Alerts, (3) Camera Trap Observations, (4) Offline Field Data, (5) Field & Community Incident Reports, and (6) Conservation Analysis & Reporting. Actors: Field Ranger, Park Manager, Conservation Researcher, Incident Manager, GPS Collar System, Camera Trap System, Wildlife Staff, Community Liaison Officer, and SMS Gateway.
+
+#### Deep UML source (use case)
+
+```mermaid
+graph TD
+    classDef actorStyle fill:#1F5A43,color:#FFF,stroke:#0A100C,stroke-width:2px;
+    classDef goalStyle fill:#3182CE,color:#FFF,stroke:#1A365D,stroke-width:2px;
+    classDef offlineStyle fill:#D69E2E,color:#FFF,stroke:#744210,stroke-width:2px;
+    classDef ucStyle fill:#F0F5F2,color:#1F5A43,stroke:#3B7A57,stroke-width:1.5px;
+    classDef sysStyle fill:#2A4365,color:#FFF,stroke:#1A202C,stroke-width:2px;
+
+    %% Left Actors
+    Manager["Park Manager"]:::actorStyle
+    Ranger["Field Ranger (Shureka / Ahsan)"]:::actorStyle
+    Researcher["Conservation Researcher"]:::actorStyle
+    IncManager["Incident Manager"]:::actorStyle
+
+    %% Right Actors
+    CollarSys["GPS Collar System"]:::sysStyle
+    CameraSys["Camera Trap System"]:::sysStyle
+    WildlifeStaff["Wildlife Staff"]:::actorStyle
+    Liaison["Community Liaison Officer (Kajana)"]:::actorStyle
+    SMS["SMS Gateway (A02)"]:::sysStyle
+
+    subgraph Boundary["Smart Wildlife Conservation & Anti-Poaching System"]
+        
+        %% Subsystem 1: Ranger Patrol Operations
+        subgraph Sub1["1. Ranger Patrol Operations"]
+            PatrolGoal["Manage Ranger Patrol Operations"]:::goalStyle
+            AssignRoute["Assign Patrol Route"]:::ucStyle
+            ViewRoute["View Assigned Patrol Route"]:::ucStyle
+            ViewCoverage["View Recent Patrol Coverage"]:::ucStyle
+            CompletePatrol["Complete Patrol"]:::ucStyle
+            RecPosition["Record Patrol Position"]:::ucStyle
+            TrackGPS["Track Position via GPS"]:::ucStyle
+            MarkWaypoint["Mark Manual Waypoint"]:::ucStyle
+            GaugeCoverage["Calculate 96% Route Coverage (A02)"]:::ucStyle
+        end
+
+        %% Subsystem 2: Wildlife Sensors & Risk Alerts
+        subgraph Sub2["2. Wildlife Sensors & Risk Alerts"]
+            SensorGoal["Monitor Wildlife Sensors & Risk Alerts"]:::goalStyle
+            MonCollar["Monitor GPS-Collared Wildlife"]:::ucStyle
+            CheckZone["Check Location Against Risk Zone"]:::ucStyle
+            GenAlert["Generate Wildlife Risk Alert"]:::ucStyle
+            RecCollar["Receive Collar Location"]:::ucStyle
+            ViewAlert["View Risk Alert"]:::ucStyle
+            RespondAlert["Respond to Risk Alert"]:::ucStyle
+            GeofenceEval["Evaluate Farmland Geofences (A02)"]:::ucStyle
+            PageUnit["Page Emergency Intervention Unit (A02)"]:::ucStyle
+        end
+
+        %% Subsystem 3: Camera Trap Observations
+        subgraph Sub3["3. Camera Trap Observations"]
+            CamGoal["Process Camera Trap Observations"]:::goalStyle
+            RecCamImg["Receive Camera Trap Image"]:::ucStyle
+            RevCamImg["Review Camera Trap Image"]:::ucStyle
+            FlagPoacher["Flag Suspected Poacher"]:::ucStyle
+            IdSpecies["Identify Species"]:::ucStyle
+        end
+
+        %% Subsystem 4: Offline Field Data
+        subgraph Sub4["4. Offline Field Data"]
+            OfflineGoal["Handle Offline Field Data"]:::offlineStyle
+            StoreLocal["Store Data Locally"]:::ucStyle
+            SyncData["Synchronize Offline Data"]:::ucStyle
+            BufferPatrol["Buffer Offline Patrol Data (A02)"]:::ucStyle
+        end
+
+        %% Subsystem 5: Incident & Community Reports
+        subgraph Sub5["5. Field & Community Incident Reports"]
+            IncidentGoal["Manage Field & Community Reports"]:::goalStyle
+            SubCommunity["Submit Community Conflict Report"]:::ucStyle
+            ReportIncident["Report Field Incident"]:::ucStyle
+            RecType["Record Incident Type"]:::ucStyle
+            RecGPS["Record Incident GPS Location"]:::ucStyle
+            EnterDesc["Enter Incident Description"]:::ucStyle
+            CapPhoto["Capture Incident Photo"]:::ucStyle
+            VerifyReceipt["Verify Complete-Receipt SHA-256 (A02)"]:::ucStyle
+            RevCommunity["Review Community Report"]:::ucStyle
+            RespConflict["Respond to Conflict Report"]:::ucStyle
+            SmsBridge["Ingest via Rural SMS Gateway (A02)"]:::ucStyle
+        end
+
+        %% Subsystem 6: Analysis & Reporting
+        subgraph Sub6["6. Conservation Analysis & Reporting"]
+            AnalysisGoal["Perform Conservation Analysis & Reporting"]:::goalStyle
+            AllocResources["Allocate Ranger Resources"]:::ucStyle
+            PlanRoutes["Plan Patrol Routes"]:::ucStyle
+            AnalConflict["Analyze Conflict Trends"]:::ucStyle
+            AnalHotspots["Analyze Poaching Hotspots"]:::ucStyle
+            AnalCoverage["Analyze Patrol Coverage"]:::ucStyle
+            GenReport["Generate Statistical Report"]:::ucStyle
+        end
+    end
+
+    %% Patrol Connections
+    Manager --> AssignRoute
+    Manager --> ViewCoverage
+    Manager --> PatrolGoal
+    Ranger --> ViewRoute
+    Ranger --> CompletePatrol
+    Ranger --> RecPosition
+    RecPosition --> TrackGPS
+    RecPosition --> MarkWaypoint
+    CompletePatrol ..->|<<include>>| GaugeCoverage
+
+    %% Sensor Connections
+    CollarSys --> RecCollar
+    RecCollar --> MonCollar
+    MonCollar --> CheckZone
+    CheckZone ..->|<<extend>>| GenAlert
+    GenAlert --> ViewAlert
+    Ranger --> RespondAlert
+    CheckZone ..->|<<include>>| GeofenceEval
+    GeofenceEval ..->|<<extend>>| PageUnit
+    PageUnit --> Ranger
+
+    %% Camera Connections
+    CameraSys --> RecCamImg
+    RecCamImg --> RevCamImg
+    RevCamImg ..->|<<extend>>| FlagPoacher
+    RevCamImg ..->|<<extend>>| IdSpecies
+    WildlifeStaff --> RevCamImg
+    WildlifeStaff --> FlagPoacher
+
+    %% Offline Connections
+    Ranger --> OfflineGoal
+    OfflineGoal ..->|<<include>>| StoreLocal
+    OfflineGoal ..->|<<extend>>| SyncData
+    OfflineGoal ..->|<<extend>>| BufferPatrol
+
+    %% Incident Connections
+    Ranger --> ReportIncident
+    ReportIncident ..->|<<include>>| RecType
+    ReportIncident ..->|<<include>>| RecGPS
+    ReportIncident ..->|<<include>>| EnterDesc
+    ReportIncident ..->|<<include>>| CapPhoto
+    ReportIncident ..->|<<include>>| VerifyReceipt
+    Farmer --> SubCommunity
+    SMS --> SmsBridge
+    SmsBridge ..->|<<extend>>| SubCommunity
+    Liaison --> RevCommunity
+    Liaison --> RespConflict
+    RevCommunity --> RespConflict
+
+    %% Analysis Connections
+    Manager --> AnalysisGoal
+    Researcher --> AnalysisGoal
+    IncManager --> IncidentGoal
+    AnalysisGoal --> AllocResources
+    AnalysisGoal --> PlanRoutes
+    AnalysisGoal --> AnalConflict
+    AnalysisGoal --> AnalHotspots
+    AnalysisGoal --> AnalCoverage
+    AnalysisGoal --> GenReport
+```
 
 | Actor | Primary associations (clarity) |
 | :--- | :--- |
-| **Ranger** | UC01 Patrol, UC01b Retry Sync, UC02 Field Incident, UC03c Close Alert |
-| **Park Manager** | UC01, UC03 Risk Alerts, UC03b Escalate, Report Snapshot |
-| **Liaison Officer** | UC03, UC03b, UC03c, UC04 HWC Conflict, Report Snapshot |
-| **Researcher** | Report Snapshot |
-| **Community Member** | UC04 HWC Conflict (App / SMS) |
-| **Sensor Gateway** | UC03 (collar telemetry ingest) |
-| **SMS Gateway** | UC04 (rural SMS intake) |
+| **Park Manager** | Patrol Operations, Patrol Route Assignment, Resource Allocation, Analysis & Reporting |
+| **Field Ranger (Shureka / Ahsan)** | View Beat Route, Complete Patrol, Record GPS/Manual Waypoints, Report Incident, Risk Alert Response |
+| **Incident Manager** | Field & Community Incident Reports Management |
+| **Conservation Researcher** | Conservation Analysis & Reporting, Hotspot Analysis, Conflict Trends |
+| **Wildlife Staff** | Camera Trap Image Review, Flag Poachers, Identify Species |
+| **Community Liaison Officer (Kajana)** | Community Conflict Review, Incident Response, Damage Audit |
+| **GPS Collar System** | Telemetry Ingestion, Animal Location Transmit |
+| **Camera Trap System** | Image Capture & Observation Upload |
+| **SMS Gateway (A02)** | Rural Feature Phone SMS Conflict Report Ingestion |
 
 ### Modifications and justifications
 
@@ -129,7 +288,7 @@ The improved use case diagram is a more realistic description of DWC field workf
 
 ### 2.2 A02 Updated Class Diagram (implemented)
 
-![Figure 2 — Updated Class Diagram (A02)](./report_assets/trailguard_class_diagram.png)
+![Figure 2 — Updated Class Diagram (A02)](./report_assets/fig2_updated_class.png)
 
 **Figure 2.** Updated UML class diagram for TrailGuard (A02). Domain entities (`Patrol`, `Waypoint`, `IncidentReport`, `PhotoAttachment`, `WildlifeAlert`, `ResponseAssignment`, `ConflictReport`, `ConservationReport`) plus enums (`SyncState`, `DeliveryState`, `PatrolStatus`, `AlertStatus`, `LocationSource`, `Confidence`, `IncidentCategory`, `OfficerRole`), service interfaces (`PatrolOpsService`, `IncidentOpsService`, `AlertTriageService`, `ConflictIntakeService`, `SyncService`), repository ports (`FieldStore`, `ConservationApi`), and controller (`TrailGuardAppStore`).
 
@@ -487,6 +646,58 @@ classDiagram
 | **12–16** | Offline A2 keeps positions locally; A3 drains queue via `POST /api/v1/sync/upsert` → `markSynced` |
 | **17–21** | Complete + flushTail → `COMPLETED` + `coveragePct` → confirmation to ranger |
 
+
+#### Deep UML source (UC01 sequence)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Ranger
+  participant UI as PatrolView
+  participant S as PatrolOpsService
+  participant LS as LocalStore SQLite
+  participant SY as SyncService
+  participant API as ConservationAPI Neon
+
+  Note over Ranger,API: UC01-S01 Conduct Assigned Ranger Patrol
+
+  Ranger->>UI: Open assigned route NB-03
+  UI-->>Ranger: Route map + status + last sync
+  Ranger->>UI: Start patrol
+  UI->>S: startPatrol(routeId, officerId)
+  S->>LS: save Patrol ACTIVE PENDING
+  LS-->>S: ok + patrolId
+  S-->>UI: patrolId
+  UI-->>Ranger: Patrol started on this phone
+
+  loop While ACTIVE
+    Ranger->>UI: GPS fix or Manual waypoint
+    UI->>S: recordPosition(source, geo, label?)
+    S->>LS: append Waypoint PENDING
+    S-->>UI: distanceKm + coveragePct preview
+  end
+
+  alt Offline A2
+    UI-->>Ranger: Offline indicator + pending count
+    Note over LS: Positions kept locally — no data loss
+  else Connectivity restored A3 / UC01b
+    SY->>LS: pendingQueue kind=patrol
+    SY->>API: POST /api/v1/sync/upsert
+    API-->>SY: SyncAck complete=true
+    SY->>LS: markSynced patrolId
+    UI-->>Ranger: SYNCED badge
+  else Sync failed UC01b extend
+    SY->>LS: mark FAILED + retryAfter
+    UI-->>Ranger: Retry sync when coverage returns
+  end
+
+  Ranger->>UI: Complete patrol
+  UI->>S: completePatrol + flushTail
+  S->>LS: COMPLETED + coveragePct
+  S-->>UI: duration, positions, coverage
+  UI-->>Ranger: Completion confirmed 96% gauge
+```
+
 ---
 
 ### Detailed Use Case Scenario
@@ -537,6 +748,62 @@ Table 2: Use Case Scenario — Conduct Assigned Ranger Patrol (Shureka)
 | **GPS vs E1 MANUAL** | Auto GPS when available; else prompt for MANUAL lat/lng |
 | **Submit** | Validate → save `IncidentReport` as `PENDING` (offline-safe) |
 | **Online vs Offline A1** | Online: upsert → complete receipt → `SYNCED`; Offline: keep pending locally |
+
+
+#### Deep UML source (UC02 sequence)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Ranger
+  participant UI as IncidentView
+  participant S as IncidentOpsService
+  participant Cam as Camera
+  participant LS as LocalStore
+  participant SY as SyncService
+  participant API as ConservationAPI
+
+  Note over Ranger,API: UC02-S01 Report Field Incident
+
+  Ranger->>UI: Open Report Field Incident
+  UI-->>Ranger: Type / severity / photo / location / description
+  Ranger->>UI: Select category + severity HIGH MEDIUM LOW
+  Ranger->>UI: Capture photo evidence
+  UI->>Cam: openCamera()
+  Cam-->>UI: localUri + mimeType
+  UI->>UI: compute sha256Digest
+
+  alt GPS available
+    UI->>UI: Capture GPS GeoPoint
+  else E1 GPS unavailable
+    UI-->>Ranger: GPS failed — enter MANUAL lat/lng
+    Ranger->>UI: Manual coordinates + landmark
+  end
+
+  Ranger->>UI: Enter description + Review
+  Ranger->>UI: Submit Incident
+  UI->>S: validate required fields
+  S->>LS: save IncidentReport PENDING complete=false
+  S->>LS: save PhotoAttachment PENDING
+  LS-->>S: reportId
+  UI-->>Ranger: Saved on device — pending sync
+
+  alt Online complete-receipt
+    S->>SY: synchronize kind=incident
+    SY->>API: POST /api/v1/sync/upsert
+    API->>API: verify sha256 + store
+    API-->>SY: SyncAck complete=true refId
+    SY->>LS: markSynced Incident + Photo
+    UI-->>Ranger: SYNCED complete-receipt INC-ref
+  else Offline A1
+    UI-->>Ranger: Pending synchronisation
+    Note over LS: Photo + text preserved locally
+  else Partial media failure E2
+    API-->>SY: complete=false text kept
+    SY->>LS: keep photo PENDING retry
+    UI-->>Ranger: Text synced — photo retrying
+  end
+```
 
 ---
 
@@ -608,6 +875,56 @@ Table 4: Use Case Scenario — Monitor Tracked Wildlife & Manage Risk Alerts (Ah
 | **High confidence PAGE** | Create `OPEN` → assign officer → notify SENT |
 | **Ack vs AF-2** | Ack → `ASSIGNED` → resolve/`CLOSED`; no ack → escalate to backup |
 
+
+#### Deep UML source (UC03 sequence)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Collar as GPS Collar
+  participant Ing as AlertTriageService
+  participant Desk as Ops Desk Alerts UI
+  participant Mgr as Park Manager
+  participant Ranger as Ranger / Liaison
+  participant LS as LocalStore
+  participant API as ConservationAPI
+
+  Note over Collar,API: UC03-S01 Monitor Tracked Wildlife and Risk Alerts
+
+  Collar->>Ing: location fix collarId lat lng confidence
+  Ing->>Ing: inZone AND fresh?
+
+  alt Outside zone / stale
+    Ing-->>Collar: ignore — history only
+  else Low confidence REVIEW R-08
+    Ing->>Desk: create REVIEW alert
+    Desk->>LS: save WildlifeAlert REVIEW
+    Note over Desk: No paging to field units
+  else High confidence PAGE
+    Ing->>Desk: create OPEN alert
+    Desk->>LS: save WildlifeAlert OPEN PENDING
+    Desk->>API: upsert alert
+    Mgr->>Desk: Assign officer
+    Desk->>LS: ResponseAssignment delivery PENDING
+    Desk-->>Ranger: Notify SENT
+    Desk->>LS: deliveryState SENT notifyAttempts++
+
+    alt Ack within window
+      Ranger->>Desk: Acknowledge
+      Desk->>Desk: status ASSIGNED
+      Ranger->>Desk: Resolve + outcome
+      Desk->>API: upsert CLOSED
+      Desk->>LS: mark CLOSED SYNCED
+    else AF-2 No ack — UC03b escalate
+      Desk->>Desk: Escalate to backup
+      Desk->>LS: status ESCALATED
+      Desk-->>Ranger: Escalated notification
+      Ranger->>Desk: Close with outcome UC03c
+      Desk->>API: upsert CLOSED
+    end
+  end
+```
+
 ---
 
 ## 6. Use Case 4: Manage Human-Wildlife Conflict Reports
@@ -659,94 +976,135 @@ Table 5: Use Case Scenario — Manage Human-Wildlife Conflict Reports (Kajana)
 | **Online sync** | `POST upsert kind=conflict` → ack → `markSynced` / `SUBMITTED` |
 | **Desk** | Pull shared rows → review → respond → `deskStatus RESPONDED` |
 
----
 
-## 7. Screen Shots of System
+#### Deep UML source (UC04 sequence)
 
-Below are high-fidelity screenshots of the implemented TrailGuard mobile application, demonstrating the complete end-to-end user experience, offline vector map engine, daylight/night visual themes, multi-actor authentication, and all 4 business use cases.
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Community as Community Member
+  participant App as Conflict App / SMS
+  participant S as ConflictIntakeService
+  participant LS as LocalStore
+  participant SY as SyncService
+  participant API as ConservationAPI
+  participant Desk as Liaison / Manager Desk
 
-![Figure 7 Screen Shots of System - Onboarding, Login & Role Selection](./screenshots/ui_onboarding_login_1791546776357.jpg)
+  Note over Community,Desk: UC04-S01 Manage Human-Wildlife Conflict Reports
 
-Figure 7: Screen Shots of System — Interactive Onboarding, 6-Actor Quick Login & Day/Night Mode
+  alt Mobile App channel
+    Community->>App: Open conflict report form
+    App-->>Community: type / location / herdSize / damage / phone
+    Community->>App: Submit Elephant Sighting / Crop Raiding
+  else SMS channel extend
+    Community->>App: SMS short-code HEC packet
+    App->>S: parseSmsPacket()
+  end
 
-* **Onboarding & Role Authentication Flow:**  
-  - *Panel 1–3:* Multi-step onboarding carousel introducing the DWC mission, offline-first SQLite sync engine, and operational modules.  
-  - *Panel 4:* Multi-actor login screen featuring **1-tap quick authentication chips** for all 6 personas (**Field Ranger `RN-402`**, **Liaison Officer**, **Park Manager**, **Community Member**, **Wildlife Researcher**, **System Admin**), accompanied by a top header Day/Night mode quick toggle button.
+  App->>S: validate required fields
+  S->>LS: save ConflictReport PENDING channel=APP|SMS
+  LS-->>S: reportId
 
----
+  alt Offline
+    App-->>Community: Stored locally — pending sync
+  else Online
+    App->>SY: synchronize kind=conflict
+    SY->>API: POST /api/v1/sync/upsert
+    API-->>SY: ack
+    SY->>LS: markSynced SUBMITTED
+    App-->>Community: Ticket registered
+  end
 
-![Figure 8 Screen Shots of System - UC01 Conduct Assigned Ranger Patrol](./screenshots/ui_patrol_screen_1791546825205.jpg)
-
-Figure 8: Screen Shots of System — UC01 Conduct Assigned Ranger Patrol (Shureka)
-
-* **UC01 Conduct Assigned Ranger Patrol (Shureka):**  
-  - *Panels 1–2:* Assigned Beat Route `NB-03 Northern Boundary` overview card and live GPS location tracking screen.  
-  - *Panels 3–4:* Manual landmark waypoint stamping modal (`WP-03 North Gate Outpost`) and dynamic `Offline Mode` SQLite queue status indicator.  
-  - *Panels 5–6:* Automatic HTTP background reconnection sync and defensive End Patrol confirmation dialogue.  
-  - *Panels 7–8:* Final patrol summary featuring the interactive **96% Route Coverage Gauge**, distance (`14.8 km`), duration (`03h 45m`), and archived log dossier.
-
----
-
-![Figure 9 Screen Shots of System - UC02 Report Field Incident](./screenshots/ui_incident_screen_1791546852785.jpg)
-
-Figure 9: Screen Shots of System — UC02 Report Field Incident (Ahsan Mohammed)
-
-* **UC02 Report Field Incident (Ahsan Mohammed):**  
-  - *Panels 1–2:* Active incident log dashboard and standardized infraction category selection grid (`Wire Snare`, `Injured Wildlife`, `Illegal Logging`).  
-  - *Panels 3–4:* Geotagged camera interface with photo preview and automatic GPS coordinate stamping with nearest landmark.  
-  - *Panels 5–6:* Pre-submission summary verification card and inline defensive form validation error highlights.  
-  - *Panels 7–8:* Offline SQLite pending queue fallback and complete-receipt server dispatch acknowledgment (`INC-2026-0812`).
-
----
-
-![Figure 10 Screen Shots of System - UC03 Wildlife Risk Alerts](./screenshots/ui_alert_screen_1791546883936.jpg)
-
-Figure 10: Screen Shots of System — UC03 Monitor Tracked Wildlife & Risk Alerts (Ahsan Mohammed)
-
-* **UC03 Monitor Tracked Wildlife & Risk Alerts (Ahsan Mohammed):**  
-  - *Panels 1–2:* Urgent high-priority alert banner for collared elephant `EL-04 (Raja)` breaching farmland geofence, and telemetry risk assessment card (`94% confidence`).  
-  - *Panels 3–4:* Ranger triage acknowledgment screen and offline vector radar map showing real-time elephant position and responder approach tracks.  
-  - *Panels 5–6:* Multi-unit tactical response coordination panel (`Team Echo 1`, `Team Echo 2`) and 15-minute active intervention timer.  
-  - *Panels 7–8:* Field mitigation action modal (`Acoustic thumper sound deterrent`) and closed incident summary updating regional risk heatmaps.
+  Desk->>API: GET /api/v1/field/list
+  API-->>Desk: Shared conflict rows
+  Desk->>Desk: Review priority + assign unit
+  Desk->>API: upsert deskStatus RESPONDED
+  Desk-->>Community: Status updated on ops dashboard
+```
 
 ---
 
-![Figure 11 Screen Shots of System - UC04 Human-Wildlife Conflict](./screenshots/ui_conflict_screen_1791546913914.jpg)
+## 7. Screen Shots of System (use-case wise)
 
-Figure 11: Screen Shots of System — UC04 Manage Human-Wildlife Conflict Reports (Kajana)
+Live captures from the deployed TrailGuard field UI (`https://trailguard-sable.vercel.app`), organised by actor home and UC01–UC04. Each figure is a real phone-viewport screenshot (390×844), not a placeholder.
 
-* **UC04 Manage Human-Wildlife Conflict Reports (Kajana):**  
-  - *Panels 1–2:* Conflict operations feed and dual-channel selector (**Mobile App Direct** vs **Rural SMS Gateway Bridge**).  
-  - *Panels 3–4:* Structured conflict intake form (Village, Herd Size, Crop Damage) and complainant summary check.  
-  - *Panels 5–6:* Offline encrypted SMS packet queue fallback and official submission acknowledgment ticket (`HWC-2026-042`).  
-  - *Panels 7–8:* DWC Liaison Officer review workspace for priority assignment and finalized relief deployment dossier.
+### 7.0 Login & role selection
 
----
+![Figure 7 — Login & 6-actor quick fill](./screenshots/uc_login.png)
 
-![Figure 12 Screen Shots of System - Offline Vector Canvas Map Engine](./screenshots/ui_offline_map_1791546943032.jpg)
+**Figure 7.** Field sign-in (Yala National Park). User ID + 4-digit PIN, day/night toggle, and quick-fill chips for Super Admin, Ranger, Liaison, Park Manager, Researcher, Community Member.
 
-Figure 12: Screen Shots of System — Offline Vector Canvas Map Engine (`OfflineMap.tsx`)
+![Figure 7b — Ranger home (UC menu)](./screenshots/uc00_home_ranger.png)
 
-* **Offline Vector Canvas Map Engine (`OfflineMap.tsx`):**  
-  - *Overview:* Demonstrates 100% tileless vector rendering of Yala National Park boundaries, sector tracks, gate outposts, elephant collar pins, and farmland geofence buffers operating seamlessly without network connectivity.
+**Figure 7b.** Ranger home after sign-in: UC01 Patrol, UC02 Field Incident, UC03 Risk Alerts, UC04 Conflict Desk (role-scoped workspace).
 
 ---
 
-![Figure 13 Screen Shots of System - Tactical Night Mode](./report_assets/page-36.png)
+### 7.1 UC01 — Conduct Assigned Ranger Patrol (Shureka)
 
-Figure 13: Screen Shots of System — Tactical Night Mode (`#0A100C`)
+![Figure 8 — UC01 Assigned Patrol](./screenshots/uc01_patrol.png)
 
-* **Tactical Night Patrol Mode (`#0A100C`):**  
-  - *Overview:* Low-luminance stealth visual palette designed to preserve ranger night vision during nighttime anti-poaching operations.
+**Figure 8.** UC01 Assigned Patrol screen: route `NB-03` North Boundary Patrol (4.2 km), ASSIGNED + ONLINE badges, offline vector route preview (START → END), patrol details, **Start Patrol** CTA.
 
 ---
 
-![Figure 14 Screen Shots of System - Operational Reports & Analytics](./report_assets/page-37.png)
+### 7.2 UC02 — Report Field Incident (Ahsan Mohammed)
 
-Figure 14: Screen Shots of System — Executive Reports & Statistical Analytics Desk
+![Figure 9 — UC02 Report Field Incident](./screenshots/uc02_incident.png)
 
-* **Executive Reports & Analytics Workspace:**  
-  - *Overview:* Park Manager dashboard generating point-in-time snapshot queries, patrol coverage statistics, and PDF/CSV audit exports.
+**Figure 9.** UC02 incident entry: map context with incident pin, category tiles (Snare / Carcass / Illegal Campsite / Footprints), note that photo + GPS are captured in the field, **Start Report** CTA.
+
+![Figure 9b — UC02 incident form](./screenshots/uc02_incident_form.png)
+
+**Figure 9b.** UC02 report form continuation (severity, description, location source GPS/MANUAL, photo attach, offline PENDING save).
+
+---
+
+### 7.3 UC03 — Monitor Tracked Wildlife & Risk Alerts (Ahsan Mohammed)
+
+![Figure 10 — UC03 Wildlife Risk Alert](./screenshots/uc03_alerts.png)
+
+**Figure 10.** UC03 incoming HIGH RISK alert: Elephant Near Farmland, collar `EL-07`, Farmland zone, detected time/location, **View Alert** for assign / ack / escalate / close.
+
+![Figure 10b — UC03 Liaison alerts desk](./screenshots/uc03_alerts_liaison.png)
+
+**Figure 10b.** Liaison Officer alerts workspace (same UC03 surface; role can escalate / close).
+
+---
+
+### 7.4 UC04 — Manage Human-Wildlife Conflict Reports (Kajana)
+
+![Figure 11 — UC04 Community conflict report](./screenshots/uc04_conflict_community.png)
+
+**Figure 11.** UC04 community intake: Elephant Sighting / Crop Raiding, park-boundary map context, SMS short-code note (`7444`), **Start Report**.
+
+![Figure 11b — UC04 Liaison conflict desk](./screenshots/uc04_conflict_liaison.png)
+
+**Figure 11b.** Liaison conflict desk for review / respond (shared Neon rows via Pull DB / field list).
+
+![Figure 11c — UC04 Ranger conflict desk](./screenshots/uc04_conflict_ranger.png)
+
+**Figure 11c.** Ranger-visible conflict desk entry (role-scoped).
+
+---
+
+### 7.5 Supporting screens (homes + reports)
+
+![Figure 12 — Park Manager home](./screenshots/uc00_home_manager.png)
+
+**Figure 12.** Park Manager home (ops dashboard, alerts, reports).
+
+![Figure 12b — Liaison home](./screenshots/uc00_home_liaison.png)
+
+**Figure 12b.** Liaison Officer home (risk coordination + conflict responses).
+
+![Figure 12c — Community Member home](./screenshots/uc00_home_community.png)
+
+**Figure 12c.** Community Member home (conflict reporting only).
+
+![Figure 13 — Conservation report snapshot](./screenshots/uc_reports.png)
+
+**Figure 13.** Conservation report snapshot / analytics desk (`/reports`) for Manager / Researcher / Liaison.
 
 ---
 
