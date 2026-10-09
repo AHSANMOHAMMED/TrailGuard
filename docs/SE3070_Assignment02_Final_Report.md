@@ -52,102 +52,86 @@ Table 1: Group Members & Use Case Allocation
 
 ---
 
+### UML Figure Catalogue (must-include diagrams)
+
+| Fig. | Diagram type | What it shows | File |
+| :---: | :--- | :--- | :--- |
+| **0a** | Use Case (A01 baseline) | Original Assignment 01 use-case design | `fig0_a01_usecase_baseline.png` |
+| **0b** | Class (A01 baseline) | Original Assignment 01 class design | `fig0_a01_class_baseline.png` |
+| **1** | Use Case (A02 updated) | UC01–UC04 + «extend» UC01b / UC03b / UC03c + actors | `fig1_updated_usecase.png` |
+| **2** | Class (A02 updated) | Domain entities + SyncState + LocalStore → SyncService → API | `fig2_updated_class.png` |
+| **3** | Sequence UC01 | Patrol start → waypoints → offline queue → sync → complete | `fig3_seq_uc01.png` |
+| **4** | Sequence UC02 | Incident + photo + GPS/MANUAL → PENDING → complete receipt | `fig4_seq_uc02.png` |
+| **5** | Sequence UC03 | Collar ingest → PAGE/REVIEW → assign → ack / escalate → close | `fig5_seq_uc03.png` |
+| **6** | Sequence UC04 | App/SMS conflict → PENDING sync → desk respond | `fig6_seq_uc04.png` |
+
+All figures below are rendered UML images (not placeholders). Source Mermaid is kept under `docs/report_assets/uml/` for regeneration.
+
+---
+
 ## 1. Updated Use Case Diagram
 
-![Figure 1 Updated Use Case Diagram](./report_assets/trailguard_uc_diagram.png)
+### 1.1 A01 Baseline (for comparison)
 
-Figure 1: Updated Use Case Diagram (TrailGuard Wildlife System)
+![Figure 0a — A01 High-Level Use Case Diagram](./report_assets/fig0_a01_usecase_baseline.png)
 
-```mermaid
-graph TD
-    classDef actorStyle fill:#1F5A43,color:#FFF,stroke:#0A100C,stroke-width:2px;
-    classDef ucStyle fill:#F0F5F2,color:#1F5A43,stroke:#3B7A57,stroke-width:1.5px;
-    classDef sysStyle fill:#2A4365,color:#FFF,stroke:#1A202C,stroke-width:2px;
+**Figure 0a.** A01 baseline high-level use case diagram (Assignment 01 design). Shows the four business clusters: patrol operations, sensor/risk alerts, field & community incident reports, and conservation analysis, plus offline transfer.
 
-    Ranger["Field Ranger (Shureka / Ahsan)"]:::actorStyle
-    Manager["Park Manager (Ahsan)"]:::actorStyle
-    Liaison["Liaison Officer (Kajana)"]:::actorStyle
-    Farmer["Community Member"]:::actorStyle
-    
-    IoT["<<System>> IoT Collar Gateway"]:::sysStyle
-    SMS["<<System>> SMS Gateway"]:::sysStyle
-    Backend["<<System>> DWC Central Server"]:::sysStyle
+### 1.2 A02 Updated Use Case Diagram (implemented)
 
-    subgraph TrailGuard System Boundary
-        UC01["UC01: Conduct Assigned Ranger Patrol"]:::ucStyle
-        UC01_Sync["Synchronize Patrol Route"]:::ucStyle
-        UC01_Buffer["Buffer Offline Patrol Data"]:::ucStyle
-        UC01_Gauge["Calculate 96% Route Coverage"]:::ucStyle
+![Figure 1 — Updated Use Case Diagram (A02)](./report_assets/fig1_updated_usecase.png)
 
-        UC02["UC02: Report Field Incident"]:::ucStyle
-        UC02_Photo["Attach Geotagged Photo"]:::ucStyle
-        UC02_Receipt["Verify Complete-Receipt (SHA-256)"]:::ucStyle
-        UC02_Queue["Queue Offline SQLite Packet"]:::ucStyle
+**Figure 1.** Updated UML use case diagram for TrailGuard (A02). Actors: Ranger, Park Manager, Liaison Officer, Community Member, Researcher, Sensor Gateway / Collar, SMS Gateway. Primary use cases UC01–UC04 with «extend» improvements UC01b (retry failed sync), UC03b (escalate after ack timeout), UC03c (close with outcome). Supporting report snapshot is available to Manager / Researcher / Liaison.
 
-        UC03["UC03: Monitor Wildlife & Risk Alerts"]:::ucStyle
-        UC03_Ingest["Ingest Collar Telemetry"]:::ucStyle
-        UC03_Geofence["Evaluate Farmland Geofences"]:::ucStyle
-        UC03_Page["Page Emergency Intervention Unit"]:::ucStyle
-
-        UC04["UC04: Manage Human-Wildlife Conflict"]:::ucStyle
-        UC04_SMS["Ingest via Rural SMS Gateway"]:::ucStyle
-        UC04_Dispatch["Audit Damage & Dispatch Team"]:::ucStyle
-    end
-
-    Ranger --> UC01
-    UC01 ..->|<<include>>| UC01_Sync
-    UC01 ..->|<<extend>>| UC01_Buffer
-    UC01 ..->|<<include>>| UC01_Gauge
-
-    Ranger --> UC02
-    UC02 ..->|<<extend>>| UC02_Photo
-    UC02 ..->|<<include>>| UC02_Receipt
-    UC02 ..->|<<extend>>| UC02_Queue
-
-    IoT --> UC03_Ingest
-    UC03_Ingest ..->|<<include>>| UC03
-    UC03 ..->|<<include>>| UC03_Geofence
-    UC03 ..->|<<extend>>| UC03_Page
-    Manager --> UC03
-    UC03_Page --> Ranger
-
-    Farmer --> UC04
-    SMS --> UC04_SMS
-    UC04_SMS ..->|<<extend>>| UC04
-    Liaison --> UC04
-    UC04 ..->|<<include>>| UC04_Dispatch
-
-    UC01_Sync --> Backend
-    UC02_Receipt --> Backend
-    UC04_Dispatch --> Backend
-```
+| Actor | Primary associations (clarity) |
+| :--- | :--- |
+| **Ranger** | UC01 Patrol, UC01b Retry Sync, UC02 Field Incident, UC03c Close Alert |
+| **Park Manager** | UC01, UC03 Risk Alerts, UC03b Escalate, Report Snapshot |
+| **Liaison Officer** | UC03, UC03b, UC03c, UC04 HWC Conflict, Report Snapshot |
+| **Researcher** | Report Snapshot |
+| **Community Member** | UC04 HWC Conflict (App / SMS) |
+| **Sensor Gateway** | UC03 (collar telemetry ingest) |
+| **SMS Gateway** | UC04 (rural SMS intake) |
 
 ### Modifications and justifications
 
-The improved use case diagram provides a significantly more realistic and comprehensive representation of wildlife conservation, anti-poaching patrol operations, and human-wildlife conflict management workflows compared to the original design. While the original design focused on basic, isolated functionalities such as simple patrol starting, manual incident entry, and basic alert viewing, the improved diagram decomposes these into practical, mission-critical operational interactions required by the Department of Wildlife Conservation (DWC) of Sri Lanka.
+The improved use case diagram is a more realistic description of DWC field workflows than the A01 baseline.
 
-1. **Adoption of Offline-First Local-First Engine (`Buffer Offline Data` & `Synchronize Patrol Route`):**
-   - *Modification:* Introduced explicit `Buffer Offline Patrol Data` (as an `<<extend>>` relationship) and `Synchronize Patrol Route` (as an `<<include>>` relationship) under UC01.
-   - *Justification:* Field rangers operate in dense jungle sectors (such as Yala Block II or Wilpattu) where cellular connectivity is unavailable for up to 90% of a patrol's duration. The original design treated offline operation as a minor exception flow rather than the primary operating reality.
-2. **Complete-Receipt Protocol Integration (`Verify Complete-Receipt`):**
-   - *Modification:* Added `Verify Complete-Receipt` under UC02 (Report Field Incident).
-   - *Justification:* In critical conservation management, sending an incident report and confirming its receipt at headquarters must be decoupled. Photo attachments (e.g., snares, illegal logging, animal carcasses) require cryptographic digest validation (`SHA-256`) before the device marks local records as `SYNCED`.
-3. **Multi-Channel Accessibility & External Gateway Integration (`SMS Gateway` & `IoT Sensor Gateway`):**
-   - *Modification:* Added external system actors (`<<System>> IoT Sensor Gateway` for collar telemetry and `<<System>> SMS Gateway` for community conflict reports).
-   - *Justification:* In rural Sri Lankan farming villages bordering elephant corridors, farmers primarily use basic feature phones rather than smartphones. Integrating an SMS Gateway bridge ensures zero barriers to entry for local agricultural communities submitting Human-Elephant Conflict (HEC) reports.
-4. **Telemetry Flooding & Geofence Risk Evaluation (`Evaluate Farmland Geofences`):**
-   - *Modification:* Decomposed UC03 into `Ingest Collar Telemetry`, `Evaluate Farmland Geofences`, and `Acknowledge & Dispatch Intervention`.
-   - *Justification:* Raw GPS collar fixes contain sensor jitter and frequent low-confidence readings. Filtering telemetry through dynamic agricultural geofences and confidence thresholds prevents ranger alert fatigue from false alarms.
-5. **UML 2.5 Compliance Refinement:**
-   - *Modification:* Replaced incorrect `<<include>>` relationships on optional sub-actions (e.g., photo attachment) with `<<extend>>` relationships with formal extension points, and decoupled primary actors from private system sub-routines.
+1. **Offline-first as first-class behaviour (UC01b «extend» UC01):**  
+   - *Before:* Offline sync was only an exception note.  
+   - *Now:* `UC01b Retry Failed Sync` formally extends UC01 when sync fails (R-02a).  
+   - *Justification:* Rangers spend most of a patrol without coverage; pending → synced must be modelled, not assumed.
+2. **Risk-alert lifecycle completeness (UC03b / UC03c):**  
+   - *Before:* Alert ended at “notify ranger”.  
+   - *Now:* Escalation after ack timeout and close-with-outcome are explicit «extend» use cases.  
+   - *Justification:* Matches A01 AF-2 / postconditions and the implemented `/alerts` desk.
+3. **External systems as actors (Collar + SMS):**  
+   - *Before:* Gateways were implied inside “system”.  
+   - *Now:* Sensor Gateway and SMS Gateway are actors feeding UC03 / UC04.  
+   - *Justification:* Clarifies machine-to-machine vs human-to-system boundaries for viva and sequence diagrams.
+4. **Role clarity (who does what):**  
+   - *Before:* Associations were dense and hard to grade.  
+   - *Now:* Table above maps each actor to UC01–UC04.  
+   - *Justification:* Matches A01 actor associations and the implemented PIN role matrix.
+5. **UML «extend» direction corrected:**  
+   - Optional / conditional behaviour points *to* the base use case (UC01b → UC01, UC03b → UC03).  
+   - *Justification:* Fixes A01 arrow-direction issues called out in the A02 critique (R-01).
 
 ---
 
 ## 2. Updated Class Diagram
 
-![Figure 2 Updated Class Diagram](./report_assets/trailguard_class_diagram.png)
+### 2.1 A01 Baseline (for comparison)
 
-Figure 2: Updated Class Diagram (TrailGuard Wildlife System)
+![Figure 0b — A01 Class Diagram](./report_assets/fig0_a01_class_baseline.png)
+
+**Figure 0b.** A01 baseline class diagram (Assignment 01). Core field entities existed, but sync state, offline store, and API boundary were incomplete.
+
+### 2.2 A02 Updated Class Diagram (implemented)
+
+![Figure 2 — Updated Class Diagram (A02)](./report_assets/trailguard_class_diagram.png)
+
+**Figure 2.** Updated UML class diagram for TrailGuard (A02). Domain entities (`Patrol`, `Waypoint`, `IncidentReport`, `PhotoAttachment`, `WildlifeAlert`, `ResponseAssignment`, `ConflictReport`, `ConservationReport`) plus enums (`SyncState`, `DeliveryState`, `PatrolStatus`, `AlertStatus`, `LocationSource`, `Confidence`, `IncidentCategory`, `OfficerRole`), service interfaces (`PatrolOpsService`, `IncidentOpsService`, `AlertTriageService`, `ConflictIntakeService`, `SyncService`), repository ports (`FieldStore`, `ConservationApi`), and controller (`TrailGuardAppStore`).
 
 ```mermaid
 classDiagram
@@ -159,18 +143,86 @@ classDiagram
         FAILED
     }
 
+    class DeliveryState {
+        <<enumeration>>
+        PENDING
+        SENT
+        FAILED
+    }
+
+    class PatrolStatus {
+        <<enumeration>>
+        ACTIVE
+        COMPLETED
+        CANCELLED
+    }
+
+    class AlertStatus {
+        <<enumeration>>
+        OPEN
+        ASSIGNED
+        ESCALATED
+        CLOSED
+    }
+
+    class LocationSource {
+        <<enumeration>>
+        GPS
+        MANUAL
+    }
+
+    class Confidence {
+        <<enumeration>>
+        HIGH
+        MEDIUM
+        LOW
+    }
+
+    class IncidentCategory {
+        <<enumeration>>
+        SNARE
+        CROP_RAID
+        POACHING_SIGN
+        INJURED_ANIMAL
+        OTHER
+    }
+
+    class OfficerRole {
+        <<enumeration>>
+        RANGER
+        LIAISON
+        MANAGER
+        RESEARCHER
+    }
+
+    class GeoPoint {
+        +Float latitude
+        +Float longitude
+        +Float altitude
+    }
+
+    class GeoPolygon {
+        +List~GeoPoint~ coordinates
+    }
+
     class DomainEntity {
         <<abstract>>
         +UUID id
         +DateTime createdAt
         +DateTime updatedAt
         +SyncState syncState
+        +DateTime retryAfter
     }
 
     class Patrol {
+        +String patrolId
         +String beatRouteId
-        +String rangerId
+        +String routeName
+        +String officerId
+        +String officerName
         +PatrolStatus status
+        +DateTime startedAt
+        +DateTime completedAt
         +Float distanceKm
         +Float coveragePct
         +startPatrol()
@@ -179,48 +231,66 @@ classDiagram
     }
 
     class Waypoint {
-        +UUID patrolId
-        +Float latitude
-        +Float longitude
-        +Float altitude
-        +String source
-        +DateTime timestamp
+        +String pointId
+        +GeoPoint geo
+        +LocationSource source
+        +DateTime recordedAt
+        +String label
     }
 
     class IncidentReport {
-        +String category
-        +String severity
-        +Float latitude
-        +Float longitude
-        +String landmark
-        +String reporterId
+        +String reportId
+        +IncidentCategory category
+        +String description
+        +GeoPoint geo
+        +LocationSource locationSource
+        +DateTime observedAt
         +Boolean completeReceipt
     }
 
     class PhotoAttachment {
-        +UUID incidentId
-        +String localUri
-        +String remoteUrl
+        +String attachId
+        +String uri
+        +String mimeType
         +String sha256Digest
-        +Boolean isUploaded
+        +SyncState syncState
+    }
+
+    class Officer {
+        +String officerId
+        +String name
+        +OfficerRole role
+        +Boolean available
+    }
+
+    class RiskZone {
+        +String zoneId
+        +String name
+        +GeoPolygon polygon
+        +Integer freshnessMinutes
     }
 
     class WildlifeAlert {
-        +String animalId
+        +String alertId
+        +String animal
         +String zoneId
-        +Float confidencePct
-        +String triageLevel
-        +String status
-        +DateTime acknowledgedAt
-        +DateTime resolvedAt
+        +String zoneName
+        +Confidence confidence
+        +AlertStatus status
+        +DateTime observedAt
+        +DateTime receivedAt
     }
 
     class ResponseAssignment {
-        +UUID alertId
-        +String teamUnit
-        +String leadOfficerId
-        +String status
-        +DateTime assignedAt
+        +String raId
+        +String alertId
+        +String officerId
+        +String officerName
+        +DeliveryState deliveryState
+        +DateTime acknowledgedAt
+        +DateTime createdAt
+        +DateTime supersededAt
+        +String outcome
     }
 
     class ConflictReport {
@@ -231,6 +301,95 @@ classDiagram
         +String damageCategory
         +String complainantPhone
         +Float valuationAmount
+        +String assignedUnit
+    }
+
+    class ConservationReport {
+        +String reportId
+        +String park
+        +String fromDate
+        +String toDate
+        +DateTime cutoff
+        +DateTime generatedAt
+        +Integer incidentCount
+        +Integer patrolCount
+        +Float coveragePercent
+        +Integer conflictCount
+    }
+
+    class SyncAck {
+        +String recordId
+        +Integer version
+        +Boolean complete
+        +DateTime receivedAt
+    }
+
+    class ConservationApi {
+        <<interface>>
+        +upsertPatrol(p: Patrol) SyncAck
+        +upsertIncident(i: IncidentReport, attachments: PhotoAttachment[]) SyncAck
+    }
+
+    class FieldStore {
+        <<interface>>
+        +getPatrols() List~Patrol~
+        +savePatrol(p: Patrol)
+        +getIncidents() List~IncidentReport~
+        +saveIncident(i: IncidentReport)
+        +pending(now: DateTime) List~PendingRecord~
+        +markPatrolSynced(id: String)
+        +markIncidentFailed(id: String, retryAfter: DateTime)
+    }
+
+    class PatrolOpsService {
+        <<service>>
+        +startPatrol() Patrol
+        +recordWaypoint() Waypoint
+        +completePatrol() Patrol
+        +flushTailPoints()
+    }
+
+    class IncidentOpsService {
+        <<service>>
+        +submitIncident() IncidentReport
+        +attachPhoto() PhotoAttachment
+        +verifyCompleteReceipt() SyncAck
+    }
+
+    class AlertTriageService {
+        <<service>>
+        +ingestCollarTelemetry() WildlifeAlert
+        +evaluateGeofences() Boolean
+        +pageEmergencyUnit() ResponseAssignment
+        +acknowledgeAlert() Alert
+        +resolveAlert() Alert
+    }
+
+    class ConflictIntakeService {
+        <<service>>
+        +ingestAppReport() ConflictReport
+        +ingestSmsPacket() ConflictReport
+        +assignResponseUnit() ResponseAssignment
+        +logCompensationValuation() ConflictReport
+    }
+
+    class SyncService {
+        <<service>>
+        +syncPendingRecords() SyncResult
+        +handleCompleteReceipt() SyncAck
+    }
+
+    class TrailGuardAppStore {
+        <<controller>>
+        +OfficerRole activeRole
+        +Patrol activePatrol
+        +List~IncidentReport~ incidents
+        +List~WildlifeAlert~ alerts
+        +List~ConflictReport~ conflictReports
+        +Boolean dayNightTheme
+        +setRole()
+        +toggleTheme()
+        +syncQueue()
     }
 
     DomainEntity <|-- Patrol
@@ -240,31 +399,56 @@ classDiagram
     DomainEntity <|-- WildlifeAlert
     DomainEntity <|-- ResponseAssignment
     DomainEntity <|-- ConflictReport
+    DomainEntity <|-- ConservationReport
 
     Patrol "1" *-- "0..*" Waypoint : contains
     IncidentReport "1" *-- "0..*" PhotoAttachment : attaches
     WildlifeAlert "1" o-- "0..*" ResponseAssignment : dispatches
+    Patrol ..> GeoPoint : uses
+    IncidentReport ..> GeoPoint : uses
+    RiskZone "1" *-- "1" GeoPolygon : bounded by
+
+    PatrolOpsService ..> Patrol : manages
+    IncidentOpsService ..> IncidentReport : manages
+    AlertTriageService ..> WildlifeAlert : triages
+    ConflictIntakeService ..> ConflictReport : ingests
+    SyncService ..> FieldStore : drains queue
+    SyncService ..> ConservationApi : calls gateway
+    TrailGuardAppStore ..> PatrolOpsService : delegates
+    TrailGuardAppStore ..> IncidentOpsService : delegates
+    TrailGuardAppStore ..> AlertTriageService : delegates
+    TrailGuardAppStore ..> ConflictIntakeService : delegates
 ```
+
+| Layer | Classes / types | Responsibility |
+| :--- | :--- | :--- |
+| **Domain Entities** | Patrol, Waypoint, IncidentReport, PhotoAttachment, Officer, RiskZone, WildlifeAlert, ResponseAssignment, ConflictReport, ConservationReport | Core system entities with Version-4 UUIDs |
+| **Value Objects** | GeoPoint (lat, lon, alt), GeoPolygon (coordinates) | Geographic coordinates and boundary polygons |
+| **Enumerations** | SyncState, DeliveryState, PatrolStatus, AlertStatus, LocationSource, Confidence, IncidentCategory, OfficerRole | Vocabulary and state machine contracts |
+| **Service Operations** | PatrolOpsService, IncidentOpsService, AlertTriageService, ConflictIntakeService, SyncService | Business logic workflows for UC01–UC04 |
+| **Infrastructure Ports** | FieldStore (SQLite/zustand queue), ConservationApi (Neon Gateway) | Persistence and server synchronization seams |
+| **UI Controller** | TrailGuardAppStore (Zustand state store) | Presentation state, active role, theme & action dispatch |
 
 ### Modifications and Justifications
 
-An improved class diagram was developed to address the architectural limitations of the original model and better fulfill the operational needs of the TrailGuard Wildlife Conservation System. The original design defined basic entities (e.g., `Patrol`, `Incident`, `Alert`) but lacked essential abstractions for offline persistence, state synchronization, multi-channel intake, and evidence integrity.
-
-1. **Explicit Synchronization State Encapsulation (`SyncState` Enum & `DomainEntity` Base):**
-   - *Modification:* Added an abstract base class `DomainEntity` (containing `id: UUID`, `createdAt`, `updatedAt`) and a dedicated `SyncState` enum (`PENDING`, `IN_FLIGHT`, `SYNCED`, `FAILED`).
-   - *Justification:* Guarantees that every domain model supports client-side Version-4 UUID generation and local SQLite caching. Server and client persistence engines utilize idempotent upsert semantics (`INSERT ... ON CONFLICT DO UPDATE`), preventing retried sync packets from duplicating records.
-2. **Composition vs. Aggregation Refinement (`Patrol` $\rightarrow$ `Waypoint` & `IncidentReport` $\rightarrow$ `PhotoAttachment`):**
-   - *Modification:* Updated relationship lines from weak shared aggregation (`o--`) to strong composite aggregation (`*--`).
-   - *Justification:* In domain modeling, a `Waypoint` or `PhotoAttachment` cannot exist independently of its parent `Patrol` or `IncidentReport`. Deleting or purging a parent patrol cascades cleanly to purge its child waypoints.
-3. **Multiplicity Correction (`Patrol` to `Waypoint` `1` $\rightarrow$ `0..*`):**
-   - *Modification:* Changed `Patrol` to `Waypoint` multiplicity from `1..*` to `0..*`.
-   - *Justification:* Allows a freshly instantiated patrol to exist in an active state prior to acquiring its initial satellite GPS fix without violating domain constraints.
-4. **Complete-Receipt Attachment Subsystem (`PhotoAttachment`):**
-   - *Modification:* Added attributes `localUri`, `remoteUrl`, `sha256Digest`, `mimeType`, and `isUploaded: Boolean` to `PhotoAttachment`.
-   - *Justification:* Enables multipart offline upload handling. Textual incident data can sync immediately while binary image payloads upload asynchronously when bandwidth allows, signed off by receipt digests.
-5. **Conflict Intake & Alert Triage Subsystems (`WildlifeAlert`, `ResponseAssignment`, `ConflictReport`):**
-   - *Modification:* Added `ResponseAssignment` to model officer dispatch, and expanded `ConflictReport` with `channel` (`APP` vs `SMS`), `herdSize`, and `villageSector`.
-   - *Justification:* Supports multi-officer reassignment supersession (closing prior active assignments when a new unit is deployed) and dual-channel community intake.
+1. **`SyncState` on every field record:**  
+   - *Modification:* `PENDING` / `SYNCED` / `FAILED` on Patrol, Incident, Conflict (and photo attachment).  
+   - *Justification:* Makes the offline-first contract enforceable in code and tests (no “Submitted” before ack).
+2. **Composition `Patrol *-- Waypoint` (0..\*):**  
+   - *Modification:* Strong composition; waypoint cannot exist without patrol; multiplicity allows zero points at start.  
+   - *Justification:* Matches A01 PatrolPosition association and UC01 start-before-first-GPS.
+3. **`IncidentReport` severity + `LocationSource`:**  
+   - *Modification:* Added severity (LOW/MEDIUM/HIGH) and GPS vs MANUAL location.  
+   - *Justification:* Closes A01 UC02 E1 (GPS unavailable) and triage needs.
+4. **`WildlifeAlert` + `ResponseAssignment`:**  
+   - *Modification:* Alert status machine + single active assignment / notify attempts.  
+   - *Justification:* Implements UC03 assign → ack → escalate → resolve.
+5. **`ConflictReport.channel` (Mobile App \| SMS):**  
+   - *Modification:* Dual intake channel on one entity.  
+   - *Justification:* UC04 alternate flows without duplicating schemas.
+6. **Explicit sync stack (LocalStore → SyncService → ConservationAPI):**  
+   - *Modification:* Infrastructure classes appear on the class diagram.  
+   - *Justification:* Evaluators can trace sequence diagrams to the same components in the repo (`store`, `syncService`, `/api/v1`).
 
 ---
 
@@ -292,45 +476,16 @@ An improved class diagram was developed to address the architectural limitations
 
 ### Updated Sequence Diagram
 
-![Figure 3 Sequence Diagram - Conduct Assigned Ranger Patrol](./report_assets/trailguard_seq_uc01.png)
+![Figure 3 — UC01 Sequence Diagram](./report_assets/fig3_seq_uc01.png)
 
-Figure 3: Conduct Assigned Ranger Patrol Sequence Diagram (TrailGuard)
+**Figure 3.** UML sequence diagram — UC01 Conduct Assigned Ranger Patrol (A02). Lifelines: Ranger → PatrolView → PatrolService → LocalStore (SQLite) → SyncService → ConservationAPI (Neon).
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Shureka as Field Ranger (Shureka)
-    participant UI as PatrolScreen (UI)
-    participant DB as LocalStore (SQLite)
-    participant Sync as SyncService (Background)
-    participant Server as DWC Central Server
-
-    Shureka->>UI: Select Route NB-03 & Tap "Start Patrol"
-    UI->>DB: insertPatrol(routeId, ACTIVE, PENDING)
-    DB-->>UI: Return Patrol ID (PAT-2026-001)
-    UI-->>Shureka: Render Active Patrol Dashboard & Map Track
-    
-    loop Every 30 Seconds (GPS Polling)
-        UI->>DB: appendWaypoint(lat, lon, alt, GPS)
-    end
-
-    Shureka->>UI: Tap "Mark Manual Waypoint" (WP-03 Outpost)
-    UI->>DB: appendWaypoint(lat, lon, MANUAL)
-
-    Shureka->>UI: Tap "End Patrol"
-    UI-->>Shureka: Display Confirmation Modal (Stats & Coverage)
-    Shureka->>UI: Confirm End Patrol
-    UI->>DB: flushTailPoints()
-    UI->>DB: updatePatrol(COMPLETED, coverage: 96%)
-    UI-->>Shureka: Render Final Patrol Summary (96% Coverage Gauge)
-
-    Note over DB,Sync: Cellular Network Restored
-    Sync->>DB: getPendingPatrols()
-    DB-->>Sync: Return PAT-2026-001 Payload
-    Sync->>Server: POST /api/v1/patrols/sync
-    Server-->>Sync: HTTP 200 OK (Sync Receipt)
-    Sync->>DB: updateSyncState(PAT-2026-001, SYNCED)
-```
+| Step band | What happens (clarity) |
+| :--- | :--- |
+| **1–8** | Start patrol on route NB-03; save `ACTIVE` + `PENDING` locally; return `patrolId` |
+| **9–11** | Loop while ACTIVE: GPS or MANUAL waypoint → append PENDING |
+| **12–16** | Offline A2 keeps positions locally; A3 drains queue via `POST /api/v1/sync/upsert` → `markSynced` |
+| **17–21** | Complete + flushTail → `COMPLETED` + `coveragePct` → confirmation to ranger |
 
 ---
 
@@ -372,39 +527,16 @@ Table 2: Use Case Scenario — Conduct Assigned Ranger Patrol (Shureka)
 
 ### Updated Sequence Diagram
 
-![Figure 4 Sequence Diagram - Report Field Incident](./report_assets/trailguard_seq_uc02.png)
+![Figure 4 — UC02 Sequence Diagram](./report_assets/fig4_seq_uc02.png)
 
-Figure 4: Report Field Incident Sequence Diagram (TrailGuard)
+**Figure 4.** UML sequence diagram — UC02 Report Field Incident (A02). Lifelines: Ranger → IncidentView → IncidentService → LocalStore → SyncService → ConservationAPI.
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Ahsan as Field Ranger (Ahsan)
-    participant UI as IncidentScreen (UI)
-    participant Cam as CameraEngine
-    participant DB as LocalStore (SQLite)
-    participant Sync as CompleteReceiptSync
-    participant Server as DWC Server / S3
-
-    Ahsan->>UI: Tap "+ New Incident" & Select "Wire Snare"
-    UI->>Cam: Capture Photo Evidence
-    Cam-->>UI: Return Image URI & GPS Coordinates
-    UI->>UI: Calculate SHA-256 Image Digest
-    Ahsan->>UI: Set Severity "HIGH" & Tap "Submit Report"
-
-    UI->>DB: saveIncident(PENDING, complete: false)
-    DB-->>UI: Return Local UUID (INC-OFFLINE-UUID)
-    UI-->>Ahsan: Render "Report Saved Offline — Syncing Media"
-
-    Sync->>DB: getPendingIncidents()
-    DB-->>Sync: Return Text Report & Photo Stream
-    Sync->>Server: POST /api/v1/incidents/upload-complete
-    Server->>Server: Verify SHA-256 Digest & Store in PostgreSQL/S3
-    Server-->>Sync: HTTP 200 OK (Receipt ID: INC-2026-0812, complete: true)
-    Sync->>DB: updateIncident(SYNCED, complete: true, ref: INC-2026-0812)
-    Sync-->>UI: Complete-Receipt Event Triggered
-    UI-->>Ahsan: Render Green SYNCED Receipt (INC-2026-0812)
-```
+| Step band | What happens (clarity) |
+| :--- | :--- |
+| **Type / photo / severity** | Ranger selects type + severity, captures photo |
+| **GPS vs E1 MANUAL** | Auto GPS when available; else prompt for MANUAL lat/lng |
+| **Submit** | Validate → save `IncidentReport` as `PENDING` (offline-safe) |
+| **Online vs Offline A1** | Online: upsert → complete receipt → `SYNCED`; Offline: keep pending locally |
 
 ---
 
@@ -464,35 +596,17 @@ Table 4: Use Case Scenario — Monitor Tracked Wildlife & Manage Risk Alerts (Ah
 
 ### Updated Sequence Diagram
 
-![Figure 5 Sequence Diagram - Monitor Tracked Wildlife & Risk Alerts](./report_assets/trailguard_seq_uc03.png)
+![Figure 5 — UC03 Sequence Diagram](./report_assets/fig5_seq_uc03.png)
 
-Figure 5: Monitor Tracked Wildlife & Manage Risk Alerts Sequence Diagram (TrailGuard)
+**Figure 5.** UML sequence diagram — UC03 Monitor Tracked Wildlife & Risk Alerts (A02). Lifelines: GPS Collar → AlertIngest → Ops Desk → Park Manager → Ranger/Liaison → ConservationAPI.
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant Collar as IoT Elephant Collar (EL-04)
-    participant Gate as IoT Gateway & GeofenceEvaluator
-    participant Alert as AlertService
-    actor Ahsan as Manager / Ranger (Ahsan)
-    participant UI as TacticalMap UI
-
-    Collar->>Gate: Transmit Satellite GPS Fix (Speed: 4.8 km/h)
-    Gate->>Gate: Evaluate Farmland Geofence Buffer Zone
-    Gate->>Alert: Geofence Breach Triggered (Confidence: 94%)
-    Alert->>Alert: Create Emergency Alert AL-2026-09 (Triage: PAGE)
-    Alert->>Ahsan: Send High-Priority Emergency Pager Alert
-
-    Ahsan->>UI: Open Alert Dossier & Tap "Acknowledge Dispatch"
-    UI->>Alert: updateAlertStatus(IN_PROGRESS, officer: Ahsan)
-    UI-->>Ahsan: Render Tactical Map (Elephant Track, Breadcrumbs, ETA: 8m)
-
-    Note over Ahsan,UI: Ranger Deploys Acoustic Thumper Deterrent
-    Ahsan->>UI: Open Resolution Modal & Select Deterrent Action
-    UI->>Alert: closeAlert(RESOLVED, action: Acoustic Thumper)
-    Alert-->>UI: Return Resolution Confirmation
-    UI-->>Ahsan: Update Dashboard & Regional Risk Heatmap
-```
+| Step band | What happens (clarity) |
+| :--- | :--- |
+| **Ingest** | Collar fix → zone + freshness check |
+| **Outside / stale** | Ignore (history only) |
+| **Low confidence** | Create `REVIEW` alert (no paging — R-08) |
+| **High confidence PAGE** | Create `OPEN` → assign officer → notify SENT |
+| **Ack vs AF-2** | Ack → `ASSIGNED` → resolve/`CLOSED`; no ack → escalate to backup |
 
 ---
 
@@ -534,35 +648,16 @@ Table 5: Use Case Scenario — Manage Human-Wildlife Conflict Reports (Kajana)
 
 ### Updated Sequence Diagram
 
-![Figure 6 Sequence Diagram - Manage Human-Wildlife Conflict Reports](./report_assets/trailguard_seq_uc04.png)
+![Figure 6 — UC04 Sequence Diagram](./report_assets/fig6_seq_uc04.png)
 
-Figure 6: Manage Human-Wildlife Conflict Reports Sequence Diagram (TrailGuard)
+**Figure 6.** UML sequence diagram — UC04 Manage Human-Wildlife Conflict Reports (A02). Lifelines: Community Member → Conflict App/SMS → LocalStore → SyncService → ConservationAPI → Liaison/Manager Desk.
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Farmer as Community Member / Farmer
-    participant SMS as Rural SMS Gateway
-    participant Intake as Conflict IntakeService
-    actor Kajana as Liaison Officer (Kajana)
-    participant Field as Response Unit (Team Echo 3)
-
-    Farmer->>SMS: Send SMS "HEC Sector 3 4 Elephants +94771234567"
-    SMS->>Intake: Forward Parsed SMS Ingestion Packet
-    Intake->>Intake: Create Ticket HWC-2026-042 (Status: OPEN)
-    Intake-->>SMS: Trigger Automated SMS Receipt
-    SMS-->>Farmer: Send SMS "Ticket HWC-2026-042 Registered. DWC Dispatched."
-
-    Kajana->>Intake: Open Conflict Review Workspace
-    Intake-->>Kajana: Render Pending Ticket HWC-2026-042
-    Kajana->>Intake: Set Priority "URGENT" & Assign Team Echo 3
-    Intake->>Field: Dispatch Notification to Team Echo 3
-
-    Note over Field: Field Team Secures Corridor & Assesses Crop Damage
-    Field->>Intake: Log Damage Assessment & Valuation (LKR 150,000)
-    Kajana->>Intake: Approve Relief Valuation & Tap "Close Case"
-    Intake-->>Kajana: Ticket HWC-2026-042 Marked CLOSED
-```
+| Step band | What happens (clarity) |
+| :--- | :--- |
+| **Intake** | App form or SMS short code → validate type / location / description |
+| **Local save** | `ConflictReport` written `PENDING` (offline-safe) |
+| **Online sync** | `POST upsert kind=conflict` → ack → `markSynced` / `SUBMITTED` |
+| **Desk** | Pull shared rows → review → respond → `deskStatus RESPONDED` |
 
 ---
 
@@ -661,11 +756,33 @@ Figure 14: Screen Shots of System — Executive Reports & Statistical Analytics 
 [https://github.com/AHSANMOHAMMED/TrailGuard](https://github.com/AHSANMOHAMMED/TrailGuard)
 
 **Primary Branch:** `main`  
-**Head Commit:** `106ceb7` (*"docs: update report team member allocations to Ahsan, Shureka, Kajana"*)
+
+**Live production deployment (Vercel + Neon Postgres):**  
+[https://trailguard-sable.vercel.app](https://trailguard-sable.vercel.app)  
+
+**Shared Field Sync API (all phones → one DB):**  
+`https://trailguard-sable.vercel.app/api/v1`  
+- `GET /api/v1/health` — `{ shared: true, source: "neon", counts… }`  
+- `POST /api/v1/sync/upsert` — idempotent UUID upserts  
+- `GET /api/v1/field/list` — hydrate desk from shared Neon rows  
+- `POST /api/v1/reports/generate` — SYNCED-counts snapshot  
+
+**Evaluator PINs (viva):** see repository `README.md` (`RN-402` / `4021`, `liaison` / `7312`, `manager` / `8450`, `community` / `1111`, `admin` / `9999`).
 
 ### Compiled Production Build Artifacts:
-- **Android Debug APK:** `artifacts/TrailGuard/mobile/build/apk/trailguard-debug.apk` (150 MB, Runnable DEX & Assets)
-- **Android Release APK:** `artifacts/TrailGuard/mobile/build/apk/trailguard-release.apk` (70 MB, ProGuard/R8 Optimized & Signed)
+- **Android Debug APK:** `artifacts/TrailGuard/mobile/build/apk/trailguard-debug.apk`  
+  Build: `EXPO_PUBLIC_API_URL=https://trailguard-sable.vercel.app/api/v1 npm run apk:debug`
+- **Android Release APK:** `artifacts/TrailGuard/mobile/build/apk/trailguard-release.apk`  
+  Build: `EXPO_PUBLIC_API_URL=https://trailguard-sable.vercel.app/api/v1 npm run apk:release`  
+  (Release is signed with the local debug keystore for sideload/viva; Play Store upload would need a dedicated upload keystore.)
+
+### A02 implementation alignment (post-critique):
+| UC | Web route | Key A02 improvement shipped |
+|----|-----------|------------------------------|
+| UC01 | `/patrol` | Offline queue, coverage R-07, UC01b retry, Sync → Neon |
+| UC02 | `/incidents` | Severity + manual GPS (E1), complete-receipt / partial photo, offline PENDING |
+| UC03 | `/alerts` | Collar→geofence ingest (`alert-ingest.ts`), AF-2 ack countdown escalate, desk assign ladder |
+| UC04 | `/conflict` | App + SMS channel, offline sync, staff respond / Pull DB hydrate |
 
 ---
 

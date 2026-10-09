@@ -78,18 +78,86 @@ const diagrams = [
         FAILED
     }
 
+    class DeliveryState {
+        <<enumeration>>
+        PENDING
+        SENT
+        FAILED
+    }
+
+    class PatrolStatus {
+        <<enumeration>>
+        ACTIVE
+        COMPLETED
+        CANCELLED
+    }
+
+    class AlertStatus {
+        <<enumeration>>
+        OPEN
+        ASSIGNED
+        ESCALATED
+        CLOSED
+    }
+
+    class LocationSource {
+        <<enumeration>>
+        GPS
+        MANUAL
+    }
+
+    class Confidence {
+        <<enumeration>>
+        HIGH
+        MEDIUM
+        LOW
+    }
+
+    class IncidentCategory {
+        <<enumeration>>
+        SNARE
+        CROP_RAID
+        POACHING_SIGN
+        INJURED_ANIMAL
+        OTHER
+    }
+
+    class OfficerRole {
+        <<enumeration>>
+        RANGER
+        LIAISON
+        MANAGER
+        RESEARCHER
+    }
+
+    class GeoPoint {
+        +Float latitude
+        +Float longitude
+        +Float altitude
+    }
+
+    class GeoPolygon {
+        +List~GeoPoint~ coordinates
+    }
+
     class DomainEntity {
         <<abstract>>
         +UUID id
         +DateTime createdAt
         +DateTime updatedAt
         +SyncState syncState
+        +DateTime retryAfter
     }
 
     class Patrol {
+        +String patrolId
         +String beatRouteId
-        +String rangerId
+        +String routeName
+        +String officerId
+        +String officerName
         +PatrolStatus status
+        +DateTime startedAt
+        +DateTime completedAt
         +Float distanceKm
         +Float coveragePct
         +startPatrol()
@@ -98,48 +166,66 @@ const diagrams = [
     }
 
     class Waypoint {
-        +UUID patrolId
-        +Float latitude
-        +Float longitude
-        +Float altitude
-        +String source
-        +DateTime timestamp
+        +String pointId
+        +GeoPoint geo
+        +LocationSource source
+        +DateTime recordedAt
+        +String label
     }
 
     class IncidentReport {
-        +String category
-        +String severity
-        +Float latitude
-        +Float longitude
-        +String landmark
-        +String reporterId
+        +String reportId
+        +IncidentCategory category
+        +String description
+        +GeoPoint geo
+        +LocationSource locationSource
+        +DateTime observedAt
         +Boolean completeReceipt
     }
 
     class PhotoAttachment {
-        +UUID incidentId
-        +String localUri
-        +String remoteUrl
+        +String attachId
+        +String uri
+        +String mimeType
         +String sha256Digest
-        +Boolean isUploaded
+        +SyncState syncState
+    }
+
+    class Officer {
+        +String officerId
+        +String name
+        +OfficerRole role
+        +Boolean available
+    }
+
+    class RiskZone {
+        +String zoneId
+        +String name
+        +GeoPolygon polygon
+        +Integer freshnessMinutes
     }
 
     class WildlifeAlert {
-        +String animalId
+        +String alertId
+        +String animal
         +String zoneId
-        +Float confidencePct
-        +String triageLevel
-        +String status
-        +DateTime acknowledgedAt
-        +DateTime resolvedAt
+        +String zoneName
+        +Confidence confidence
+        +AlertStatus status
+        +DateTime observedAt
+        +DateTime receivedAt
     }
 
     class ResponseAssignment {
-        +UUID alertId
-        +String teamUnit
-        +String leadOfficerId
-        +String status
-        +DateTime assignedAt
+        +String raId
+        +String alertId
+        +String officerId
+        +String officerName
+        +DeliveryState deliveryState
+        +DateTime acknowledgedAt
+        +DateTime createdAt
+        +DateTime supersededAt
+        +String outcome
     }
 
     class ConflictReport {
@@ -150,6 +236,95 @@ const diagrams = [
         +String damageCategory
         +String complainantPhone
         +Float valuationAmount
+        +String assignedUnit
+    }
+
+    class ConservationReport {
+        +String reportId
+        +String park
+        +String fromDate
+        +String toDate
+        +DateTime cutoff
+        +DateTime generatedAt
+        +Integer incidentCount
+        +Integer patrolCount
+        +Float coveragePercent
+        +Integer conflictCount
+    }
+
+    class SyncAck {
+        +String recordId
+        +Integer version
+        +Boolean complete
+        +DateTime receivedAt
+    }
+
+    class ConservationApi {
+        <<interface>>
+        +upsertPatrol(p: Patrol) SyncAck
+        +upsertIncident(i: IncidentReport, attachments: PhotoAttachment[]) SyncAck
+    }
+
+    class FieldStore {
+        <<interface>>
+        +getPatrols() List~Patrol~
+        +savePatrol(p: Patrol)
+        +getIncidents() List~IncidentReport~
+        +saveIncident(i: IncidentReport)
+        +pending(now: DateTime) List~PendingRecord~
+        +markPatrolSynced(id: String)
+        +markIncidentFailed(id: String, retryAfter: DateTime)
+    }
+
+    class PatrolOpsService {
+        <<service>>
+        +startPatrol() Patrol
+        +recordWaypoint() Waypoint
+        +completePatrol() Patrol
+        +flushTailPoints()
+    }
+
+    class IncidentOpsService {
+        <<service>>
+        +submitIncident() IncidentReport
+        +attachPhoto() PhotoAttachment
+        +verifyCompleteReceipt() SyncAck
+    }
+
+    class AlertTriageService {
+        <<service>>
+        +ingestCollarTelemetry() WildlifeAlert
+        +evaluateGeofences() Boolean
+        +pageEmergencyUnit() ResponseAssignment
+        +acknowledgeAlert() Alert
+        +resolveAlert() Alert
+    }
+
+    class ConflictIntakeService {
+        <<service>>
+        +ingestAppReport() ConflictReport
+        +ingestSmsPacket() ConflictReport
+        +assignResponseUnit() ResponseAssignment
+        +logCompensationValuation() ConflictReport
+    }
+
+    class SyncService {
+        <<service>>
+        +syncPendingRecords() SyncResult
+        +handleCompleteReceipt() SyncAck
+    }
+
+    class TrailGuardAppStore {
+        <<controller>>
+        +OfficerRole activeRole
+        +Patrol activePatrol
+        +List~IncidentReport~ incidents
+        +List~WildlifeAlert~ alerts
+        +List~ConflictReport~ conflictReports
+        +Boolean dayNightTheme
+        +setRole()
+        +toggleTheme()
+        +syncQueue()
     }
 
     DomainEntity <|-- Patrol
@@ -159,10 +334,25 @@ const diagrams = [
     DomainEntity <|-- WildlifeAlert
     DomainEntity <|-- ResponseAssignment
     DomainEntity <|-- ConflictReport
+    DomainEntity <|-- ConservationReport
 
     Patrol "1" *-- "0..*" Waypoint : contains
     IncidentReport "1" *-- "0..*" PhotoAttachment : attaches
-    WildlifeAlert "1" o-- "0..*" ResponseAssignment : dispatches`
+    WildlifeAlert "1" o-- "0..*" ResponseAssignment : dispatches
+    Patrol ..> GeoPoint : uses
+    IncidentReport ..> GeoPoint : uses
+    RiskZone "1" *-- "1" GeoPolygon : bounded by
+
+    PatrolOpsService ..> Patrol : manages
+    IncidentOpsService ..> IncidentReport : manages
+    AlertTriageService ..> WildlifeAlert : triages
+    ConflictIntakeService ..> ConflictReport : ingests
+    SyncService ..> FieldStore : drains queue
+    SyncService ..> ConservationApi : calls gateway
+    TrailGuardAppStore ..> PatrolOpsService : delegates
+    TrailGuardAppStore ..> IncidentOpsService : delegates
+    TrailGuardAppStore ..> AlertTriageService : delegates
+    TrailGuardAppStore ..> ConflictIntakeService : delegates`
   },
   {
     filename: 'trailguard_seq_uc01.png',
