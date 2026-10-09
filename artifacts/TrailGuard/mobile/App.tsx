@@ -11,6 +11,7 @@ import IncidentScreen from './src/screens/IncidentScreen';
 import ConflictScreen from './src/screens/ConflictScreen';
 import ReportScreen from './src/screens/ReportScreen';
 import AlertScreen from './src/screens/AlertScreen';
+import RadioScreen from './src/screens/RadioScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import { getColors, getTheme, subscribeTheme } from './src/theme';
 
@@ -55,6 +56,7 @@ export default function App() {
         <Stack.Screen name="Incident" component={IncidentScreen} options={{ title: 'Incident' }} />
         <Stack.Screen name="Alerts" component={AlertScreen} options={{ title: 'Wildlife Risk Alerts' }} />
         <Stack.Screen name="Conflict" component={ConflictScreen} options={{ title: 'Conflict' }} />
+        <Stack.Screen name="Radio" component={RadioScreen} options={{ title: 'Field Radio' }} />
         <Stack.Screen name="Reports" component={ReportScreen} options={{ title: 'Reports' }} />
       </Stack.Navigator>
     </NavigationContainer>

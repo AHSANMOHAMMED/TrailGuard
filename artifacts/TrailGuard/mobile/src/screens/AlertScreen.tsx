@@ -3,9 +3,11 @@ import { View, Text, Pressable, StyleSheet, ScrollView, TextInput } from 'react-
 import OfflineMap from '../components/OfflineMap';
 import { getSession } from '../session';
 import { getColors, subscribeTheme } from '../theme';
+import { isAlertAssigner, isAlertResponder } from '../actor-capabilities';
 
 type Step =
   | 'incoming'
+  | 'desk'
   | 'details'
   | 'acknowledged'
   | 'response_map'
@@ -20,6 +22,11 @@ const OUTCOMES = [
   'Other outcome',
 ];
 
+const OFFICERS = [
+  { id: 'RN-402', name: 'RN-402 Mercer (Ranger)' },
+  { id: 'liaison', name: 'Liaison Fernando' },
+];
+
 export default function AlertScreen({
   navigation,
 }: {
@@ -30,10 +37,16 @@ export default function AlertScreen({
   useEffect(() => subscribeTheme(() => bump((n) => n + 1)), []);
   const c = getColors();
 
+  const canRespond = isAlertResponder(session?.role);
+  const canAssign = isAlertAssigner(session?.role);
+
   const [step, setStep] = useState<Step>('incoming');
   const [selectedOutcome, setSelectedOutcome] = useState(OUTCOMES[0]);
   const [resolutionNote, setResolutionNote] = useState('Animal returned to park; no damage reported.');
   const [resolvedTime, setResolvedTime] = useState('07:35');
+  const [pickedOfficer, setPickedOfficer] = useState(OFFICERS[0].id);
+  const [deskMsg, setDeskMsg] = useState<string | null>(null);
+  const [assignedTo, setAssignedTo] = useState<string | null>(null);
 
   useEffect(() => {
     if (!session) {
@@ -78,22 +91,107 @@ export default function AlertScreen({
             <View style={styles.gridRow}>
               <Text style={[styles.gridKey, { color: c.muted }]}>Status</Text>
               <View style={[styles.badge, { backgroundColor: 'rgba(220, 38, 38, 0.12)' }]}>
-                <Text style={[styles.badgeText, { color: c.danger }]}>● NEW</Text>
+                <Text style={[styles.badgeText, { color: c.danger }]}>
+                  ● {assignedTo ? `ASSIGNED · ${assignedTo}` : 'NEW'}
+                </Text>
               </View>
             </View>
           </View>
 
           <View style={[styles.hintCard, { backgroundColor: c.elevated, borderColor: c.border }]}>
             <Text style={[styles.hintText, { color: c.muted }]}>
-              ℹ️ Pre-configured geofence triggered. Risk alert generated and pushed to nearest patrol & liaison.
+              {canAssign && !canRespond
+                ? 'Park Manager desk — assign an officer, escalate if no ack, or hold for triage.'
+                : 'Geofence triggered. Alert pushed to nearest patrol & liaison.'}
             </Text>
           </View>
 
+          {canRespond ? (
+            <Pressable
+              style={[styles.primaryBtn, { backgroundColor: c.primary }]}
+              onPress={() => setStep('details')}
+            >
+              <Text style={styles.primaryBtnText}>View Alert Details →</Text>
+            </Pressable>
+          ) : null}
+          {canAssign ? (
+            <Pressable
+              style={[
+                styles.primaryBtn,
+                {
+                  backgroundColor: canRespond ? c.elevated : c.primary,
+                  borderWidth: canRespond ? 1 : 0,
+                  borderColor: c.border,
+                },
+              ]}
+              onPress={() => setStep('desk')}
+            >
+              <Text
+                style={[
+                  styles.primaryBtnText,
+                  { color: canRespond ? c.fg : '#fff' },
+                ]}
+              >
+                {canRespond ? 'Open assign desk' : 'Assign response (desk)'}
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+      )}
+
+      {/* Manager assign desk */}
+      {step === 'desk' && (
+        <View>
+          <Text style={[styles.h1, { color: c.fg }]}>Alert Assign Desk</Text>
+          <Text style={[styles.subText, { color: c.muted }]}>
+            Assign officer · notify · escalate if no ack (AF-2)
+          </Text>
+          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <Text style={[styles.sectionHeading, { color: c.fg }]}>Assign to</Text>
+            {OFFICERS.map((o) => (
+              <Pressable
+                key={o.id}
+                style={[
+                  styles.outcomeOption,
+                  {
+                    backgroundColor: pickedOfficer === o.id ? c.elevated : c.surface,
+                    borderColor: pickedOfficer === o.id ? c.primary : c.border,
+                  },
+                ]}
+                onPress={() => setPickedOfficer(o.id)}
+              >
+                <Text style={{ color: c.fg, fontWeight: '700' }}>{o.name}</Text>
+              </Pressable>
+            ))}
+          </View>
+          {deskMsg ? (
+            <View style={[styles.hintCard, { backgroundColor: c.elevated, borderColor: c.border }]}>
+              <Text style={[styles.hintText, { color: c.primary }]}>{deskMsg}</Text>
+            </View>
+          ) : null}
           <Pressable
             style={[styles.primaryBtn, { backgroundColor: c.primary }]}
-            onPress={() => setStep('details')}
+            onPress={() => {
+              const name = OFFICERS.find((o) => o.id === pickedOfficer)?.name ?? pickedOfficer;
+              setAssignedTo(name);
+              setDeskMsg(`Assigned to ${name} · notify SENT`);
+            }}
           >
-            <Text style={styles.primaryBtnText}>View Alert Details →</Text>
+            <Text style={styles.primaryBtnText}>Assign & notify</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.secondaryBtn, { borderColor: c.border, backgroundColor: c.surface }]}
+            onPress={() => {
+              setDeskMsg('Escalated to backup (no ack in window — AF-2)');
+            }}
+          >
+            <Text style={[styles.secondaryBtnText, { color: c.fg }]}>Escalate (no ack)</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.secondaryBtn, { borderColor: c.border, backgroundColor: c.surface }]}
+            onPress={() => setStep('incoming')}
+          >
+            <Text style={[styles.secondaryBtnText, { color: c.fg }]}>Back to alert</Text>
           </Pressable>
         </View>
       )}

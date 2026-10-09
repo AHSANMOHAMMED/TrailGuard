@@ -29,6 +29,8 @@ artifacts/*.zip
 .freebuff/
 
 # Android APK build artifacts — reproducible via scripts/build-android-apk.sh
+app-release.apk
+*.apk
 artifacts/TrailGuard/mobile/build/apk/
 artifacts/TrailGuard/mobile/dist-android/
 artifacts/TrailGuard/mobile/.expo/

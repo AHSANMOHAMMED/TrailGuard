@@ -16,7 +16,12 @@ import { ConnectivityToggle } from "@/components/connectivity-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LoginScreen, SessionChip } from "@/components/auth-gate";
 import { useAuth, type Area } from "@/lib/auth-store";
-import { actorMission, homeAreasFor } from "@/lib/actor-capabilities";
+import {
+  actorMission,
+  canSeePullDb,
+  canSyncField,
+  homeAreasFor,
+} from "@/lib/actor-capabilities";
 import { useField, ROUTE_META } from "@/lib/store";
 import { fmtTime } from "@/lib/utils";
 
@@ -98,7 +103,7 @@ function Home() {
       setSyncNote(
         n === 0
           ? `Nothing pending — queue already clear.${pullExtra}`
-          : `Upserted ${n} record${n === 1 ? "" : "s"} by stable id.${pullExtra}`,
+          : `Synced ${n} record${n === 1 ? "" : "s"}.${pullExtra}`,
       );
     } catch {
       setSyncNote("Offline — records stay PENDING on this phone.");
@@ -107,18 +112,21 @@ function Home() {
 
   async function onPullShared() {
     if (!online) {
-      setSyncNote("Offline — cannot pull shared park DB.");
+      setSyncNote("Offline — cannot refresh shared field data.");
       return;
     }
     try {
       const pulled = await pullSharedFromDb();
       setSyncNote(
-        `Pulled shared DB — P${pulled.patrols} I${pulled.incidents} C${pulled.conflicts}`,
+        `Refreshed shared data — P${pulled.patrols} I${pulled.incidents} C${pulled.conflicts}`,
       );
     } catch {
-      setSyncNote("Could not pull shared park DB.");
+      setSyncNote("Could not refresh shared field data.");
     }
   }
+
+  const showSync = canSyncField(session.role);
+  const showPull = canSeePullDb(session.role);
 
   return (
     <Phone>
@@ -136,38 +144,40 @@ function Home() {
         </div>
       </div>
       <Body className="tg-fade-up -mt-3 pt-1">
-        <div className="flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2.5 shadow-sm">
-          <button
-            type="button"
-            onClick={() => void onSync()}
-            disabled={syncing}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-accent-fg shadow-sm disabled:opacity-60"
-          >
-            <RefreshCw className={`size-3.5 ${syncing ? "animate-spin" : ""}`} strokeWidth={2} />
-            Sync{pending > 0 ? ` (${pending})` : ""}
-          </button>
-          <button
-            type="button"
-            onClick={() => void onPullShared()}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-elevated px-3 py-1.5 text-[12px] font-semibold text-fg"
-          >
-            Pull DB
-          </button>
-          <div className="min-w-0 flex-1 text-[11px] text-muted">
-            {lastSyncAt ? (
-              <p className="truncate">Last sync {fmtTime(lastSyncAt)}</p>
-            ) : (
-              <p>No sync yet</p>
-            )}
-            {pending > 0 ? (
-              <p className="font-semibold text-warn">
-                {pending} pending · same UUID on retry
-              </p>
-            ) : (
-              <p>Queue clear</p>
-            )}
+        {showSync ? (
+          <div className="flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2.5 shadow-sm">
+            <button
+              type="button"
+              onClick={() => void onSync()}
+              disabled={syncing}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-accent-fg shadow-sm disabled:opacity-60"
+            >
+              <RefreshCw className={`size-3.5 ${syncing ? "animate-spin" : ""}`} strokeWidth={2} />
+              Sync{pending > 0 ? ` (${pending})` : ""}
+            </button>
+            {showPull ? (
+              <button
+                type="button"
+                onClick={() => void onPullShared()}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-elevated px-3 py-1.5 text-[12px] font-semibold text-fg"
+              >
+                Refresh shared
+              </button>
+            ) : null}
+            <div className="min-w-0 flex-1 text-[11px] text-muted">
+              {lastSyncAt ? (
+                <p className="truncate">Last sync {fmtTime(lastSyncAt)}</p>
+              ) : (
+                <p>No sync yet</p>
+              )}
+              {pending > 0 ? (
+                <p className="font-semibold text-warn">{pending} pending on this phone</p>
+              ) : (
+                <p>Queue clear</p>
+              )}
+            </div>
           </div>
-        </div>
+        ) : null}
         {syncNote ? (
           <p
             className={`rounded-lg border px-3 py-2 text-[12px] font-semibold ${
@@ -217,13 +227,29 @@ function Home() {
           <UseCaseCard
             area="alerts"
             icon={<Siren className="size-5" strokeWidth={2} />}
-            title="Wildlife Risk Alerts"
-            sub={
-              openAlert
-                ? `${openAlert.animal} near ${openAlert.zone} · ${openAlert.collar}`
-                : "No open risk alerts"
+            title={
+              session.role === "MANAGER"
+                ? "Assign Risk Alerts"
+                : "Wildlife Risk Alerts"
             }
-            pill={openAlert ? <Pill tone="danger">HIGH RISK</Pill> : <Pill tone="ok">Resolved</Pill>}
+            sub={
+              session.role === "MANAGER"
+                ? openAlert
+                  ? `Open: ${openAlert.animal} · ${openAlert.zone} — assign / escalate`
+                  : "Assign officers · escalate if no ack"
+                : openAlert
+                  ? `${openAlert.animal} near ${openAlert.zone} · ${openAlert.collar}`
+                  : "No open risk alerts"
+            }
+            pill={
+              openAlert ? (
+                <Pill tone="danger">
+                  {session.role === "MANAGER" ? "ASSIGN" : "HIGH RISK"}
+                </Pill>
+              ) : (
+                <Pill tone="ok">Resolved</Pill>
+              )
+            }
           />
         ) : null}
         {myAreas.includes("conflict") ? (
@@ -260,9 +286,21 @@ function Home() {
           <UseCaseCard
             area="reports"
             icon={<FileBarChart className="size-5" strokeWidth={2} />}
-            title="Conservation Reports"
-            sub="Synced records only · coverage snapshot · CSV export"
-            pill={<Pill tone="muted">Ops desk</Pill>}
+            title={
+              session.role === "RESEARCHER"
+                ? "Research Snapshot & Export"
+                : "Conservation Reports"
+            }
+            sub={
+              session.role === "RESEARCHER"
+                ? "Synced counts · coverage · CSV for analysis"
+                : "Ops coverage · conflict totals · CSV export"
+            }
+            pill={
+              <Pill tone="muted">
+                {session.role === "RESEARCHER" ? "Research" : "Ops desk"}
+              </Pill>
+            }
           />
         ) : null}
         {myAreas.includes("admin") ? (

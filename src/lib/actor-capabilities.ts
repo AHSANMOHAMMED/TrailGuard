@@ -44,6 +44,22 @@ export function isAlertAssigner(role: ActorRole | null | undefined): boolean {
   return role === "MANAGER" || role === "SUPER_ADMIN";
 }
 
+/** Sync uploads pending field records — most field actors including Community. */
+export function canSyncField(role: ActorRole | null | undefined): boolean {
+  return (
+    role === "RANGER" ||
+    role === "LIAISON" ||
+    role === "MANAGER" ||
+    role === "SUPER_ADMIN" ||
+    role === "COMMUNITY"
+  );
+}
+
+/** Pull DB / Neon desk hydrate — Manager ops + Super Admin only. */
+export function canSeePullDb(role: ActorRole | null | undefined): boolean {
+  return role === "SUPER_ADMIN" || role === "MANAGER";
+}
+
 /** Short label of what this actor should do after sign-in. */
 export function actorMission(role: ActorRole): string {
   switch (role) {

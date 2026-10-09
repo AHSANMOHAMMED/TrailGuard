@@ -15,6 +15,7 @@ import {
 } from "@/components/field";
 import { Guard } from "@/components/auth-gate";
 import { Can, DeniedNote } from "@/components/permissions";
+import { useAuth } from "@/lib/auth-store";
 import { useField } from "@/lib/store";
 import { downloadText, fmtTime } from "@/lib/utils";
 import { toast } from "sonner";
@@ -34,12 +35,16 @@ export const Route = createFileRoute("/reports")({
  */
 function ReportsPage() {
   const router = useRouter();
-  const { snapshot, generateReport, incidents } = useField();
+  const session = useAuth((s) => s.session);
+  const { snapshot, generateReport, incidents, alerts, conflicts } = useField();
   const [from, setFrom] = useState("2026-08-01");
   const [to, setTo] = useState("2026-08-31");
   const pendingExcluded = incidents.filter(
     (i) => i.syncState === "PENDING" || i.photoSyncState === "PENDING",
   ).length;
+  const isResearcher = session?.role === "RESEARCHER";
+  const openAlerts = alerts.filter((a) => a.status !== "CLOSED").length;
+  const openConflicts = conflicts.filter((c) => c.status !== "RESPONDED").length;
 
   const emptyWindow =
     snapshot !== null &&
@@ -66,14 +71,32 @@ function ReportsPage() {
 
   return (
     <Phone>
-      <ScreenHeader title="Conservation Reports" onBack="home" />
+      <ScreenHeader
+        title={isResearcher ? "Research Snapshot" : "Conservation Reports"}
+        onBack="home"
+      />
       <Body>
         <div>
-          <h2 className="text-[18px] font-bold tracking-tight">Park snapshot</h2>
+          <h2 className="text-[18px] font-bold tracking-tight">
+            {isResearcher ? "Analysis window" : "Park ops snapshot"}
+          </h2>
           <p className="text-[12.5px] text-muted">
-            SYNCED records only · coverage = track km ÷ route km · window ≤ 92 days.
+            {isResearcher
+              ? "SYNCED records only · export for hotspot / coverage analysis."
+              : "SYNCED records only · coverage = track km ÷ route km · window ≤ 92 days."}
           </p>
         </div>
+
+        <Card className="grid grid-cols-2 gap-2">
+          <div>
+            <p className="text-[11px] font-semibold text-muted">Open alerts</p>
+            <p className="text-[18px] font-bold text-fg">{openAlerts}</p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold text-muted">Conflicts pending</p>
+            <p className="text-[18px] font-bold text-fg">{openConflicts}</p>
+          </div>
+        </Card>
 
         <Can
           perm="report:generate"

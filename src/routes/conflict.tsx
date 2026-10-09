@@ -93,6 +93,7 @@ function ConflictPage() {
 
   const [step, setStep] = useState<Step>("intro");
   const [channel, setChannel] = useState<"Mobile App" | "SMS">("Mobile App");
+  // Staff open the operations desk first (A01 UC04 panels 7–8); community starts at intro.
   const [type, setType] = useState<string | null>(null);
   const [location, setLocation] = useState(DEFAULT_LOCATION);
   const [description, setDescription] = useState("");
@@ -108,6 +109,11 @@ function ConflictPage() {
 
   const selected = conflicts.find((c) => c.reportId === selectedId) ?? null;
   const isStaff = isConflictStaff(session?.role);
+
+  // Staff land on the operations desk (not the community submit intro).
+  useEffect(() => {
+    if (isStaff && step === "intro") setStep("dashboard");
+  }, [isStaff, step]);
 
   // Staff (Ranger / Liaison / Manager) operate the dashboard and record
   // responses (steps 9–13). Community members submit only.
@@ -664,7 +670,7 @@ function ConflictPage() {
         </ScreenHeader>
         <Body>
           <p className="text-[12px] text-muted">
-            Community Conflict Reports · reviewing as Ranger / Community Liaison Officer
+            Community Conflict Reports · reviewing as {session?.title ?? "park staff"}
           </p>
           {!online ? (
             <>

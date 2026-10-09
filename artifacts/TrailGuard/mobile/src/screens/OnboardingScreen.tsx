@@ -75,7 +75,7 @@ const SLIDES = [
     highlights: [
       { tag: 'RANGER (RN-402)', desc: 'Conducts patrols, logs incidents, responds to wildlife risk alerts' },
       { tag: 'COMMUNITY LIAISON (liaison)', desc: 'Coordinates community warnings and conflict resolution' },
-      { tag: 'PARK MANAGER (manager)', desc: 'Reviews route coverage, assigns patrols, inspects reports' },
+      { tag: 'PARK MANAGER (manager)', desc: 'Assigns risk alerts, ops conflict desk, conservation reports' },
       { tag: 'COMMUNITY MEMBER (community)', desc: 'Submits crop raiding and elephant sighting alerts' },
       { tag: 'RESEARCHER (researcher)', desc: 'Analyzes long-term conflict trends and conservation snapshots' },
       { tag: 'SUPER ADMIN (admin)', desc: 'Full system oversight and role permission matrix control' },

@@ -184,7 +184,7 @@ function AlertsPage() {
     const officer = OFFICERS.find((o) => o.id === pickedOfficer) ?? OFFICERS[0];
     return (
       <Phone>
-        <ScreenHeader title="Conflict Desk" onBack={() => setStep("incoming")} />
+        <ScreenHeader title="Alert Assign Desk" onBack={() => setStep("incoming")} />
         <Body>
           <div>
             <h2 className="text-[17px] font-bold">Assign response</h2>

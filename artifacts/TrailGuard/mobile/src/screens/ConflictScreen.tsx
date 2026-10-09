@@ -6,6 +6,7 @@ import { saveConflict } from '../store/localStore';
 import type { ConflictRecord } from '../types/models';
 import { getSession } from '../session';
 import { getColors, subscribeTheme } from '../theme';
+import { isConflictStaff, isConflictSubmitter } from '../actor-capabilities';
 
 type ConflictStep =
   | 'overview'
@@ -14,6 +15,7 @@ type ConflictStep =
   | 'review'
   | 'offline_stored'
   | 'submitted'
+  | 'staff_desk'
   | 'staff_review'
   | 'staff_responded';
 
@@ -33,7 +35,12 @@ export default function ConflictScreen({
   useEffect(() => subscribeTheme(() => bump((n) => n + 1)), []);
   const c = getColors();
 
-  const [step, setStep] = useState<ConflictStep>('overview');
+  const isStaff = isConflictStaff(session?.role);
+  const canSubmit = isConflictSubmitter(session?.role) || isStaff;
+
+  const [step, setStep] = useState<ConflictStep>(() =>
+    isConflictStaff(getSession()?.role) ? 'staff_desk' : 'overview'
+  );
   const [channel, setChannel] = useState<'Mobile App' | 'SMS'>('Mobile App');
   const [conflictType, setConflictType] = useState('Elephant Sighting');
   const [locationName, setLocationName] = useState('Nagoda east field, near the canal');
@@ -55,12 +62,6 @@ export default function ConflictScreen({
   }, [session, navigation]);
 
   if (!session || !session.access.includes('conflict')) return null;
-
-  const isStaff =
-    session.role === 'RANGER' ||
-    session.role === 'LIAISON' ||
-    session.role === 'MANAGER' ||
-    session.role === 'SUPER_ADMIN';
 
   const handleSubmit = (simulateOffline = false) => {
     const row: ConflictRecord = {
@@ -84,7 +85,42 @@ export default function ConflictScreen({
 
   return (
     <ScrollView style={[styles.wrap, { backgroundColor: c.bg }]} contentContainerStyle={styles.content}>
-      {/* 1. REPORT WILDLIFE CONFLICT OVERVIEW */}
+      {/* Staff operations desk first */}
+      {step === 'staff_desk' && (
+        <View>
+          <Text style={[styles.subHeading, { color: c.muted }]}>UC04 · Staff desk</Text>
+          <Text style={[styles.h1, { color: c.fg }]}>Conflict operations</Text>
+          <Text style={[styles.bodyText, { color: c.muted }]}>
+            Review community reports and record responses. Villagers submit; staff close the loop.
+          </Text>
+          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <View style={styles.gridRow}>
+              <Text style={[styles.gridKey, { color: c.muted }]}>Your role</Text>
+              <Text style={[styles.gridVal, { color: c.fg }]}>{session.title}</Text>
+            </View>
+            <View style={styles.gridRow}>
+              <Text style={[styles.gridKey, { color: c.muted }]}>Open queue</Text>
+              <Text style={[styles.gridVal, { color: c.fg }]}>Review pending reports</Text>
+            </View>
+          </View>
+          <Pressable
+            style={[styles.primaryBtn, { backgroundColor: c.primary }]}
+            onPress={() => setStep('staff_review')}
+          >
+            <Text style={styles.primaryBtnText}>Open report queue</Text>
+          </Pressable>
+          {canSubmit ? (
+            <Pressable
+              style={[styles.secondaryBtn, { borderColor: c.border, backgroundColor: c.surface }]}
+              onPress={() => setStep('overview')}
+            >
+              <Text style={[styles.secondaryBtnText, { color: c.fg }]}>Submit a report (demo)</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      )}
+
+      {/* 1. REPORT WILDLIFE CONFLICT OVERVIEW — community / demo submit */}
       {step === 'overview' && (
         <View>
           <Text style={[styles.subHeading, { color: c.muted }]}>Community Boundary Reporting</Text>
@@ -115,7 +151,7 @@ export default function ConflictScreen({
           </View>
 
           <Text style={[styles.hintText, { color: c.muted, marginBottom: 14 }]}>
-            Reports can also be sent by SMS short code (4433).
+            Reports can also be sent by SMS short code (7444).
           </Text>
 
           <Pressable
@@ -128,10 +164,10 @@ export default function ConflictScreen({
           {isStaff && (
             <Pressable
               style={[styles.secondaryBtn, { backgroundColor: c.surface, borderColor: c.border }]}
-              onPress={() => setStep('staff_review')}
+              onPress={() => setStep('staff_desk')}
             >
               <Text style={[styles.secondaryBtnText, { color: c.fg }]}>
-                Switch to Staff Review View (Ranger / Liaison) →
+                Back to conflict operations desk
               </Text>
             </Pressable>
           )}
@@ -195,7 +231,7 @@ export default function ConflictScreen({
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.optionTitle, { color: c.fg }]}>💬 SMS Short Code</Text>
-              <Text style={[styles.optionSub, { color: c.muted }]}>Text the details to short code 4433</Text>
+              <Text style={[styles.optionSub, { color: c.muted }]}>Text the details to short code 7444</Text>
             </View>
           </Pressable>
 
@@ -208,7 +244,7 @@ export default function ConflictScreen({
 
           <Pressable
             style={[styles.secondaryBtn, { backgroundColor: c.surface, borderColor: c.border }]}
-            onPress={() => setStep('overview')}
+            onPress={() => setStep(isStaff ? 'staff_desk' : 'overview')}
           >
             <Text style={[styles.secondaryBtnText, { color: c.fg }]}>Cancel</Text>
           </Pressable>
@@ -505,7 +541,7 @@ export default function ConflictScreen({
 
           <Pressable
             style={[styles.secondaryBtn, { backgroundColor: c.surface, borderColor: c.border }]}
-            onPress={() => setStep('overview')}
+            onPress={() => setStep(isStaff ? 'staff_desk' : 'overview')}
           >
             <Text style={[styles.secondaryBtnText, { color: c.fg }]}>Back</Text>
           </Pressable>

@@ -179,19 +179,29 @@ export default function OfflineMap({
         </View>
       </View>
 
-      {/* Footer Track Summary */}
+      {/* Footer Track Summary + legend (A01 wireframe language) */}
       <View style={styles.footerRow}>
-        <Text style={[styles.legendText, { color: c.muted }]}>
-          {mode === 'patrol'
-            ? `Points recorded: ${points.length} · Capture: GPS / MANUAL`
-            : mode === 'alert'
-            ? `${alertAnimal} · Detected near Nagoda east boundary`
-            : mode === 'incident'
-            ? `Coordinates locked · Ready for attachment`
-            : mode === 'conflict'
-            ? `Location: ${conflictLocation}`
-            : `Yala Sector North · Offline tiles active`}
-        </Text>
+        {mode === 'patrol' || mode === 'overview' ? (
+          <View style={styles.legendRow}>
+            <View style={[styles.legendSwatch, { borderStyle: 'dashed', borderColor: c.secondary }]} />
+            <Text style={[styles.legendText, { color: c.muted }]}>Planned</Text>
+            <View style={[styles.legendSwatch, { backgroundColor: c.primary, borderColor: c.primary }]} />
+            <Text style={[styles.legendText, { color: c.muted }]}>Recorded track</Text>
+            <Text style={[styles.legendText, { color: c.muted, marginLeft: 6 }]}>
+              · {points.length} pts · START→END
+            </Text>
+          </View>
+        ) : (
+          <Text style={[styles.legendText, { color: c.muted }]}>
+            {mode === 'alert'
+              ? `${alertAnimal} · Detected near Nagoda east boundary`
+              : mode === 'incident'
+              ? `Coordinates locked · Ready for attachment`
+              : mode === 'conflict'
+              ? `Location: ${conflictLocation}`
+              : `Yala Sector North · Offline schematic`}
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -389,6 +399,18 @@ const styles = StyleSheet.create({
     marginTop: 8,
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  legendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  legendSwatch: {
+    width: 14,
+    height: 3,
+    borderWidth: 1,
+    marginRight: 2,
   },
   legendText: { fontSize: 11, fontWeight: '600' },
 });

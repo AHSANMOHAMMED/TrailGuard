@@ -1,4 +1,4 @@
-/** Role matrix — same defaults as the web auth-store / A01 associations. */
+/** Role matrix — identical to web auth-store / A01 associations. */
 
 export type Role =
   | 'SUPER_ADMIN'
@@ -17,55 +17,82 @@ export type Area =
   | 'radio'
   | 'admin';
 
+const ALL_FIELD: Area[] = [
+  'patrol',
+  'incidents',
+  'alerts',
+  'conflict',
+  'reports',
+  'radio',
+  'admin',
+];
+
+/**
+ * Default role matrix (A01 use-case associations + A02 desk).
+ * Must stay in sync with web `src/lib/auth-store.ts` DEFAULT_ACCESS.
+ */
 export const DEFAULT_ACCESS: Record<Role, Area[]> = {
-  SUPER_ADMIN: ['patrol', 'incidents', 'alerts', 'conflict', 'reports', 'radio', 'admin'],
-  RANGER: ['patrol', 'incidents', 'alerts', 'conflict', 'reports', 'radio'],
-  LIAISON: ['alerts', 'conflict', 'reports', 'radio'],
-  MANAGER: ['patrol', 'incidents', 'alerts', 'conflict', 'reports', 'radio', 'admin'],
-  RESEARCHER: ['reports', 'alerts', 'radio'],
+  SUPER_ADMIN: ALL_FIELD,
+  RANGER: ['patrol', 'incidents', 'alerts', 'conflict', 'radio'],
+  LIAISON: ['alerts', 'conflict', 'radio'],
+  MANAGER: ['alerts', 'conflict', 'reports', 'radio'],
+  RESEARCHER: ['reports', 'radio'],
   COMMUNITY: ['conflict', 'radio'],
 };
 
-export const AREA_ROUTES: { area: Area; title: string; subtitle: string; route: string; badge: string }[] = [
+export const AREA_ROUTES: {
+  area: Area;
+  title: string;
+  subtitle: string;
+  route: string;
+  badge: string;
+}[] = [
   {
     area: 'patrol',
-    title: 'UC01 · Conduct Assigned Patrol',
-    subtitle: 'GPS tracking, manual waypoints & coverage',
+    title: 'Ranger Patrol',
+    subtitle: 'Assigned route, GPS track & coverage',
     route: 'Patrol',
-    badge: 'Ranger',
+    badge: 'UC01',
   },
   {
     area: 'incidents',
-    title: 'UC02 · Report Field Incident',
-    subtitle: 'Snare, carcass, camp, footprints & photo log',
+    title: 'Report Field Incident',
+    subtitle: 'Snare · carcass · campsite · footprints',
     route: 'Incident',
-    badge: 'Ranger',
+    badge: 'UC02',
   },
   {
     area: 'alerts',
-    title: 'UC03 · Wildlife Risk Alerts',
-    subtitle: 'Collar GPS tracking, geofence & field response',
+    title: 'Wildlife Risk Alerts',
+    subtitle: 'Collar geofence · assign / respond',
     route: 'Alerts',
-    badge: 'Ranger / Liaison',
+    badge: 'UC03',
   },
   {
     area: 'conflict',
-    title: 'UC04 · Human-Wildlife Conflict',
-    subtitle: 'App & SMS reporting, rapid triage & response',
+    title: 'Human-Wildlife Conflict',
+    subtitle: 'App & SMS · staff desk or submit',
     route: 'Conflict',
-    badge: 'Community / Staff',
+    badge: 'UC04',
+  },
+  {
+    area: 'radio',
+    title: 'Field Radio',
+    subtitle: 'Push-to-talk · OPS / EMG / CMN',
+    route: 'Radio',
+    badge: 'Comms',
   },
   {
     area: 'reports',
-    title: 'Conservation Analysis & Reports',
-    subtitle: 'Cross-park conflict trends & patrol analytics',
+    title: 'Conservation Reports',
+    subtitle: 'Synced counts · coverage · export',
     route: 'Reports',
-    badge: 'Manager / Researcher',
+    badge: 'Analysis',
   },
   {
     area: 'admin',
-    title: 'Role Admin & Access Matrix',
-    subtitle: 'Configure operational permissions across actors',
+    title: 'Role Admin',
+    subtitle: 'Access matrix · demo dataset · Pull DB',
     route: 'Admin',
     badge: 'Admin',
   },

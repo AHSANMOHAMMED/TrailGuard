@@ -731,7 +731,7 @@ sequenceDiagram
         alt Extension E2: GPS Signal Lost Under Canopy
             UI-->>Shureka: Display Warning Badge "GPS Weak — Manual Mode Available"
         else GPS Signal Fix Normal
-            UI->>DB: appendWaypoint(lat, lon, alt, GPS)
+        UI->>DB: appendWaypoint(lat, lon, alt, GPS)
         end
     end
 
@@ -846,8 +846,8 @@ sequenceDiagram
         UI-->>Ahsan: Toggle "Manual Map Waypoint" Picker
         Ahsan->>UI: Tap Incident Coordinates on Offline Vector Map
     else GPS Lock Normal
-        UI->>Cam: Capture Photo Evidence
-        Cam-->>UI: Return Image URI & GPS Coordinates
+    UI->>Cam: Capture Photo Evidence
+    Cam-->>UI: Return Image URI & GPS Coordinates
     end
 
     UI->>UI: Calculate SHA-256 Image Digest
@@ -866,14 +866,14 @@ sequenceDiagram
         Sync->>DB: updateIncident(FAILED, retryAfter: 5m)
         Sync-->>Ahsan: Display Toast "Saved Offline — Will Retry Sync"
     else Network Transmission Normal
-        Sync->>DB: getPendingIncidents()
-        DB-->>Sync: Return Text Report & Photo Stream
-        Sync->>Server: POST /api/v1/incidents/upload-complete
-        Server->>Server: Verify SHA-256 Digest & Store in PostgreSQL/S3
-        Server-->>Sync: HTTP 200 OK (Receipt ID: INC-2026-0812, complete: true)
-        Sync->>DB: updateIncident(SYNCED, complete: true, ref: INC-2026-0812)
-        Sync-->>UI: Complete-Receipt Event Triggered
-        UI-->>Ahsan: Render Green SYNCED Receipt (INC-2026-0812)
+    Sync->>DB: getPendingIncidents()
+    DB-->>Sync: Return Text Report & Photo Stream
+    Sync->>Server: POST /api/v1/incidents/upload-complete
+    Server->>Server: Verify SHA-256 Digest & Store in PostgreSQL/S3
+    Server-->>Sync: HTTP 200 OK (Receipt ID: INC-2026-0812, complete: true)
+    Sync->>DB: updateIncident(SYNCED, complete: true, ref: INC-2026-0812)
+    Sync-->>UI: Complete-Receipt Event Triggered
+    UI-->>Ahsan: Render Green SYNCED Receipt (INC-2026-0812)
     end
 ```
 
@@ -966,18 +966,18 @@ sequenceDiagram
         Gate->>Alert: Refresh Timestamp on Existing Alert AL-2026-09 (No Duplicate Ticket)
     else New Geofence Breach
         Gate->>Gate: Evaluate Farmland Geofence Buffer Zone Z3
-        Gate->>Alert: Geofence Breach Triggered (Confidence: 94%)
-        Alert->>Alert: Create Emergency Alert AL-2026-09 (Triage: PAGE)
-        Alert->>Ahsan: Send High-Priority Emergency Pager Alert
+    Gate->>Alert: Geofence Breach Triggered (Confidence: 94%)
+    Alert->>Alert: Create Emergency Alert AL-2026-09 (Triage: PAGE)
+    Alert->>Ahsan: Send High-Priority Emergency Pager Alert
     end
 
     alt Extension E1: Assigned Officer Unavailable
         Ahsan-->>UI: Officer Status OFF_DUTY
         Alert->>Alert: Route to Backup Response Team Echo 3
     else Officer Available & Active
-        Ahsan->>UI: Open Alert Dossier & Tap "Acknowledge Dispatch"
-        UI->>Alert: updateAlertStatus(IN_PROGRESS, officer: Ahsan)
-        UI-->>Ahsan: Render Tactical Map (Elephant Track, Breadcrumbs, ETA: 8m)
+    Ahsan->>UI: Open Alert Dossier & Tap "Acknowledge Dispatch"
+    UI->>Alert: updateAlertStatus(IN_PROGRESS, officer: Ahsan)
+    UI-->>Ahsan: Render Tactical Map (Elephant Track, Breadcrumbs, ETA: 8m)
     end
 
     alt Extension E2: 8-Minute SLA Escalation Timeout
@@ -1079,7 +1079,7 @@ sequenceDiagram
         SMS->>SMS: Parse Partial Text & Extract Phone +94771234567
         SMS->>Intake: Route to General Rural Ingestion Inbox
     else Standard SMS Syntax Valid
-        SMS->>Intake: Forward Parsed SMS Ingestion Packet
+    SMS->>Intake: Forward Parsed SMS Ingestion Packet
     end
 
     Intake->>Intake: Create Ticket HWC-2026-042 (Status: OPEN, Channel: SMS)
@@ -1248,11 +1248,11 @@ Below are the high-fidelity screenshots of the running TrailGuard application, d
 
 #### 5. UC03 Wildlife Risk Alert & Tactical Pager Desk (Ahsan Mohammed - IT22578010)
 
-![Figure 10 — UC03 Wildlife Risk Alerts Tactical Desk](./screenshots/uc03_alerts.png)
+![Figure 10 — UC03 Manager Assign / Ops Alert Desk](./screenshots/uc03_alerts_manager.png)
 
 ![Figure 10b — UC03 Liaison Officer Alerts Desk](./screenshots/uc03_alerts_liaison.png)
 
-**Figure 10 & 10b.** Tactical risk alert desk (`/alerts`) rendering IoT collar breach alerts (`EL-04`), farmland geofence evaluation scores, emergency pager notification badges, 8-minute SLA escalation countdown, and deterrent resolution logging modal (`RESOLVED`). *Evaluated under Nielsen H1 (Status), H7 (Efficiency), and Fitts’s Law (52px Touch Targets).*
+**Figure 10 & 10b.** Role-split risk alert desks (`/alerts`): Park Manager assign/ops chrome vs Liaison coordination — collar breach cards, geofence scores, SLA escalation, and deterrent resolution. *Evaluated under Nielsen H1 (Status), H7 (Efficiency), and Fitts’s Law (52px Touch Targets).*
 
 ---
 
@@ -1260,11 +1260,11 @@ Below are the high-fidelity screenshots of the running TrailGuard application, d
 
 ![Figure 11 — UC04 Community Conflict Intake](./screenshots/uc04_conflict_community.png)
 
-![Figure 11b — UC04 Liaison Conflict Review Desk](./screenshots/uc04_conflict_liaison.png)
+![Figure 11b — UC04 Manager Ops Conflict Desk](./screenshots/uc04_conflict_manager_desk.png)
 
-![Figure 11c — UC04 Ranger Response Desk](./screenshots/uc04_conflict_ranger.png)
+![Figure 11c — UC04 Liaison Conflict Review Desk](./screenshots/uc04_conflict_liaison.png)
 
-**Figure 11, 11b & 11c.** Conflict management desk (`/conflict`) demonstrating dual-channel report intake (App and Rural SMS Gateway), automated SMS ticket confirmation (`HWC-2026-042`), response team assignment (`Team Echo 3`), and crop damage valuation audit (`LKR 150,000`). *Evaluated under Nielsen H2 (Real World Match) and H7 (Flexibility).*
+**Figure 11, 11b & 11c.** Conflict desks (`/conflict`) split by actor: Community submit-only intake, Manager ops desk, and Liaison review/response — dual-channel App/SMS intake with ticket confirmation. *Evaluated under Nielsen H2 (Real World Match) and H7 (Flexibility).*
 
 ---
 
@@ -1276,9 +1276,11 @@ Below are the high-fidelity screenshots of the running TrailGuard application, d
 
 ![Figure 12c — Community Member Home Hub](./screenshots/uc00_home_community.png)
 
+![Figure 12d — Researcher Home Hub](./screenshots/uc00_home_researcher.png)
+
 ![Figure 13 — Conservation Analytics Snapshot Desk](./screenshots/uc_reports.png)
 
-**Figure 12, 12b, 12c & 13.** Executive management home hubs and statistical analytics snapshot desk (`/reports`) displaying multi-park patrol coverage metrics, incident trend distributions, and PDF report export capability. *Evaluated under Nielsen H1 (Status) and H4 (Consistency & Standards).*
+**Figure 12–13.** Role home hubs (Manager / Liaison / Community / Researcher) and analytics desk (`/reports`) with coverage metrics and export — Sync/Pull DB chrome hidden except Admin. *Evaluated under Nielsen H1 (Status) and H4 (Consistency & Standards).*
 
 ---
 

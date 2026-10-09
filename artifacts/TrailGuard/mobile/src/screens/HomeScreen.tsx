@@ -20,6 +20,13 @@ import {
 import { countPendingSync, initLocalStore } from '../store/localStore';
 import { getSession, setSession, subscribeSession, sessionFromLogin } from '../session';
 import { AREA_ROUTES } from '../roles';
+import {
+  actorMission,
+  canSeeEngineerChrome,
+  canSeePullDb,
+  canSyncField,
+  homeAreasFor,
+} from '../actor-capabilities';
 import { getColors, getTheme, subscribeTheme, toggleTheme } from '../theme';
 import { ACCOUNTS } from './LoginScreen';
 
@@ -32,12 +39,13 @@ export default function HomeScreen({
   const [apiDraft, setApiDraft] = useState(getApiBaseOrEmpty());
   const [healthLine, setHealthLine] = useState<string>('Checking backend…');
   const [healthOk, setHealthOk] = useState(false);
+  const [showDevSwitch, setShowDevSwitch] = useState(false);
   const [, bump] = useState(0);
 
   const refreshHealth = useCallback(async () => {
     if (!isApiConfigured()) {
       setHealthOk(false);
-      setHealthLine('Backend not configured — set API URL below');
+      setHealthLine('Backend not configured');
       return;
     }
     try {
@@ -45,7 +53,7 @@ export default function HomeScreen({
       setHealthOk(true);
       const c = h.counts ?? {};
       setHealthLine(
-        `Live · ${h.source} · P${c.patrols ?? 0} I${c.incidents ?? 0} C${c.conflicts ?? 0}`
+        `Connected · ${h.source} · P${c.patrols ?? 0} I${c.incidents ?? 0} C${c.conflicts ?? 0}`
       );
     } catch (e: unknown) {
       setHealthOk(false);
@@ -78,48 +86,52 @@ export default function HomeScreen({
 
   if (!session) return null;
 
-  const items = AREA_ROUTES.filter((item) => session.access.includes(item.area));
+  const showEngineer = canSeeEngineerChrome(session.role);
+  const showPull = canSeePullDb(session.role);
+  const showSync = canSyncField(session.role);
+  const myAreas = homeAreasFor(session.role, session.access);
+  const items = AREA_ROUTES.filter((item) => myAreas.includes(item.area));
 
   const sync = async () => {
-    if (apiDraft.trim() && apiDraft.trim().replace(/\/$/, '') !== getApiBaseOrEmpty()) {
+    if (showEngineer && apiDraft.trim() && apiDraft.trim().replace(/\/$/, '') !== getApiBaseOrEmpty()) {
       setApiBase(apiDraft);
     }
     if (!isApiConfigured()) {
-      Alert.alert('Sync', 'Set the live API URL first (https://host/api/v1).');
+      Alert.alert('Sync', 'Live API is not configured on this build.');
       return;
     }
     const r = await synchronize();
     setPending(countPendingSync());
     await refreshHealth();
     Alert.alert(
-      'Sync Complete',
-      `Uploaded to Central Database:\n• Patrols: ${r.patrols}\n• Incidents: ${r.incidents}\n• Conflicts: ${r.conflicts}\n` +
-        (r.errors.length ? `\nErrors:\n${r.errors.join('\n')}` : '\nAll records synchronized.')
+      'Sync complete',
+      `Uploaded:\n• Patrols: ${r.patrols}\n• Incidents: ${r.incidents}\n• Conflicts: ${r.conflicts}\n` +
+        (r.errors.length ? `\nErrors:\n${r.errors.join('\n')}` : '\nAll pending records synced.')
     );
   };
 
   const saveApi = () => {
     setApiBase(apiDraft);
     void refreshHealth();
-    Alert.alert('API URL', apiDraft.trim() ? 'Saved live API base.' : 'Cleared — using build default if any.');
+    Alert.alert('API URL', apiDraft.trim() ? 'Saved.' : 'Cleared — using build default.');
   };
 
   const switchActor = (userId: string) => {
     const acc = ACCOUNTS.find((a) => a.userId.toLowerCase() === userId.toLowerCase());
     if (acc) {
       setSession(sessionFromLogin(acc.role, acc.title, acc.userId));
+      setShowDevSwitch(false);
     }
   };
 
   return (
     <ScrollView style={[styles.wrap, { backgroundColor: c.bg }]} contentContainerStyle={styles.content}>
-      {/* Top App Header */}
       <View style={styles.topRow}>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.brand, { color: c.primary }]}>TrailGuard</Text>
-          <Text style={[styles.sub, { color: c.muted }]}>
-            Department of Wildlife Conservation · Sri Lanka
-          </Text>
+          <Pressable onLongPress={() => showEngineer && setShowDevSwitch((v) => !v)}>
+            <Text style={[styles.brand, { color: c.primary }]}>TrailGuard</Text>
+          </Pressable>
+          <Text style={[styles.sub, { color: c.muted }]}>Yala National Park · Field ops</Text>
         </View>
         <Pressable
           onPress={toggleTheme}
@@ -127,117 +139,129 @@ export default function HomeScreen({
           accessibilityLabel="Toggle Theme"
         >
           <Text style={{ color: c.fg, fontWeight: '700', fontSize: 11 }}>
-            {night ? '☀️ Day' : '🌙 Night'}
+            {night ? 'Day' : 'Night'}
           </Text>
         </Pressable>
       </View>
 
-      {/* Active Actor Card */}
       <View style={[styles.actorCard, { backgroundColor: c.surface, borderColor: c.primary }]}>
         <View style={styles.actorHeader}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.actorTitle, { color: c.fg }]}>{session.title}</Text>
             <Text style={[styles.actorBadgeId, { color: c.primary }]}>
-              Badge: {session.userId} · Role: {session.role}
+              {session.userId}
             </Text>
           </View>
           <View style={[styles.roleChip, { backgroundColor: c.primary }]}>
             <Text style={styles.roleChipText}>{session.role}</Text>
           </View>
         </View>
+        <Text style={[styles.mission, { color: c.muted }]}>{actorMission(session.role)}</Text>
 
-        {/* Quick Switch Actor Pills */}
-        <Text style={[styles.quickSwitchLabel, { color: c.muted }]}>Quick Switch Actor:</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.switchScroll}>
-          {ACCOUNTS.map((a) => {
-            const isCurrent = a.userId.toLowerCase() === session.userId.toLowerCase();
-            return (
-              <Pressable
-                key={a.userId}
-                style={[
-                  styles.switchChip,
-                  {
-                    backgroundColor: isCurrent ? c.primary : c.elevated,
-                    borderColor: isCurrent ? c.primary : c.border,
-                  },
-                ]}
-                onPress={() => switchActor(a.userId)}
-              >
-                <Text
-                  style={[
-                    styles.switchChipText,
-                    { color: isCurrent ? c.accentFg : c.fg },
-                  ]}
-                >
-                  {a.role}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+        {showEngineer && showDevSwitch ? (
+          <>
+            <Text style={[styles.quickSwitchLabel, { color: c.muted }]}>Dev · switch actor</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.switchScroll}>
+              {ACCOUNTS.map((a) => {
+                const isCurrent = a.userId.toLowerCase() === session.userId.toLowerCase();
+                return (
+                  <Pressable
+                    key={a.userId}
+                    style={[
+                      styles.switchChip,
+                      {
+                        backgroundColor: isCurrent ? c.primary : c.elevated,
+                        borderColor: isCurrent ? c.primary : c.border,
+                      },
+                    ]}
+                    onPress={() => switchActor(a.userId)}
+                  >
+                    <Text
+                      style={[styles.switchChipText, { color: isCurrent ? c.accentFg : c.fg }]}
+                    >
+                      {a.role}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </>
+        ) : null}
       </View>
 
-      {/* Backend & Offline Status Banner */}
-      <View
-        style={[
-          styles.banner,
-          {
-            backgroundColor: healthOk ? c.elevated : c.surface,
-            borderColor: healthOk ? c.primary : c.warn,
-          },
-        ]}
-      >
-        <View style={styles.bannerHeader}>
-          <Text style={{ color: healthOk ? c.primary : c.warn, fontSize: 12, fontWeight: '800' }}>
-            {healthOk ? '● LIVE CENTRAL DATABASE' : '⚠️ BACKEND OFFLINE / STANDALONE'}
-          </Text>
-        </View>
-        <Text style={{ color: c.fg, fontSize: 12, fontWeight: '600', marginTop: 2 }}>
-          {healthLine}
-        </Text>
-        <Text style={{ color: c.muted, fontSize: 11, marginTop: 4 }}>
-          {getApiBaseOrEmpty() || '(using default API host)'}
-          {getBuildDefaultApiBase() ? ' · build default set' : ''}
-        </Text>
-      </View>
-
-      {/* Sync Queue Card */}
-      <View style={[styles.syncCard, { backgroundColor: c.surface, borderColor: c.border }]}>
-        <View style={styles.syncHeader}>
-          <Text style={[styles.syncTitle, { color: c.fg }]}>Local SQLite Data Queue</Text>
-          <View
-            style={[
-              styles.pendingBadge,
-              { backgroundColor: pending > 0 ? 'rgba(217, 119, 6, 0.15)' : 'rgba(46, 125, 80, 0.15)' },
-            ]}
-          >
-            <Text
+      {showSync ? (
+        <View style={[styles.syncCard, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <View style={styles.syncHeader}>
+            <Text style={[styles.syncTitle, { color: c.fg }]}>Field data sync</Text>
+            <View
               style={[
-                styles.pendingBadgeText,
-                { color: pending > 0 ? c.warn : c.success },
+                styles.pendingBadge,
+                {
+                  backgroundColor:
+                    pending > 0 ? 'rgba(217, 119, 6, 0.15)' : 'rgba(46, 125, 80, 0.15)',
+                },
               ]}
             >
-              {pending} record{pending === 1 ? '' : 's'} pending
-            </Text>
+              <Text
+                style={[styles.pendingBadgeText, { color: pending > 0 ? c.warn : c.success }]}
+              >
+                {pending > 0 ? `${pending} pending` : 'Queue clear'}
+              </Text>
+            </View>
           </View>
+          {pending > 0 ? (
+            <Text style={{ color: c.warn, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>
+              Offline / pending — data stays on this phone until Sync acknowledges it.
+            </Text>
+          ) : null}
+          <Pressable style={[styles.syncBtn, { backgroundColor: c.primary }]} onPress={sync}>
+            <Text style={[styles.syncBtnT, { color: c.accentFg }]}>
+              {pending > 0 ? `Sync field data (${pending})` : 'Sync field data'}
+            </Text>
+          </Pressable>
+          {showPull ? (
+            <Pressable
+              style={[styles.pullBtn, { borderColor: c.border, backgroundColor: c.elevated }]}
+              onPress={async () => {
+                await refreshHealth();
+                Alert.alert('Shared DB', healthLine);
+              }}
+            >
+              <Text style={{ color: c.fg, fontWeight: '700', fontSize: 13 }}>
+                Check shared park DB
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
+      ) : null}
 
-        <Pressable
-          style={[styles.syncBtn, { backgroundColor: c.primary }]}
-          onPress={sync}
+      {showEngineer ? (
+        <View
+          style={[
+            styles.banner,
+            {
+              backgroundColor: healthOk ? c.elevated : c.surface,
+              borderColor: healthOk ? c.primary : c.warn,
+            },
+          ]}
         >
-          <Text style={[styles.syncBtnT, { color: c.accentFg }]}>
-            {pending > 0 ? `Sync ${pending} Pending Records to Server` : 'Sync & Check Backend'}
+          <Text style={{ color: healthOk ? c.primary : c.warn, fontSize: 12, fontWeight: '800' }}>
+            {healthOk ? '● Backend connected' : '⚠ Backend unreachable'}
           </Text>
-        </Pressable>
-      </View>
+          <Text style={{ color: c.fg, fontSize: 12, fontWeight: '600', marginTop: 2 }}>
+            {healthLine}
+          </Text>
+        </View>
+      ) : null}
 
-      {/* Park Overview Map */}
-      <Text style={[styles.sectionHeading, { color: c.fg }]}>Yala North Sector Map</Text>
-      <OfflineMap mode="overview" />
+      {(session.role === 'RANGER' || session.role === 'MANAGER' || session.role === 'SUPER_ADMIN') && (
+        <>
+          <Text style={[styles.sectionHeading, { color: c.fg }]}>Sector map</Text>
+          <OfflineMap mode="overview" />
+        </>
+      )}
 
-      {/* Assigned Operations & Use Case Routes */}
-      <Text style={[styles.sectionHeading, { color: c.fg }]}>Assigned Operations</Text>
+      <Text style={[styles.sectionHeading, { color: c.fg }]}>Your workspace</Text>
       {items.map((item) => (
         <Pressable
           key={item.route}
@@ -254,25 +278,34 @@ export default function HomeScreen({
         </Pressable>
       ))}
 
-      {/* Live API Config Expandable */}
-      <Text style={[styles.label, { color: c.muted, marginTop: 12 }]}>Custom API Base URL (/api/v1)</Text>
-      <TextInput
-        style={[styles.input, { backgroundColor: c.inputBg, borderColor: c.border, color: c.fg }]}
-        value={apiDraft}
-        onChangeText={setApiDraft}
-        autoCapitalize="none"
-        autoCorrect={false}
-        placeholder="https://host/api/v1"
-        placeholderTextColor={c.muted}
-      />
-      <Pressable
-        style={[styles.smallBtn, { backgroundColor: c.elevated, borderColor: c.border }]}
-        onPress={saveApi}
-      >
-        <Text style={[styles.smallBtnText, { color: c.fg }]}>Save API URL</Text>
-      </Pressable>
+      {showEngineer ? (
+        <>
+          <Text style={[styles.label, { color: c.muted, marginTop: 12 }]}>
+            API base (/api/v1) — admin
+          </Text>
+          <TextInput
+            style={[styles.input, { backgroundColor: c.inputBg, borderColor: c.border, color: c.fg }]}
+            value={apiDraft}
+            onChangeText={setApiDraft}
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder="https://host/api/v1"
+            placeholderTextColor={c.muted}
+          />
+          <Pressable
+            style={[styles.smallBtn, { backgroundColor: c.elevated, borderColor: c.border }]}
+            onPress={saveApi}
+          >
+            <Text style={[styles.smallBtnText, { color: c.fg }]}>Save API URL</Text>
+          </Pressable>
+          {getBuildDefaultApiBase() ? (
+            <Text style={{ color: c.muted, fontSize: 11, marginBottom: 8 }}>
+              Build default is set
+            </Text>
+          ) : null}
+        </>
+      ) : null}
 
-      {/* Sign Out */}
       <Pressable
         style={[styles.signOut, { borderColor: c.border, backgroundColor: c.surface }]}
         onPress={() => {
@@ -280,9 +313,7 @@ export default function HomeScreen({
           navigation.replace('Login');
         }}
       >
-        <Text style={{ color: c.muted, fontWeight: '700', textAlign: 'center' }}>
-          Sign Out of TrailGuard
-        </Text>
+        <Text style={{ color: c.muted, fontWeight: '700', textAlign: 'center' }}>Sign out</Text>
       </Pressable>
     </ScrollView>
   );
@@ -306,12 +337,13 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 14,
   },
-  actorHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
+  actorHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 6 },
   actorTitle: { fontSize: 16, fontWeight: '800' },
   actorBadgeId: { fontSize: 12, fontWeight: '600', marginTop: 2 },
   roleChip: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   roleChipText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800' },
-  quickSwitchLabel: { fontSize: 11, fontWeight: '700', marginBottom: 6 },
+  mission: { fontSize: 12.5, lineHeight: 18, marginTop: 4 },
+  quickSwitchLabel: { fontSize: 11, fontWeight: '700', marginTop: 10, marginBottom: 6 },
   switchScroll: { flexDirection: 'row' },
   switchChip: {
     borderWidth: 1,
@@ -327,14 +359,18 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 12,
   },
-  bannerHeader: { flexDirection: 'row', alignItems: 'center' },
   syncCard: {
     borderWidth: 1,
     borderRadius: 12,
     padding: 14,
     marginBottom: 14,
   },
-  syncHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  syncHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
   syncTitle: { fontSize: 13, fontWeight: '700' },
   pendingBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   pendingBadgeText: { fontSize: 11, fontWeight: '800' },
@@ -345,6 +381,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   syncBtnT: { fontSize: 14, fontWeight: '700' },
+  pullBtn: {
+    marginTop: 8,
+    height: 40,
+    borderRadius: 8,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   sectionHeading: { fontSize: 15, fontWeight: '800', marginTop: 8, marginBottom: 10 },
   useCaseCard: {
     borderWidth: 1,
@@ -352,8 +396,13 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 10,
   },
-  useCaseTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  useCaseTitle: { fontSize: 15, fontWeight: '700' },
+  useCaseTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  useCaseTitle: { fontSize: 15, fontWeight: '700', flex: 1, paddingRight: 8 },
   useCaseBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   useCaseBadgeText: { fontSize: 10, fontWeight: '800' },
   useCaseSub: { fontSize: 12, lineHeight: 16 },
