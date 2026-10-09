@@ -54,7 +54,7 @@ Table 1: Group Members & Use Case Allocation
 
 ## 1. Updated Use Case Diagram
 
-![Figure 1 Updated Use Case Diagram](file:///Users/ahsan/Documents/TrailGuard-main/docs/report_assets/page-04.png)
+![Figure 1 Updated Use Case Diagram](./report_assets/page-04.png)
 
 Figure 1: Updated Use Case Diagram
 
@@ -81,7 +81,7 @@ The improved use case diagram provides a significantly more realistic and compre
 
 ## 2. Updated Class Diagram
 
-![Figure 2 Updated Class Diagram](file:///Users/ahsan/Documents/TrailGuard-main/docs/report_assets/page-05.png)
+![Figure 2 Updated Class Diagram](./report_assets/page-05.png)
 
 Figure 2: Updated Class Diagram
 
@@ -131,7 +131,7 @@ An improved class diagram was developed to address the architectural limitations
 
 ### Updated Sequence Diagram
 
-![Figure 3 Sequence Diagram - Conduct Assigned Ranger Patrol](file:///Users/ahsan/Documents/TrailGuard-main/docs/report_assets/page-10.png)
+![Figure 3 Sequence Diagram - Conduct Assigned Ranger Patrol](./report_assets/page-10.png)
 
 Figure 3: Conduct Assigned Ranger Patrol Sequence Diagram
 
@@ -175,7 +175,7 @@ Table 2: Use Case Scenario — Conduct Assigned Ranger Patrol (Shureka)
 
 ### Updated Sequence Diagram
 
-![Figure 4 Sequence Diagram - Report Field Incident](file:///Users/ahsan/Documents/TrailGuard-main/docs/report_assets/page-20.png)
+![Figure 4 Sequence Diagram - Report Field Incident](./report_assets/page-20.png)
 
 Figure 4: Report Field Incident Sequence Diagram
 
@@ -237,7 +237,7 @@ Table 4: Use Case Scenario — Monitor Tracked Wildlife & Manage Risk Alerts (Ah
 
 ### Updated Sequence Diagram
 
-![Figure 5 Sequence Diagram - Monitor Tracked Wildlife & Risk Alerts](file:///Users/ahsan/Documents/TrailGuard-main/docs/report_assets/page-27.png)
+![Figure 5 Sequence Diagram - Monitor Tracked Wildlife & Risk Alerts](./report_assets/page-27.png)
 
 Figure 5: Monitor Tracked Wildlife & Manage Risk Alerts Sequence Diagram
 
@@ -281,7 +281,7 @@ Table 5: Use Case Scenario — Manage Human-Wildlife Conflict Reports (Kajana)
 
 ### Updated Sequence Diagram
 
-![Figure 6 Sequence Diagram - Manage Human-Wildlife Conflict Reports](file:///Users/ahsan/Documents/TrailGuard-main/docs/report_assets/page-34.png)
+![Figure 6 Sequence Diagram - Manage Human-Wildlife Conflict Reports](./report_assets/page-34.png)
 
 Figure 6: Manage Human-Wildlife Conflict Reports Sequence Diagram
 
@@ -291,7 +291,7 @@ Figure 6: Manage Human-Wildlife Conflict Reports Sequence Diagram
 
 Below are high-fidelity screenshots of the implemented TrailGuard mobile application, demonstrating the complete end-to-end user experience, offline vector map engine, daylight/night visual themes, multi-actor authentication, and all 4 business use cases.
 
-![Figure 7 Screen Shots of System - Onboarding, Login & Role Selection](file:///Users/ahsan/Documents/TrailGuard-main/docs/screenshots/ui_onboarding_login_1791546776357.jpg)
+![Figure 7 Screen Shots of System - Onboarding, Login & Role Selection](./screenshots/ui_onboarding_login_1791546776357.jpg)
 
 Figure 7: Screen Shots of System — Interactive Onboarding, 6-Actor Quick Login & Day/Night Mode
 
@@ -301,7 +301,7 @@ Figure 7: Screen Shots of System — Interactive Onboarding, 6-Actor Quick Login
 
 ---
 
-![Figure 8 Screen Shots of System - UC01 Conduct Assigned Ranger Patrol](file:///Users/ahsan/Documents/TrailGuard-main/docs/screenshots/ui_patrol_screen_1791546825205.jpg)
+![Figure 8 Screen Shots of System - UC01 Conduct Assigned Ranger Patrol](./screenshots/ui_patrol_screen_1791546825205.jpg)
 
 Figure 8: Screen Shots of System — UC01 Conduct Assigned Ranger Patrol (Shureka)
 
@@ -313,7 +313,7 @@ Figure 8: Screen Shots of System — UC01 Conduct Assigned Ranger Patrol (Shurek
 
 ---
 
-![Figure 9 Screen Shots of System - UC02 Report Field Incident](file:///Users/ahsan/Documents/TrailGuard-main/docs/screenshots/ui_incident_screen_1791546852785.jpg)
+![Figure 9 Screen Shots of System - UC02 Report Field Incident](./screenshots/ui_incident_screen_1791546852785.jpg)
 
 Figure 9: Screen Shots of System — UC02 Report Field Incident (Ahsan Mohammed)
 
@@ -325,7 +325,7 @@ Figure 9: Screen Shots of System — UC02 Report Field Incident (Ahsan Mohammed)
 
 ---
 
-![Figure 10 Screen Shots of System - UC03 Wildlife Risk Alerts](file:///Users/ahsan/Documents/TrailGuard-main/docs/screenshots/ui_alert_screen_1791546883936.jpg)
+![Figure 10 Screen Shots of System - UC03 Wildlife Risk Alerts](./screenshots/ui_alert_screen_1791546883936.jpg)
 
 Figure 10: Screen Shots of System — UC03 Monitor Tracked Wildlife & Risk Alerts (Ahsan Mohammed)
 
@@ -337,7 +337,7 @@ Figure 10: Screen Shots of System — UC03 Monitor Tracked Wildlife & Risk Alert
 
 ---
 
-![Figure 11 Screen Shots of System - UC04 Human-Wildlife Conflict](file:///Users/ahsan/Documents/TrailGuard-main/docs/screenshots/ui_conflict_screen_1791546913914.jpg)
+![Figure 11 Screen Shots of System - UC04 Human-Wildlife Conflict](./screenshots/ui_conflict_screen_1791546913914.jpg)
 
 Figure 11: Screen Shots of System — UC04 Manage Human-Wildlife Conflict Reports (Kajana)
 
@@ -349,7 +349,7 @@ Figure 11: Screen Shots of System — UC04 Manage Human-Wildlife Conflict Report
 
 ---
 
-![Figure 12 Screen Shots of System - Offline Vector Canvas Map Engine](file:///Users/ahsan/Documents/TrailGuard-main/docs/screenshots/ui_offline_map_1791546943032.jpg)
+![Figure 12 Screen Shots of System - Offline Vector Canvas Map Engine](./screenshots/ui_offline_map_1791546943032.jpg)
 
 Figure 12: Screen Shots of System — Offline Vector Canvas Map Engine (`OfflineMap.tsx`)
 
@@ -358,7 +358,7 @@ Figure 12: Screen Shots of System — Offline Vector Canvas Map Engine (`Offline
 
 ---
 
-![Figure 13 Screen Shots of System - Tactical Night Mode](file:///Users/ahsan/Documents/TrailGuard-main/docs/report_assets/page-36.png)
+![Figure 13 Screen Shots of System - Tactical Night Mode](./report_assets/page-36.png)
 
 Figure 13: Screen Shots of System — Tactical Night Mode (`#0A100C`)
 
@@ -367,7 +367,7 @@ Figure 13: Screen Shots of System — Tactical Night Mode (`#0A100C`)
 
 ---
 
-![Figure 14 Screen Shots of System - Operational Reports & Analytics](file:///Users/ahsan/Documents/TrailGuard-main/docs/report_assets/page-37.png)
+![Figure 14 Screen Shots of System - Operational Reports & Analytics](./report_assets/page-37.png)
 
 Figure 14: Screen Shots of System — Executive Reports & Statistical Analytics Desk
 
